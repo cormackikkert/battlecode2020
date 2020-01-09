@@ -2,16 +2,18 @@ package originalturtle.Controllers;
 
 import battlecode.common.*;
 
-import java.util.LinkedList;
+import java.util.HashSet;
 
 public class MinerController extends Controller {
-    LinkedList<MapLocation> soupSquares = new LinkedList<>();
+    HashSet<MapLocation> soupSquares = new HashSet<>();
+
     public enum State {
         SEARCH,        // Explores randomly looking for soup
         SEARCHURGENT,  // Goes to area where it knows soup already is
         MINE,          // Mines soup in range
         DEPOSIT
     }
+
 
     // Mine variables
     MapLocation curSoupSource; // current source used in MINE state
@@ -45,32 +47,34 @@ public class MinerController extends Controller {
             case DEPOSIT: execDeposit();           break;
             case SEARCHURGENT: execSearchUrgent(); break;
         }
-        /*
-        tryBlockchain();
-        tryMove(randomDirection());
-        if (tryMove(randomDirection()))
-            System.out.println("I moved!");
-        // tryBuild(randomSpawnedByMiner(), randomDirection());
-        for (Direction dir : directions)
-            tryBuild(RobotType.FULFILLMENT_CENTER, dir);
-        for (Direction dir : directions)
-            if (tryRefine(dir))
-                System.out.println("I refined soup! " + rc.getTeamSoup());
-        for (Direction dir : directions)
-            if (tryMine(dir))
-                System.out.println("I mined soup! " + rc.getSoupCarrying());
-        */
+    }
+
+    boolean containsEnoughSoup(int crudeCount) {
+        // Made into a function incase we make it more intelligent later
+        // e.g look for bigger soup containment's and get to it before enemy
+        return crudeCount > 0;
     }
 
     public void execSearch() throws GameActionException {
-        for (Direction dir : directions)
-            if (tryMine(dir)) {
-                System.out.println("WOOHOO: ");
-                MapLocation newSource = rc.getLocation().add(dir);
-                soupSquares.add(newSource);
-                curSoupSource = newSource;
-                currentState = State.MINE;
+
+        // Check to see if you can detect any soup
+        for (int dx = -6; dx <= 6; ++dx) {
+            for (int dy = -6; dy <= 6; ++dy) {
+                MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
+                if (!rc.canSenseLocation(sensePos)) continue;
+
+                int crudeAmount = rc.senseSoup(sensePos);
+                if (rc.canSenseLocation(sensePos) && containsEnoughSoup(crudeAmount)) {
+                    System.out.println("WOOHOO: (found soup)");
+                    soupSquares.add(sensePos);
+                }
             }
+        }
+
+        if (soupSquares.size() > 0) {
+            currentState = State.SEARCHURGENT;
+            return;
+        }
 
         /* Movement approach:
             keep a velocity vector (velx, vely) and move in this direction.
@@ -136,16 +140,19 @@ public class MinerController extends Controller {
     }
 
     public void execSearchUrgent() throws GameActionException {
-        MapLocation nearestSoupSquare = soupSquares.get(0);
-        int nearestSoupDist = getDistanceSquared(rc.getLocation(), soupSquares.get(0));
+        MapLocation nearestSoupSquare = null;
+        int nearestSoupDist = 2*65*65;
 
+        System.out.println("Deciding: ");
         for (MapLocation soupSquare : soupSquares) {
+            System.out.println("Dist: " + getDistanceSquared(rc.getLocation(), soupSquare));
             if (getDistanceSquared(rc.getLocation(), soupSquare) < nearestSoupDist) {
                 nearestSoupSquare = soupSquare;
                 nearestSoupDist = getDistanceSquared(rc.getLocation(), soupSquare);
             }
-
         }
+
+        curSoupSource = nearestSoupSquare;
 
         while (getDistanceSquared(rc.getLocation(), nearestSoupSquare) > 1) {
             tryMove(moveGreedy(rc.getLocation(), nearestSoupSquare));
