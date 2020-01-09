@@ -63,5 +63,20 @@ public abstract class Controller {
         return directions[(int) (Math.random() * directions.length)];
     }
 
+    Direction moveGreedy(MapLocation from, MapLocation to) {
+        if (from.x < to.x && from.y < to.y)   return Direction.NORTHEAST;
+        if (from.x < to.x && from.y == to.y)  return Direction.EAST;
+        if (from.x < to.x && from.y > to.y)   return Direction.SOUTHEAST;
+        if (from.x == to.x && from.y < to.y)  return Direction.NORTH;
+        if (from.x == to.x && from.y > to.y)  return Direction.SOUTH;
+        if (from.x > to.x && from.y < to.y)   return Direction.NORTHWEST;
+        if (from.x > to.x && from.y == to.y)  return Direction.WEST;
+        if (from.x > to.x && from.y > to.y)   return Direction.SOUTHWEST;
+        return Direction.CENTER;
+    }
+
+    int getDistanceSquared(MapLocation p1, MapLocation p2) {
+        return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y);
+    }
     abstract public void run() throws GameActionException;
 }
