@@ -11,7 +11,8 @@ public class MinerController extends Controller {
         SEARCH,        // Explores randomly looking for soup
         SEARCHURGENT,  // Goes to area where it knows soup already is
         MINE,          // Mines soup in range
-        DEPOSIT
+        DEPOSIT,
+        SCOUT
     }
 
 
@@ -30,22 +31,40 @@ public class MinerController extends Controller {
     int velx = 0;
     int vely = 0;
 
+    // Uncommented because bad maps can screw over the idea of using elevations for symmetry
+    // (Instead look for HQ)
+    // Integer[][] boardElevations = null; // Used for scouts (scouts should be out before landscaping happens)
+
+    // Integer (instead of int) so that we can use null as unsearched
+    Integer[][] soupCount = null;
+
     MapLocation home;
     public MinerController(RobotController rc) {
         this.rc = rc;
+        System.out.println("I got built on round " + this.rc.getRoundNum());
         bias = (int) (Math.random() * BIAS_TYPES);
 
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.getType() == RobotType.HQ) home = robotInfo.location;
         }
+
+        soupCount = new Integer[rc.getMapHeight()][rc.getMapWidth()];
+
+        if (this.rc.getRoundNum() == 2 || this.rc.getRoundNum() == 3) {
+            // This miner is now a scout
+            currentState = State.SCOUT;
+            // boardElevations = new Integer[rc.getMapHeight()][rc.getMapWidth()];
+        }
     }
 
     public void run() throws GameActionException {
+        System.out.println("I am a " + currentState.toString() + " - " + rc.getSoupCarrying());
         switch (currentState) {
             case SEARCH: execSearch();             break;
             case MINE: execMine();                 break;
             case DEPOSIT: execDeposit();           break;
             case SEARCHURGENT: execSearchUrgent(); break;
+            case SCOUT: execScout();               break;
         }
     }
 
@@ -55,21 +74,32 @@ public class MinerController extends Controller {
         return crudeCount > 0;
     }
 
-    public void execSearch() throws GameActionException {
-
+    public void searchForSoup() throws GameActionException {
         // Check to see if you can detect any soup
         for (int dx = -6; dx <= 6; ++dx) {
             for (int dy = -6; dy <= 6; ++dy) {
                 MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
                 if (!rc.canSenseLocation(sensePos)) continue;
+                if (!rc.onTheMap(sensePos)) continue;
+                if (soupCount[sensePos.y][sensePos.x] != null) continue;
+
+
 
                 int crudeAmount = rc.senseSoup(sensePos);
+                soupCount[sensePos.y][sensePos.x] = crudeAmount;
+
                 if (rc.canSenseLocation(sensePos) && containsEnoughSoup(crudeAmount)) {
                     System.out.println("WOOHOO: (found soup)");
                     soupSquares.add(sensePos);
                 }
             }
         }
+    }
+
+    public void execSearch() throws GameActionException {
+
+        searchForSoup();
+
 
         if (soupSquares.size() > 0) {
             currentState = State.SEARCHURGENT;
@@ -116,11 +146,26 @@ public class MinerController extends Controller {
     }
 
     public void execMine() throws GameActionException {
-        if (getDistanceSquared(rc.getLocation(), curSoupSource) <= 1) {
-            if (!tryMine(moveGreedy(rc.getLocation(), curSoupSource))) {
-                currentState = State.DEPOSIT;
+        /*
+            Assumes robot is next to a soup deposit, mines the soup
+            Continues mining until soup inventory is full
+         */
+
+        // If you can no longer carry any soup deposit it
+        if (rc.getSoupCarrying() + GameConstants.SOUP_MINING_RATE > RobotType.MINER.soupLimit) {
+            currentState = State.DEPOSIT;
+        }
+
+
+        if (getDistanceSquared(rc.getLocation(), curSoupSource) <= 1 && rc.senseSoup(curSoupSource) > 0) {
+            if (!rc.isReady()) Clock.yield();
+
+            while (rc.canMineSoup(rc.getLocation().directionTo(curSoupSource))) {
+                rc.mineSoup(rc.getLocation().directionTo(curSoupSource));
+                Clock.yield();
             }
         } else {
+            if (rc.senseSoup(curSoupSource) == 0) soupSquares.remove(curSoupSource);
             if (soupSquares.size() > 0)
                 currentState = State.SEARCHURGENT;
             else
@@ -161,6 +206,21 @@ public class MinerController extends Controller {
         currentState = State.MINE;
     }
 
+    public void execScout() throws GameActionException {
+        searchForSoup();
+
+        // Currently just keep walking until you have found the enemy HQ or you cant anymore
+        for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
+            if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
+                System.out.println("YIPEEE - Found HQ");
+                currentState = State.SEARCH;
+                Clock.yield();
+            }
+        }
+        if (rc.isReady() && !tryMove(home.directionTo(this.rc.getLocation()))) {
+            currentState = State.SEARCH;
+        }
+    }
     int reduce(int val, int decay) {
         // Reduces magnitude of val by decay
         if (val > 0) return Math.max(0, val - decay);
