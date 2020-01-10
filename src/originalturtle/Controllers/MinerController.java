@@ -78,7 +78,7 @@ public class MinerController extends Controller {
             // boardElevations = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         }
 
-        if (round % 3 == 0) { // FIXME: used for testing building buildings
+        if (round % 3 == 0 && round > 3) { // FIXME: used for testing building buildings
             System.out.println("me BUILDER");
             currentState = State.BUILDER;
             buildType = RobotType.FULFILLMENT_CENTER;
