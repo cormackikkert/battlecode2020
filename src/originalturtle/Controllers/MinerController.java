@@ -1,6 +1,8 @@
 package originalturtle.Controllers;
 
 import battlecode.common.*;
+import originalturtle.RingQueue;
+import originalturtle.SoupCluster;
 
 import java.util.HashSet;
 
@@ -37,6 +39,7 @@ public class MinerController extends Controller {
 
     // Integer (instead of int) so that we can use null as unsearched
     Integer[][] soupCount = null;
+    boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
 
     MapLocation home;
     public MinerController(RobotController rc) {
@@ -49,6 +52,7 @@ public class MinerController extends Controller {
         }
 
         soupCount = new Integer[rc.getMapHeight()][rc.getMapWidth()];
+        searchedForSoupCluster = new boolean[rc.getMapHeight()][rc.getMapWidth()];
 
         if (this.rc.getRoundNum() == 2 || this.rc.getRoundNum() == 3) {
             // This miner is now a scout
@@ -83,13 +87,10 @@ public class MinerController extends Controller {
                 if (!rc.onTheMap(sensePos)) continue;
                 if (soupCount[sensePos.y][sensePos.x] != null) continue;
 
-
-
                 int crudeAmount = rc.senseSoup(sensePos);
                 soupCount[sensePos.y][sensePos.x] = crudeAmount;
 
                 if (rc.canSenseLocation(sensePos) && containsEnoughSoup(crudeAmount)) {
-                    System.out.println("WOOHOO: (found soup)");
                     soupSquares.add(sensePos);
                 }
             }
@@ -102,6 +103,7 @@ public class MinerController extends Controller {
 
 
         if (soupSquares.size() > 0) {
+            determineCluster(soupSquares.iterator().next());
             currentState = State.SEARCHURGENT;
             return;
         }
@@ -206,6 +208,50 @@ public class MinerController extends Controller {
         currentState = State.MINE;
     }
 
+    public SoupCluster determineCluster(MapLocation pos) throws GameActionException {
+        /*
+            Performs BFS to determine size of cluster
+         */
+
+        System.out.println("Searching for cluster at " + pos.toString());
+        if (searchedForSoupCluster[pos.y][pos.x]) return null;
+
+        RingQueue<MapLocation> queue = new RingQueue<>(this.rc.getMapHeight() * this.rc.getMapWidth());
+        queue.add(pos);
+        searchedForSoupCluster[pos.y][pos.x] = true;
+
+        int size = 0;
+
+        while (!queue.isEmpty()) {
+            MapLocation current = queue.poll();
+            System.out.println(current.toString());
+            ++size;
+
+            for (Direction delta : Direction.allDirections()) {
+                MapLocation neighbour = current.add(delta);
+                if (neighbour == current) continue;
+                if (!inRange(neighbour.y, 0, rc.getMapHeight()) || !inRange(neighbour.x, 0, rc.getMapWidth())) continue;
+                if (searchedForSoupCluster[neighbour.y][neighbour.x]) continue;
+
+                // If you cant tell whether neighbour has soup or not move closer to it
+                while (soupCount[neighbour.y][neighbour.x] == null) {
+                    if (tryMove(rc.getLocation().directionTo(neighbour))) {
+                        searchForSoup();
+
+                        // Only do nothing if you need to make another move
+                        if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
+                    }
+                }
+
+                if (soupCount[neighbour.y][neighbour.x] > 0) {
+                    queue.add(neighbour);
+                    searchedForSoupCluster[neighbour.y][neighbour.x] = true;
+                }
+            }
+        }
+        System.out.println("Finished searching " + size);
+        return new SoupCluster(pos, size);
+    }
     public void execScout() throws GameActionException {
         searchForSoup();
 
@@ -226,5 +272,9 @@ public class MinerController extends Controller {
         if (val > 0) return Math.max(0, val - decay);
         if (val < 0) return Math.min(0, val + decay);
         return val;
+    }
+
+    boolean inRange(int a, int lo, int hi) {
+        return (lo <= a && a < hi);
     }
 }

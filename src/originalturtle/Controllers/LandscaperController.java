@@ -11,7 +11,6 @@ public class LandscaperController extends Controller {
     }
 
     public void run() throws GameActionException {
-        for (Direction dir : directions)
-            tryBuild(RobotType.MINER, dir);
+
     }
 }
