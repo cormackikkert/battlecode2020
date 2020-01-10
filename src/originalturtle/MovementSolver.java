@@ -7,11 +7,17 @@ import battlecode.common.*;
 
 public class MovementSolver {
     MapLocation previous;
-    Direction directionToGoal(RobotController rc, MapLocation from, MapLocation goal) throws GameActionException {
+    RobotController rc;
+
+    public MovementSolver(RobotController rc) {
+        this.rc = rc;
+    }
+
+    public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
         Direction dir = from.directionTo(goal);
         int changes = 0;
         // while obstacle ahead, keep rotating
-        while (isObstacle(rc, dir, from.add(dir))) {
+        while (isObstacle(dir, from.add(dir))) {
             dir = dir.rotateLeft();
             changes++;
             // if blocked in every direction, stop rotating
@@ -21,7 +27,7 @@ public class MovementSolver {
         return dir;
     }
 
-    boolean isObstacle(RobotController rc, Direction dir, MapLocation to) throws GameActionException {
+    boolean isObstacle(Direction dir, MapLocation to) throws GameActionException {
         //point is obstacle if there is a building, is not on map (checked by canMove)
         // if it is flooded, or is previous point
         return !rc.canMove(dir) || rc.senseFlooding(to) || to == previous;
