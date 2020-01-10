@@ -1,6 +1,7 @@
 package originalturtle.Controllers;
 
 import battlecode.common.*;
+import originalturtle.MovementSolver;
 import originalturtle.RingQueue;
 import originalturtle.SoupCluster;
 
@@ -8,6 +9,7 @@ import java.util.HashSet;
 
 public class MinerController extends Controller {
     HashSet<MapLocation> soupSquares = new HashSet<>();
+    MovementSolver movementSolver;
 
     public enum State {
         SEARCH,        // Explores randomly looking for soup
@@ -55,10 +57,11 @@ public class MinerController extends Controller {
     Integer[][] soupCount = null;
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
 
-    MapLocation home;
     public MinerController(RobotController rc) {
         this.rc = rc;
         int round = rc.getRoundNum();
+        this.movementSolver = new MovementSolver(this.rc);
+
         System.out.println("I got built on round " + this.rc.getRoundNum());
         bias = (int) (Math.random() * BIAS_TYPES);
 
@@ -82,7 +85,7 @@ public class MinerController extends Controller {
             if (!findBuildLoc()) currentState = State.SEARCH;
         }
     }
-    }
+
 
     public void run() throws GameActionException {
         System.out.println("I am a " + currentState.toString() + " - " + rc.getSoupCarrying());
@@ -91,6 +94,7 @@ public class MinerController extends Controller {
             case MINE: execMine();                 break;
             case DEPOSIT: execDeposit();           break;
             case SEARCHURGENT: execSearchUrgent(); break;
+            case BUILDER: execBuilder();           break;
             case SCOUT: execScout();               break;
         }
     }
@@ -154,7 +158,10 @@ public class MinerController extends Controller {
         velx -= avgx;
         vely -= avgy;
 
-        if (!tryMove(moveGreedy(new MapLocation(0, 0), new MapLocation(velx, vely)))) {
+        Direction toMove = movementSolver.directionToGoal(
+                new MapLocation(rc.getLocation().x + velx, rc.getLocation().y + vely));
+
+        if (!tryMove(toMove)) {
             // Got stuck, reset velocity
             bias = (int) (Math.random() * 16);
             velx = 0;
@@ -203,11 +210,11 @@ public class MinerController extends Controller {
     public void execDeposit() throws GameActionException {
         if (getDistanceSquared(rc.getLocation(), allyHQ) <= 1) {
             if (rc.isReady() && rc.getSoupCarrying() > 0) {
-                rc.depositSoup(moveGreedy(rc.getLocation(), allyHQ), rc.getSoupCarrying());
+                rc.depositSoup(rc.getLocation().directionTo(allyHQ), rc.getSoupCarrying());
                 currentState = State.SEARCHURGENT;
             }
         } else {
-            tryMove(moveGreedy(rc.getLocation(), allyHQ));
+            tryMove(movementSolver.directionToGoal(allyHQ));
         }
     }
 
@@ -227,7 +234,7 @@ public class MinerController extends Controller {
         curSoupSource = nearestSoupSquare;
 
         while (getDistanceSquared(rc.getLocation(), nearestSoupSquare) > 1) {
-            tryMove(moveGreedy(rc.getLocation(), nearestSoupSquare));
+            tryMove(movementSolver.directionToGoal(nearestSoupSquare));
         }
 
         currentState = State.MINE;
@@ -288,7 +295,23 @@ public class MinerController extends Controller {
                 case NET_GUN: tryMultiBuild(RobotType.NET_GUN); break;
             }
         } else {
-            tryMove(moveGreedy(rc.getLocation(), buildLoc));
+            tryMove(movementSolver.directionToGoal(buildLoc));
+        }
+    }
+
+    public void execScout() throws GameActionException {
+        searchForSoup();
+
+        // Currently just keep walking until you have found the enemy HQ or you cant anymore
+        for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
+            if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
+                System.out.println("YIPEEE - Found HQ");
+                currentState = State.SEARCH;
+                Clock.yield();
+            }
+        }
+        if (rc.isReady() && !tryMove(allyHQ.directionTo(this.rc.getLocation()))) {
+            currentState = State.SEARCH;
         }
     }
 
