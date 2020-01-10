@@ -7,7 +7,7 @@ import battlecode.common.*;
 
 public class MovementSolver {
     MapLocation previous;
-    Direction getGoalDirection(RobotController rc, MapLocation from, MapLocation goal) throws GameActionException {
+    Direction directionToGoal(RobotController rc, MapLocation from, MapLocation goal) throws GameActionException {
         Direction dir = from.directionTo(goal);
         int changes = 0;
         // while obstacle ahead, keep rotating
