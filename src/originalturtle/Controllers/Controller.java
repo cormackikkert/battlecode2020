@@ -8,6 +8,9 @@ package originalturtle.Controllers;
 import battlecode.common.*;
 
 public abstract class Controller {
+    MapLocation allyHQ = null; // to be filled out by a blockchain message
+    MapLocation enemyHQ = null;
+
     RobotController rc = null;
 
     Direction[] directions = {
@@ -78,5 +81,15 @@ public abstract class Controller {
     int getDistanceSquared(MapLocation p1, MapLocation p2) {
         return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y);
     }
+
+    int getDistanceFrom(RobotInfo other) {
+        return (rc.getLocation().x - other.getLocation().x) * (rc.getLocation().x - other.getLocation().x)
+                + (rc.getLocation().y - other.getLocation().y) * (rc.getLocation().y - other.getLocation().y);
+    }
+
+    boolean isAdjacentTo(RobotInfo other) {
+        return getDistanceFrom(other) == 1;
+    }
+
     abstract public void run() throws GameActionException;
 }
