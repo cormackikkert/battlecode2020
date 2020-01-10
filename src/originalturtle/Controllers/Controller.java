@@ -7,6 +7,9 @@ package originalturtle.Controllers;
 
 import battlecode.common.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public abstract class Controller {
     MapLocation allyHQ = null; // to be filled out by a blockchain message
     MapLocation enemyHQ = null;
@@ -87,8 +90,46 @@ public abstract class Controller {
                 + (rc.getLocation().y - other.getLocation().y) * (rc.getLocation().y - other.getLocation().y);
     }
 
+    int getDistanceFrom(MapLocation other) {
+        return (rc.getLocation().x - other.x) * (rc.getLocation().x - other.x)
+                + (rc.getLocation().y - other.y) * (rc.getLocation().y - other.y);
+    }
+
     boolean isAdjacentTo(RobotInfo other) {
         return getDistanceFrom(other) == 1;
+    }
+
+    boolean isAdjacentTo(MapLocation loc) {
+        return getDistanceFrom(loc) == 1;
+    }
+
+    MapLocation adjacentTile(Direction dir) {
+        return new MapLocation(rc.getLocation().x + dir.dx, rc.getLocation().y + dir.dy);
+    }
+
+    List<MapLocation> adjacentTiles() {
+        List<MapLocation> out = new ArrayList<>();
+        for (Direction dir : directions) {
+            MapLocation adj = adjacentTile(dir);
+            if (!rc.canSenseLocation(adj)) continue;
+            out.add(adj);
+        }
+        return out;
+    }
+
+    Direction getAdjacentDirection(MapLocation loc) { // assuming adjacency
+        if (!isAdjacentTo(loc)) return null;
+        int x1 = rc.getLocation().x; int x2 = loc.x;
+        int y1 = rc.getLocation().y; int y2 = loc.y;
+        if (x1 == x2 && y1 < y2)        return Direction.NORTH;
+        if (x1 == x2 && y1 > y2)        return Direction.SOUTH;
+        if (x1 > x2 && y1 < y2)         return Direction.NORTHWEST;
+        if (x1 > x2 && y1 == y2)        return Direction.WEST;
+        if (x1 > x2 && y1 > y2)         return Direction.SOUTHWEST;
+        if (x1 < x2 && y1 < y2)         return Direction.NORTHEAST;
+        if (x1 < x2 && y1 == y2)        return Direction.EAST;
+        if (x1 < x2 && y1 > y2)         return Direction.SOUTHEAST;
+        return Direction.CENTER;
     }
 
     abstract public void run() throws GameActionException;
