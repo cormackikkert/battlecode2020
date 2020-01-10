@@ -70,6 +70,8 @@ public abstract class Controller {
     }
 
     Direction moveGreedy(MapLocation from, MapLocation to) {
+        // Turns out this already exists
+        // TODO: remove
         if (from.x < to.x && from.y < to.y)   return Direction.NORTHEAST;
         if (from.x < to.x && from.y == to.y)  return Direction.EAST;
         if (from.x < to.x && from.y > to.y)   return Direction.SOUTHEAST;
