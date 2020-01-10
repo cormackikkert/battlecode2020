@@ -5,13 +5,14 @@ import battlecode.common.*;
 public class DeliveryDroneController extends Controller {
     private final int SENSOR_RADIUS = 24;
     Team NEUTRAL = Team.NEUTRAL;
-    Team ALLY = rc.getTeam();
-    Team ENEMY = rc.getTeam().opponent();
+    Team ALLY;
+    Team ENEMY;
 
     enum State { // (A for ally, E for enemy) TODO: decide when to switch roles
         COW,
         AMINER,
         ASCAPER,
+        TRANSPORTLINE, // one move transport line with formation D.D.D.D
         EMINER,
         ESCAPER,
     }
@@ -20,9 +21,14 @@ public class DeliveryDroneController extends Controller {
 
     public DeliveryDroneController(RobotController rc) {
         this.rc = rc;
+        ALLY = rc.getTeam();
+        ENEMY = rc.getTeam().opponent();
+        System.out.println("knock knock, Pizza delivery");
     }
 
     public void run() throws GameActionException {
+        if (!rc.isReady()) return;
+
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
                 case COW: execSearchCow();                  break;
@@ -48,6 +54,7 @@ public class DeliveryDroneController extends Controller {
             if (true) { // TODO: heuristic for when to pick up cow, i.e. when far from enemy HQ and close to own HQ
                 if (isAdjacentTo(cow)) {
                     rc.pickUpUnit(cow.getID());
+                    System.out.println("picked up cow");
                 } else {
                     tryMove(moveGreedy(rc.getLocation(), cow.getLocation()));
                 }
@@ -117,56 +124,107 @@ public class DeliveryDroneController extends Controller {
         tryMove(randomDirection()); // TODO
     }
 
-    /* Naive cow dropping strategy:
+    /* Current cow dropping strategy:
             Move away from own HQ and towards enemy HQ
             Drop cow when enemy building is closer to current location than closest ally building
             Ignores net guns for now, since cows are dropped at location where shot down
      */
-    public void execDropCow() throws GameActionException {
+    public void execDropCow() throws GameActionException {// FIXME : not working, not detecting nearby enemies
         RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
         RobotInfo[] allies = rc.senseNearbyRobots(SENSOR_RADIUS, ALLY);
+
+//        System.out.println("nearby: "+enemies.length);
 
         int distanceFromAlly = SENSOR_RADIUS + 1;
         for (RobotInfo ally : allies) {
             distanceFromAlly = Math.min(distanceFromAlly, getDistanceFrom(ally));
         }
 
-        boolean drop = false;
-        droppings : for (RobotInfo enemy : enemies) {
+        for (RobotInfo enemy : enemies) {
             if (enemy.type.isBuilding() && getDistanceFrom(enemy) - distanceFromAlly > 2) {
                 for (Direction dir : directions) {
-                    if (rc.canDropUnit(dir)) {
+                    if (rc.canDropUnit(dir) && rc.canSenseLocation(adjacentTile(dir)) && rc.senseFlooding(adjacentTile(dir))) {
                         rc.dropUnit(dir);
-                        drop = true;
-                        break droppings;
+                        System.out.println("plop: dropped cow");
+                        return;
                     }
                 }
             }
         }
-        if (!drop) {
-            if (enemyHQ != null) { // move towards enemy hq
-                moveGreedy(rc.getLocation(), enemyHQ);
-            } else if (allyHQ != null) { // move away from own hq
-                moveGreedy(allyHQ, rc.getLocation());
-            } else {
-                tryMove(randomDirection());
-            }
-        }
+
+        // failed to drop unit
+        moveTowardsEnemy();
     }
 
+    /* Current ally dropping strategy:
+            Used for attacking enemy HQ
+            Miners can build net guns
+            Landscapers can attack buildings
+            Path of attack is straight towards HQ, can consider other approaches such as pincer attack etc.
+     */
     public void execDropAllyMiner() throws GameActionException {
+        RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
 
+        // try to drop unit
+        for (RobotInfo enemy : enemies) {
+            if (enemy.type == RobotType.HQ) {
+                for (Direction dir : directions) {
+                    if (rc.canDropUnit(dir)) {
+                        rc.dropUnit(dir);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // fail to drop unit
+        moveTowardsEnemy();
     }
 
     public void execDropAllyScaper() throws GameActionException {
 
     }
 
+    /* Current enemy dropping strategy:
+            Either kill unit by dropping into water
+            Stall and try not to die
+     */
     public void execDropEnemyMiner() throws GameActionException {
-
+        for (Direction dir : directions) {
+            if (rc.canDropUnit(dir) && rc.canSenseLocation(adjacentTile(dir)) && rc.senseFlooding(adjacentTile(dir))) {
+                rc.dropUnit(dir);
+                return;
+            }
+        }
+        tryMove(randomDirection());
     }
 
     public void execDropEnemyScaper() throws GameActionException {
+        for (Direction dir : directions) {
+            if (rc.canDropUnit(dir) && rc.canSenseLocation(adjacentTile(dir)) && rc.senseFlooding(adjacentTile(dir))) {
+                rc.dropUnit(dir);
+                return;
+            }
+        }
+        tryMove(randomDirection());
+    }
 
+    public void moveTowardsEnemy() throws GameActionException {
+        boolean move = false;
+        RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
+
+        if (enemies.length > 0) {
+            move = tryMove(moveGreedy(rc.getLocation(), enemies[0].getLocation()));
+        } else {
+            if (enemyHQ != null) { // move towards enemy hq
+                move = tryMove(moveGreedy(rc.getLocation(), enemyHQ));
+            } else if (allyHQ != null) { // move away from own hq
+                move = tryMove(moveGreedy(allyHQ, rc.getLocation()));
+            }
+        }
+
+        if (!move) {
+            tryMove(randomDirection());
+        }
     }
 }

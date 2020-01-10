@@ -14,7 +14,8 @@ public class MinerController extends Controller {
         SEARCHURGENT,  // Goes to area where it knows soup already is
         MINE,          // Mines soup in range
         DEPOSIT,
-        SCOUT
+        SCOUT,
+        BUILDER
     }
 
 
@@ -24,6 +25,16 @@ public class MinerController extends Controller {
     final int BIAS_TYPES = 16;
     int[] BIAS_DX = {0,1,2,3,4,3,2,1,0,-1,-2,-3,-4,-3,-2,-1};
     int[] BIAS_DY = {4,3,2,1,0,-1,-2,-3,-4,-3,-2,-1,0,1,2,3};
+
+    /**
+     * Trying to build in one of 8 locations (T) around spawn point (S): (can be improved, used for testing currently)
+     * T T T
+     * T S T
+     * T T T
+     */
+    final int BUILD_LOCS = 8;
+    int[] BUILD_DX = {-1,0,1,-1,1,-1,0,1};
+    int[] BUILD_DY = {1,1,1,0,0,-1,-1,-1};
 
     int bias; // Which bias the robot has
     MapLocation BIAS_TARGET; // which square the robot is targeting
@@ -37,6 +48,9 @@ public class MinerController extends Controller {
     // (Instead look for HQ)
     // Integer[][] boardElevations = null; // Used for scouts (scouts should be out before landscaping happens)
 
+    RobotType buildType = null;
+    MapLocation buildLoc;
+
     // Integer (instead of int) so that we can use null as unsearched
     Integer[][] soupCount = null;
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
@@ -44,11 +58,12 @@ public class MinerController extends Controller {
     MapLocation home;
     public MinerController(RobotController rc) {
         this.rc = rc;
+        int round = rc.getRoundNum();
         System.out.println("I got built on round " + this.rc.getRoundNum());
         bias = (int) (Math.random() * BIAS_TYPES);
 
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
-            if (robotInfo.getType() == RobotType.HQ) home = robotInfo.location;
+            if (robotInfo.getType() == RobotType.HQ) allyHQ = robotInfo.location;
         }
 
         soupCount = new Integer[rc.getMapHeight()][rc.getMapWidth()];
@@ -59,6 +74,14 @@ public class MinerController extends Controller {
             currentState = State.SCOUT;
             // boardElevations = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         }
+
+        if (round % 3 == 0) { // FIXME: used for testing building buildings
+            System.out.println("me BUILDER");
+            currentState = State.BUILDER;
+            buildType = RobotType.FULFILLMENT_CENTER;
+            if (!findBuildLoc()) currentState = State.SEARCH;
+        }
+    }
     }
 
     public void run() throws GameActionException {
@@ -87,10 +110,13 @@ public class MinerController extends Controller {
                 if (!rc.onTheMap(sensePos)) continue;
                 if (soupCount[sensePos.y][sensePos.x] != null) continue;
 
+
+
                 int crudeAmount = rc.senseSoup(sensePos);
                 soupCount[sensePos.y][sensePos.x] = crudeAmount;
 
                 if (rc.canSenseLocation(sensePos) && containsEnoughSoup(crudeAmount)) {
+                    System.out.println("WOOHOO: (found soup)");
                     soupSquares.add(sensePos);
                 }
             }
@@ -103,7 +129,6 @@ public class MinerController extends Controller {
 
 
         if (soupSquares.size() > 0) {
-            determineCluster(soupSquares.iterator().next());
             currentState = State.SEARCHURGENT;
             return;
         }
@@ -176,13 +201,13 @@ public class MinerController extends Controller {
     }
 
     public void execDeposit() throws GameActionException {
-        if (getDistanceSquared(rc.getLocation(), home) <= 1) {
-            if (rc.isReady()) {
-                rc.depositSoup(moveGreedy(rc.getLocation(), home), rc.getSoupCarrying());
+        if (getDistanceSquared(rc.getLocation(), allyHQ) <= 1) {
+            if (rc.isReady() && rc.getSoupCarrying() > 0) {
+                rc.depositSoup(moveGreedy(rc.getLocation(), allyHQ), rc.getSoupCarrying());
                 currentState = State.SEARCHURGENT;
             }
         } else {
-            tryMove(moveGreedy(rc.getLocation(), home));
+            tryMove(moveGreedy(rc.getLocation(), allyHQ));
         }
     }
 
@@ -252,21 +277,21 @@ public class MinerController extends Controller {
         System.out.println("Finished searching " + size);
         return new SoupCluster(pos, size);
     }
-    public void execScout() throws GameActionException {
-        searchForSoup();
-
-        // Currently just keep walking until you have found the enemy HQ or you cant anymore
-        for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
-            if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
-                System.out.println("YIPEEE - Found HQ");
-                currentState = State.SEARCH;
-                Clock.yield();
+    public void execBuilder() throws GameActionException {
+        if (isAdjacentTo(buildLoc)) {
+            System.out.println("trying to build");
+            switch (buildType) {
+                case REFINERY: tryMultiBuild(RobotType.REFINERY); break;
+                case VAPORATOR: tryMultiBuild(RobotType.VAPORATOR); break;
+                case DESIGN_SCHOOL: tryMultiBuild(RobotType.DESIGN_SCHOOL); break;
+                case FULFILLMENT_CENTER: tryMultiBuild(RobotType.FULFILLMENT_CENTER); break;
+                case NET_GUN: tryMultiBuild(RobotType.NET_GUN); break;
             }
-        }
-        if (rc.isReady() && !tryMove(home.directionTo(this.rc.getLocation()))) {
-            currentState = State.SEARCH;
+        } else {
+            tryMove(moveGreedy(rc.getLocation(), buildLoc));
         }
     }
+
     int reduce(int val, int decay) {
         // Reduces magnitude of val by decay
         if (val > 0) return Math.max(0, val - decay);
@@ -276,5 +301,35 @@ public class MinerController extends Controller {
 
     boolean inRange(int a, int lo, int hi) {
         return (lo <= a && a < hi);
+    }
+
+    boolean findBuildLoc() {
+        int x = rc.getLocation().x;
+        int y = rc.getLocation().y;
+        for (int j = 5; j >= 3; j--) {
+            for (int i = 0; i < BUILD_LOCS; i++) {
+                MapLocation loc = new MapLocation(x + BUILD_DX[i] * j, y + BUILD_DY[i] * j);
+                try {
+                    if (!rc.senseFlooding(loc) && rc.senseRobotAtLocation(loc) == null) {
+                        buildLoc = loc;
+                        return true;
+                    }
+                } catch (GameActionException e) {
+//                    System.out.println("Cannot sense or build here");
+                }
+            }
+        }
+        return false;
+    }
+
+    void tryMultiBuild(RobotType robotType) throws GameActionException {
+        for (Direction dir : directions) {
+            if (rc.canBuildRobot(robotType, dir)) {
+                rc.buildRobot(robotType, dir);
+//                System.out.println("built a "+robotType);
+                currentState = State.SEARCH; // FIXME: switch to search for testing purposes, specifically to conserve soup
+                break;
+            }
+        }
     }
 }
