@@ -12,6 +12,6 @@ public class DesignSchoolController extends Controller {
 
     public void run() throws GameActionException {
         for (Direction dir : directions)
-            tryBuild(RobotType.MINER, dir);
+            tryBuild(RobotType.LANDSCAPER, dir);
     }
 }
