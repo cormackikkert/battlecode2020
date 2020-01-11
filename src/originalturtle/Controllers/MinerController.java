@@ -1,16 +1,19 @@
 package originalturtle.Controllers;
 
 import battlecode.common.*;
-import originalturtle.CommunicationHandler;
-import originalturtle.MovementSolver;
-import originalturtle.RingQueue;
-import originalturtle.SoupCluster;
+import com.sun.org.apache.bcel.internal.generic.RETURN;
+import originalturtle.*;
 
 import java.util.HashSet;
 import java.util.LinkedList;
 
 public class MinerController extends Controller {
-    HashSet<MapLocation> soupSquares = new HashSet<>();
+    /*
+        Current Miner strategy
+        - First few miners search for individual soup clusters
+            - Slowly turn into miners (that actually mine)
+
+     */
     MovementSolver movementSolver;
 
     public enum State {
@@ -23,9 +26,6 @@ public class MinerController extends Controller {
     }
 
     CommunicationHandler communicationHandler;
-
-    // Mine variables
-    MapLocation curSoupSource; // current source used in MINE state
 
     final int BIAS_TYPES = 16;
     int[] BIAS_DX = {0,1,2,3,4,3,2,1,0,-1,-2,-3,-4,-3,-2,-1};
@@ -49,6 +49,7 @@ public class MinerController extends Controller {
     int velx = 0;
     int vely = 0;
 
+    SimpleRandom random = new SimpleRandom();
     // Uncommented because bad maps can screw over the idea of using elevations for symmetry
     // (Instead look for HQ)
     // Integer[][] boardElevations = null; // Used for scouts (scouts should be out before landscaping happens)
@@ -59,6 +60,9 @@ public class MinerController extends Controller {
     // Integer (instead of int) so that we can use null as unsearched
     Integer[][] soupCount = null;
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
+
+    SoupCluster currentSoupCluster; // Soup cluster the miner goes to
+    MapLocation currentSoupSquare; // Soup square the miner mines
 
     LinkedList<SoupCluster> soupClusters = new LinkedList<>();
 
@@ -94,32 +98,13 @@ public class MinerController extends Controller {
             buildType = RobotType.FULFILLMENT_CENTER;
             if (!findBuildLoc()) currentState = State.SEARCH;
         }
-
     }
 
 
     public void run() throws GameActionException {
         System.out.println("I am a " + currentState.toString() + " - " + soupClusters.size());
-        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
-            for (Transaction tx : rc.getBlock(i)) {
-                int[] mess = tx.getMessage();
-                if (communicationHandler.identify(mess, i) == CommunicationHandler.CommunicationType.CLUSTER) {
-                    SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
 
-                    boolean seenBefore = false;
-                    for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
-                        if (alreadyFoundSoupCluster.pos.equals(broadcastedSoupCluster.pos)) seenBefore = true;
-                    }
-
-                    if (!seenBefore) {
-                        soupClusters.add(broadcastedSoupCluster);
-                        System.out.println("WOOHOO: (broadcasted)");
-                    }
-
-                }
-            }
-        }
-        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+        updateClusters();
 
         switch (currentState) {
             case SEARCH: execSearch();             break;
@@ -137,7 +122,7 @@ public class MinerController extends Controller {
         return crudeCount > 0;
     }
 
-    public void searchForSoup() throws GameActionException {
+    public SoupCluster searchForSoup() throws GameActionException {
         // Check to see if you can detect any soup
         for (int dx = -6; dx <= 6; ++dx) {
             for (int dy = -6; dy <= 6; ++dy) {
@@ -158,9 +143,11 @@ public class MinerController extends Controller {
 
                     soupClusters.add(foundSoupCluster);
                     communicationHandler.sendCluster(foundSoupCluster);
+                    return foundSoupCluster;
                 }
             }
         }
+        return null;
     }
 
     public void searchForSoupContinued() throws GameActionException {
@@ -184,15 +171,19 @@ public class MinerController extends Controller {
     public void execSearch() throws GameActionException {
 
         // Slowly start converting searchers to miners
-        /*
-        if (rc.getID() % 200 > (Math.max(1, 200 - rc.getRoundNum()))) {
+        // round:  50 - 100% searchers
+        // round: 200 -   0% searchers
+        if ((rc.getID() % 150) <= (rc.getRoundNum() - 50)) {
             currentState = State.SEARCHURGENT;
             return;
         }
 
-         */
-
-        searchForSoup();
+        SoupCluster soupCluster = searchForSoup();
+        if (soupCluster != null) {
+            currentState = State.SEARCHURGENT;
+            currentSoupCluster = soupCluster;
+            return;
+        }
 
 
         /* Movement approach:
@@ -239,8 +230,8 @@ public class MinerController extends Controller {
 
     public void execMine() throws GameActionException {
         /*
-            Assumes robot is next to a soup deposit, mines the soup
-            Continues mining until soup inventory is full
+            Assumes a miner is within a soup cluster
+            Looks for soup then mines it until inventory is full
          */
 
         // If you can no longer carry any soup deposit it
@@ -248,20 +239,40 @@ public class MinerController extends Controller {
             currentState = State.DEPOSIT;
         }
 
+        while (currentSoupSquare == null) {
+            MapLocation randomSpot = new MapLocation(
+                    random.nextInt() % (currentSoupCluster.width) + currentSoupCluster.x1,
+                    random.nextInt() % (currentSoupCluster.height) + currentSoupCluster.y1);
 
-        if (getDistanceSquared(rc.getLocation(), curSoupSource) <= 1 && rc.senseSoup(curSoupSource) > 0) {
+            while (!rc.getLocation().equals(randomSpot)) {
+                for (Direction dir : Direction.allDirections()) {
+                    MapLocation neighbour = rc.getLocation().add(dir);
+                    if (soupCount[neighbour.y][neighbour.x] == null) searchForSoupContinued();
+                    if (soupCount[neighbour.y][neighbour.x] > 0) {
+                        currentSoupSquare = neighbour;
+                        break;
+                    }
+                }
+                if (currentSoupSquare != null) break;
+
+                tryMove(movementSolver.directionToGoal(randomSpot));
+            }
+        }
+
+        while (getDistanceSquared(rc.getLocation(), currentSoupSquare) > 1) {
+            if (tryMove(movementSolver.directionToGoal(currentSoupSquare))) Clock.yield();
+        }
+
+        if (rc.senseSoup(currentSoupSquare) > 0) {
             if (!rc.isReady()) Clock.yield();
 
-            while (rc.canMineSoup(rc.getLocation().directionTo(curSoupSource))) {
-                rc.mineSoup(rc.getLocation().directionTo(curSoupSource));
+            while (rc.canMineSoup(rc.getLocation().directionTo(currentSoupSquare))) {
+                rc.mineSoup(rc.getLocation().directionTo(currentSoupSquare));
                 Clock.yield();
             }
         } else {
-            if (rc.senseSoup(curSoupSource) == 0) soupSquares.remove(curSoupSource);
-            if (soupSquares.size() > 0)
-                currentState = State.SEARCHURGENT;
-            else
-                currentState = State.SEARCH;
+            soupCount[currentSoupSquare.y][currentSoupSquare.x] = 0;
+            currentSoupSquare = null;
         }
     }
 
@@ -277,22 +288,33 @@ public class MinerController extends Controller {
     }
 
     public void execSearchUrgent() throws GameActionException {
-        MapLocation nearestSoupSquare = null;
-        int nearestSoupDist = 2*65*65;
+        // Decide which cluster each miner goes to by using ID's
+        // So each cluster has the number of miners proportional to its size
 
-        System.out.println("Deciding: ");
-        for (MapLocation soupSquare : soupSquares) {
-            System.out.println("Dist: " + getDistanceSquared(rc.getLocation(), soupSquare));
-            if (getDistanceSquared(rc.getLocation(), soupSquare) < nearestSoupDist) {
-                nearestSoupSquare = soupSquare;
-                nearestSoupDist = getDistanceSquared(rc.getLocation(), soupSquare);
+        if (currentSoupCluster == null) {
+            int totalSoupSquares = 0;
+            for (SoupCluster soupCluster : soupClusters) {
+                totalSoupSquares += soupCluster.size;
+            }
+
+            int v = this.rc.getID() % totalSoupSquares;
+            int behind = 0;
+            for (SoupCluster soupCluster : soupClusters) {
+                if (v < behind + soupCluster.size) {
+                    currentSoupCluster = soupCluster;
+                    break;
+                }
+                behind += soupCluster.size;
             }
         }
 
-        curSoupSource = nearestSoupSquare;
-
-        while (getDistanceSquared(rc.getLocation(), nearestSoupSquare) > 1) {
-            tryMove(movementSolver.directionToGoal(nearestSoupSquare));
+        while (getDistanceSquared(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 1) {
+            SoupCluster soupCluster = searchForSoup();
+            if (soupCluster != null) {
+                currentSoupCluster = soupCluster;
+            }
+            tryMove(movementSolver.directionToGoal(currentSoupCluster.closest(rc.getLocation())));
+            Clock.yield();
         }
 
         currentState = State.MINE;
@@ -312,21 +334,23 @@ public class MinerController extends Controller {
 
         int size = 0;
 
-        MapLocation representativePos = pos;
-        boolean hasBeenBroadCasted = false;
+        int x1 = pos.x;
+        int x2 = pos.x;
+        int y1 = pos.y;
+        int y2 = pos.y;
 
         while (!queue.isEmpty()) {
             MapLocation current = queue.poll();
 
-            if (current.x < representativePos.x || (current.x == representativePos.x && current.y < representativePos.y)) {
-                representativePos = current;
-            }
+            x1 = Math.min(x1, current.x);
+            x2 = Math.max(x2, current.x);
+
+            y1 = Math.min(y1, current.y);
+            y2 = Math.max(y2, current.y);
+
             // Determine if we already know about this cluster
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
-            for (SoupCluster soupCluster : soupClusters) {
-                if (soupCluster.pos.equals(current)) hasBeenBroadCasted = true;
-            }
 
             ++size;
 
@@ -352,9 +376,42 @@ public class MinerController extends Controller {
                 }
             }
         }
+
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size);
+
+        // Check to see if other miners have already found this cluster
+        boolean hasBeenBroadCasted = false;
+        updateClusters();
+        for (SoupCluster soupCluster : soupClusters) {
+            if (found.inside(soupCluster)) hasBeenBroadCasted = true;
+        }
+
         if (hasBeenBroadCasted) return null;
-        return new SoupCluster(representativePos, size);
+        return found;
     }
+
+    void updateClusters() throws GameActionException {
+        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess, i) == CommunicationHandler.CommunicationType.CLUSTER) {
+                    SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
+
+                    boolean seenBefore = false;
+                    for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
+                        if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) seenBefore = true;
+                    }
+
+                    if (!seenBefore) {
+                        soupClusters.add(broadcastedSoupCluster);
+                    }
+
+                }
+            }
+        }
+        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+    }
+
     public void execBuilder() throws GameActionException {
         if (isAdjacentTo(buildLoc)) {
             System.out.println("trying to build");

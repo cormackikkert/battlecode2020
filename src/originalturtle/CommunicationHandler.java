@@ -28,9 +28,13 @@ public class CommunicationHandler {
         int[] message = new int[7];
         message[0] = teamSecret ^ rc.getRoundNum(); // Stop opposition from resending same message 1 round later
         message[1] = CommunicationType.CLUSTER.ordinal();
-        message[2] = teamSecret ^ cluster.pos.x;
-        message[3] = teamSecret ^ cluster.pos.y;
-        message[4] = teamSecret ^ cluster.size;
+        message[2] = teamSecret ^ cluster.x1;
+        message[3] = teamSecret ^ cluster.y1;
+        message[4] = teamSecret ^ cluster.x2;
+        message[5] = teamSecret ^ cluster.y2;
+        message[6] = teamSecret ^ cluster.size;
+
+        // TODO: flags for enemys
 
         if (rc.canSubmitTransaction(message, 1)) {
             rc.submitTransaction(message, 1);
@@ -52,9 +56,10 @@ public class CommunicationHandler {
     }
 
     public SoupCluster getCluster(int[] message) {
+
         return new SoupCluster(
-                new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret),
-                message[4] ^ teamSecret);
+                message[2] ^ teamSecret, message[3] ^ teamSecret, message[4] ^ teamSecret,
+                message[5] ^ teamSecret, message[6] ^ teamSecret);
     }
 
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {
