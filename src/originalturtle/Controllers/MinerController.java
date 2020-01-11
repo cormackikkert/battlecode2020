@@ -14,7 +14,7 @@ public class MinerController extends Controller {
         Current Miner strategy
         - First few miners search for individual soup clusters
             - Slowly turn into miners (that actually mine)
-        
+
      */
     HashSet<MapLocation> soupSquares = new HashSet<>();
     MovementSolver movementSolver;
@@ -304,15 +304,20 @@ public class MinerController extends Controller {
 
         int size = 0;
 
-        MapLocation representativePos = pos;
-
+        int x1 = pos.x;
+        int x2 = pos.x;
+        int y1 = pos.y;
+        int y2 = pos.y;
 
         while (!queue.isEmpty()) {
             MapLocation current = queue.poll();
 
-            if (current.x < representativePos.x || (current.x == representativePos.x && current.y < representativePos.y)) {
-                representativePos = current;
-            }
+            x1 = Math.min(x1, current.x);
+            x2 = Math.max(x2, current.x);
+
+            y1 = Math.min(y1, current.y);
+            y2 = Math.max(y2, current.y);
+
             // Determine if we already know about this cluster
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
@@ -342,15 +347,21 @@ public class MinerController extends Controller {
             }
         }
 
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size);
+
         // Check to see if other miners have already found this cluster
         boolean hasBeenBroadCasted = false;
         updateClusters();
+        System.out.println("CURRENT: " + found.x1 + " " + found.y1 + " " + found.x2 + " " + found.y2);
+        System.out.println("CHECKING if been found before : " + soupClusters.size());
         for (SoupCluster soupCluster : soupClusters) {
-            if (soupCluster.pos.equals(representativePos)) hasBeenBroadCasted = true;
+            System.out.println("Know about: " + soupCluster.x1 + " " + soupCluster.y1 + " " + soupCluster.x2 + " " + soupCluster.y2);
+            if (found.inside(soupCluster)) hasBeenBroadCasted = true;
         }
+        System.out.println("HAS been found before " + hasBeenBroadCasted);
 
         if (hasBeenBroadCasted) return null;
-        return new SoupCluster(representativePos, size);
+        return found;
     }
 
     void updateClusters() throws GameActionException {
@@ -362,7 +373,7 @@ public class MinerController extends Controller {
 
                     boolean seenBefore = false;
                     for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
-                        if (alreadyFoundSoupCluster.pos.equals(broadcastedSoupCluster.pos)) seenBefore = true;
+                        if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) seenBefore = true;
                     }
 
                     if (!seenBefore) {
