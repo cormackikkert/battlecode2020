@@ -48,4 +48,9 @@ public class SoupCluster {
         rc.setIndicatorLine(new MapLocation(x1, y2), new MapLocation(x2, y2), 255, 255, 0);
         rc.setIndicatorDot(this.refinery, 255, 255, 0);
     }
+
+    public String toStringPos() {
+        return String.format("[(%d, %d), (%d, %d)]", x1,y1,x2,y2);
+    }
+
 }

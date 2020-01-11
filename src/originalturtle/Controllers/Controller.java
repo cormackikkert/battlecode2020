@@ -122,6 +122,23 @@ public abstract class Controller {
         return out;
     }
 
+    List<MapLocation> tilesInRange() {
+        List<MapLocation> tiles = new ArrayList<>();
+        int rsq = rc.getCurrentSensorRadiusSquared();
+        int r = 1; while (r*r < rsq) r++;
+        int x = rc.getLocation().x; int y = rc.getLocation().y;
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dy = -r; dy <= r; dy++) {
+                MapLocation pos = new MapLocation(x+dx,y+dy);
+                if (rc.canSenseLocation(pos) ) { // within range and on map
+                    tiles.add(pos);
+                }
+            }
+        }
+        return tiles;
+    }
+
+
     Direction getAdjacentDirection(MapLocation loc) { // assuming adjacency
         if (!isAdjacentTo(loc)) return null;
         int x1 = rc.getLocation().x; int x2 = loc.x;
