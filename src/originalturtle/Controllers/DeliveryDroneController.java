@@ -2,6 +2,7 @@ package originalturtle.Controllers;
 
 import battlecode.common.*;
 import originalturtle.CommunicationHandler;
+import originalturtle.MovementSolver;
 
 public class DeliveryDroneController extends Controller {
     private final int SENSOR_RADIUS = 24;
@@ -14,25 +15,31 @@ public class DeliveryDroneController extends Controller {
         COW,
         AMINER,
         ASCAPER,
-        TRANSPORTLINE, // one move transport line with formation D.D.D.D
         EMINER,
         ESCAPER,
+        SCOUTER
     }
 
-    State currentState = State.EMINER;
+    State currentState = null;
+
+    MovementSolver movementSolver;
 
     public DeliveryDroneController(RobotController rc) {
         this.rc = rc;
         this.comms = new CommunicationHandler(rc);
+        this.movementSolver = new MovementSolver(rc);
         ALLY = rc.getTeam();
         ENEMY = rc.getTeam().opponent();
         System.out.println("knock knock, Pizza delivery");
     }
 
     public void run() throws GameActionException {
+        assignRole();
+
         if (!rc.isReady()) return;
 
         if (allyHQ == null) allyHQ = comms.receiveAllyHQLoc();
+        if (enemyHQ == null) enemyHQ = comms.receiveEnemyHQLoc();
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -41,6 +48,7 @@ public class DeliveryDroneController extends Controller {
                 case ASCAPER: execSearchAllyScaper();       break;
                 case EMINER: execSearchEnemyMiner();        break;
                 case ESCAPER: execSearchEnemyScaper();      break;
+                case SCOUTER: execScout();                  break;
             }
         } else {
             switch (currentState) {
@@ -50,6 +58,58 @@ public class DeliveryDroneController extends Controller {
                 case EMINER: execDropEnemyMiner();          break;
                 case ESCAPER: execDropEnemyScaper();        break;
             }
+        }
+    }
+
+    int[] diagX = {1, 1, -1, -1};
+    int[] diagY = {1, -1, 1, -1};
+
+    int[] strX = {0, 1, 0, -1};
+    int[] strY = {1, 0, -1, 0};
+
+    public void assignRole() throws GameActionException {
+        if (currentState != null) return;
+
+        int x = rc.getLocation().x;
+        int y = rc.getLocation().y;
+
+        int HSize = this.rc.getMapHeight();
+        int WSize = this.rc.getMapWidth();
+
+        for (int i = 0; i < 4; i++) { // scouters are spawned either N, W, E, S of fulfillment center and not in diagonal dir
+            RobotInfo straight = rc.senseRobotAtLocation(new MapLocation(x + strX[i], y + strY[i]));
+            if (straight == null) continue;
+            System.out.println("buildingis "+straight.getType());
+            if (straight.getType() == RobotType.FULFILLMENT_CENTER && straight.getTeam() == rc.getTeam()) {
+                currentState = State.SCOUTER;
+                // opposite direction
+                if (i == 0) {dir = Direction.SOUTH;     edge = new MapLocation(x, 0);}
+                if (i == 1) {dir = Direction.WEST;      edge = new MapLocation(0, y);}
+                if (i == 2) {dir = Direction.NORTH;     edge = new MapLocation(x, HSize);}
+                if (i == 3) {dir = Direction.EAST;      edge = new MapLocation(WSize, y);}
+                System.out.println("scouting time");
+                return;
+            }
+        }
+
+        currentState = State.EMINER;
+    }
+
+    Direction dir;
+    MapLocation edge;
+    public void execScout() throws GameActionException {
+        RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
+        for (RobotInfo enemy : enemies) {
+            if (enemy.getType() == RobotType.HQ) {
+                comms.sendEnemyHQLoc(enemy.location);
+                currentState = State.EMINER;
+            }
+        }
+
+        if (rc.getLocation().equals(edge)) {
+            currentState = State.EMINER;
+        } else {
+            tryMove(movementSolver.droneDirectionToGoal(edge));
         }
     }
 
