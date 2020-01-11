@@ -7,8 +7,8 @@ public class SoupCluster {
         Stores information regarding clusters of soup
      */
 
-    MapLocation pos;
-    int size;
+    public MapLocation pos;
+    public int size;
 
     public SoupCluster(MapLocation pos, int size) {
         this.pos = pos; this.size = size;
