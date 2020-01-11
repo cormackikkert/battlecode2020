@@ -98,7 +98,7 @@ public class CommunicationHandler {
 
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
-            System.out.println("loc sent "+message[6]);
+            System.out.println("home location sent ");
             return true;
         }
         return false;
@@ -114,6 +114,7 @@ public class CommunicationHandler {
 
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
+            System.out.println("enemy location sent ");
             return true;
         }
         return false;
@@ -131,7 +132,23 @@ public class CommunicationHandler {
                 }
             }
         }
-        System.out.println(out != null ? "Got HQ loc!" : "where home?");
+//        System.out.println(out != null ? "Got HQ loc!" : "where home?");
+        return out;
+    }
+
+    public MapLocation receiveEnemyHQLoc() throws GameActionException {
+        MapLocation out = null;
+        outer : for (int i = 1; i < rc.getRoundNum(); i++) {
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if ((message[2] ^ teamSecret) == CommunicationType.ENEMYHQ.ordinal()) {
+                    out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
+                    break outer;
+                }
+            }
+        }
+//        System.out.println(out != null ? "Got HQ loc!" : "where home?");
         return out;
     }
 }
