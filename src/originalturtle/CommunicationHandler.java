@@ -9,7 +9,9 @@ public class CommunicationHandler {
 
     public enum CommunicationType {
         ENEMY,
-        CLUSTER
+        CLUSTER,
+        ALLYHQ,
+        ENEMYHQ
     }
     public CommunicationHandler(RobotController rc) {
         // TODO: make this not garbage (Though surely no-one actually tries to decode this)
@@ -53,5 +55,51 @@ public class CommunicationHandler {
         return new SoupCluster(
                 new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret),
                 message[4] ^ teamSecret);
+    }
+
+    public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret ^ rc.getRoundNum();
+        message[1] = CommunicationType.CLUSTER.ordinal();
+        message[2] = teamSecret ^ loc.x;
+        message[3] = teamSecret ^ loc.y;
+
+        if (rc.canSubmitTransaction(message, 2)) {
+            rc.submitTransaction(message, 2);
+            System.out.println("loc sent "+message[6]);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean sendEnemyHQLoc(MapLocation loc) throws GameActionException {
+        if (loc == null) return false;
+        int[] message = new int[7];
+        message[0] = teamSecret ^ rc.getRoundNum();
+        message[1] = CommunicationType.CLUSTER.ordinal();
+        message[2] = teamSecret ^ loc.x;
+        message[3] = teamSecret ^ loc.y;
+
+        if (rc.canSubmitTransaction(message, 2)) {
+            rc.submitTransaction(message, 2);
+            return true;
+        }
+        return false;
+    }
+
+    public MapLocation receiveAllyHQLoc() throws GameActionException { // FIXME : is within restrictions?
+        MapLocation out = null;
+        outer : for (int i = 1; i < rc.getRoundNum(); i++) {
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if ((message[2] ^ teamSecret) == CommunicationType.ALLYHQ.ordinal()) {
+                    out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
+                    break outer;
+                }
+            }
+        }
+        System.out.println(out != null ? "Got HQ loc!" : "where home?");
+        return out;
     }
 }
