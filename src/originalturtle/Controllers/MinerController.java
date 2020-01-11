@@ -294,7 +294,7 @@ public class MinerController extends Controller {
                 Clock.yield();
             }
             if (rc.isReady() && rc.getSoupCarrying() > 0) {
-                rc.depositSoup(rc.getLocation().directionTo(allyHQ), rc.getSoupCarrying());
+                rc.depositSoup(rc.getLocation().directionTo(refinePos), rc.getSoupCarrying());
                 currentState = State.SEARCHURGENT;
             }
         } else {

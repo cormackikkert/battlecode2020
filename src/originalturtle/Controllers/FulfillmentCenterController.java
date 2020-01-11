@@ -9,7 +9,10 @@ public class FulfillmentCenterController extends Controller {
     public FulfillmentCenterController(RobotController rc) { this.rc = rc; }
 
     public void run() throws GameActionException {
+        /*
         for (Direction dir : directions)
             tryBuild(RobotType.DELIVERY_DRONE, dir);
+
+         */
     }
 }
