@@ -178,7 +178,7 @@ public class MinerController extends Controller {
         }
 
         SoupCluster soupCluster = searchForSoup();
-        System.out.println("Found soup at " + soupCluster.toStringPos());
+//        System.out.println("Found soup at " + soupCluster.toStringPos());
         if (soupCluster != null) {
             currentState = State.SEARCHURGENT;
             currentSoupCluster = soupCluster;

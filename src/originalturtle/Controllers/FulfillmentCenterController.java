@@ -1,11 +1,18 @@
 package originalturtle.Controllers;
 
 import battlecode.common.*;
+import originalturtle.CommunicationHandler;
+
+import static originalturtle.CommunicationHandler.SCOUT_MESSAGE_COST;
 
 public class FulfillmentCenterController extends Controller {
     boolean horizontal = false;
     boolean vertical = false;
-    public FulfillmentCenterController(RobotController rc) { this.rc = rc; }
+    int sent = 0;
+    public FulfillmentCenterController(RobotController rc) {
+        this.rc = rc;
+        this.communicationHandler = new CommunicationHandler(rc);
+    }
 
     Direction[] diagonal = {Direction.NORTHEAST, Direction.NORTHWEST, Direction.SOUTHEAST, Direction.SOUTHWEST};
     Direction[] straight = {Direction.NORTH, Direction.WEST, Direction.SOUTH, Direction.EAST};
@@ -30,23 +37,20 @@ public class FulfillmentCenterController extends Controller {
 
                 MapLocation thisPos = this.rc.getLocation();
 
-                if (!horizontal) {
-                    horizontal = tryBuild(RobotType.DELIVERY_DRONE, (thisPos.x > WSize / 2) ? Direction.WEST : Direction.EAST);
-                    if (horizontal) {
-                        System.out.println("success");
-                    }
+                if (!horizontal && rc.getTeamSoup() >= 150 + SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, (thisPos.x > WSize / 2) ? Direction.WEST : Direction.EAST)) {
+                    horizontal = true;
+                    communicationHandler.sendScoutDirection(true);
+                    sent++;
                 }
 
-                if (!vertical) {
-                    vertical = tryBuild(RobotType.DELIVERY_DRONE, (thisPos.x > HSize / 2) ? Direction.SOUTH : Direction.NORTH);
-                    if (vertical) {
-                        System.out.println("success");
-                    }
+                if (!vertical && rc.getTeamSoup() >= 150 + SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, (thisPos.x > HSize / 2) ? Direction.SOUTH : Direction.NORTH)) {
+                    vertical = true;
+                    communicationHandler.sendScoutDirection(false);
+                    sent++;
                 }
             }
         } else {
-            System.out.println("diagonal");
-            for (Direction dir : diagonal)
+            for (Direction dir : directions)
                 tryBuild(RobotType.DELIVERY_DRONE, dir);
         }
     }

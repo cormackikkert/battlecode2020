@@ -11,7 +11,8 @@ public class CommunicationHandler {
         ENEMY,
         CLUSTER,
         ALLYHQ,
-        ENEMYHQ
+        ENEMYHQ,
+        SCOUTDIRECTION
     }
     public CommunicationHandler(RobotController rc) {
         // TODO: make this not garbage (Though surely no-one actually tries to decode this)
@@ -92,7 +93,7 @@ public class CommunicationHandler {
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {
         int[] message = new int[7];
         message[0] = teamSecret ^ rc.getRoundNum();
-        message[1] = CommunicationType.CLUSTER.ordinal();
+        message[1] = teamSecret ^ CommunicationType.CLUSTER.ordinal();
         message[2] = teamSecret ^ loc.x;
         message[3] = teamSecret ^ loc.y;
 
@@ -108,7 +109,7 @@ public class CommunicationHandler {
         if (loc == null) return false;
         int[] message = new int[7];
         message[0] = teamSecret ^ rc.getRoundNum();
-        message[1] = CommunicationType.CLUSTER.ordinal();
+        message[1] = teamSecret ^ CommunicationType.CLUSTER.ordinal();
         message[2] = teamSecret ^ loc.x;
         message[3] = teamSecret ^ loc.y;
 
@@ -126,13 +127,12 @@ public class CommunicationHandler {
             Transaction[] ally = rc.getBlock(i);
             for (Transaction t : ally) {
                 int[] message = t.getMessage();
-                if ((message[2] ^ teamSecret) == CommunicationType.ALLYHQ.ordinal()) {
+                if ((CommunicationType.ALLYHQ.ordinal() ^ teamSecret) == message[1]) {
                     out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
                     break outer;
                 }
             }
         }
-//        System.out.println(out != null ? "Got HQ loc!" : "where home?");
         return out;
     }
 
@@ -142,13 +142,65 @@ public class CommunicationHandler {
             Transaction[] ally = rc.getBlock(i);
             for (Transaction t : ally) {
                 int[] message = t.getMessage();
-                if ((message[2] ^ teamSecret) == CommunicationType.ENEMYHQ.ordinal()) {
+                if ((CommunicationType.ENEMYHQ.ordinal() ^ teamSecret) == message[1]) {
                     out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
                     break outer;
                 }
             }
         }
-//        System.out.println(out != null ? "Got HQ loc!" : "where home?");
         return out;
+    }
+
+    public static final int SCOUT_MESSAGE_COST = 5;
+    public boolean sendScoutDirection(boolean horizontal) throws GameActionException {
+        int HSize = this.rc.getMapHeight();
+        int WSize = this.rc.getMapWidth();
+        MapLocation thisPos = this.rc.getLocation();
+        int x = thisPos.x;
+        int y = thisPos.y;
+
+        Direction dir;
+        if (horizontal) {
+            dir = (x > WSize / 2) ? Direction.WEST : Direction.EAST;
+        } else {
+            dir = (y > HSize / 2) ? Direction.SOUTH : Direction.NORTH;
+        }
+
+        MapLocation edge;
+        switch (dir) {
+            case SOUTH: edge = new MapLocation(x, 0); break;
+            case WEST:  edge = new MapLocation(0, y); break;
+            case NORTH: edge = new MapLocation(x, HSize); break;
+            default:    edge = new MapLocation(WSize, y); break;
+        }
+
+        int[] message = new int[7];
+        message[0] = teamSecret ^ rc.getRoundNum();
+        message[1] = teamSecret ^ CommunicationType.SCOUTDIRECTION.ordinal();
+        message[2] = teamSecret ^ edge.x;
+        message[3] = teamSecret ^ edge.y;
+
+        if (rc.canSubmitTransaction(message, SCOUT_MESSAGE_COST)) {
+            rc.submitTransaction(message, SCOUT_MESSAGE_COST);
+            System.out.println("scout direction sent ");
+            return true;
+        }
+        System.out.println("cannot submit, have only "+rc.getTeamSoup()+" soup");
+        return false;
+    }
+
+    public MapLocation receiveScoutDirection(int spawnTurn) throws GameActionException {
+        int turn = spawnTurn - 1;
+        Transaction[] ally = rc.getBlock(turn);
+        for (Transaction t : ally) {
+            int[] message = t.getMessage();
+            System.out.println((CommunicationType.SCOUTDIRECTION.ordinal() ^ teamSecret));
+            if ((CommunicationType.SCOUTDIRECTION.ordinal() ^ teamSecret) == message[1]) {
+                System.out.println("got message on turn "+turn);
+                return new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
+            }
+        }
+        System.out.println("got nothing on turn "+turn);
+        return null;
     }
 }

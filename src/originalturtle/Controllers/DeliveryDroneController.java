@@ -18,19 +18,23 @@ public class DeliveryDroneController extends Controller {
         EMINER,
         ESCAPER,
         SCOUTER
+        // TODO pick up drones
     }
 
     State currentState = null;
 
     MovementSolver movementSolver;
 
+    int spawnTurn;
+
     public DeliveryDroneController(RobotController rc) {
         this.rc = rc;
         this.communicationHandler = new CommunicationHandler(rc);
         this.movementSolver = new MovementSolver(rc);
+        this.spawnTurn = rc.getRoundNum();
+        System.out.println("Drone created at turn "+rc.getRoundNum());
         ALLY = rc.getTeam();
         ENEMY = rc.getTeam().opponent();
-        System.out.println("knock knock, Pizza delivery");
     }
 
     public void run() throws GameActionException {
@@ -38,6 +42,7 @@ public class DeliveryDroneController extends Controller {
 
         if (!rc.isReady()) return;
 
+        // FIXME not picking up enemy hq
         if (allyHQ == null) allyHQ = communicationHandler.receiveAllyHQLoc();
         if (enemyHQ == null) enemyHQ = communicationHandler.receiveEnemyHQLoc();
 
@@ -70,46 +75,32 @@ public class DeliveryDroneController extends Controller {
     public void assignRole() throws GameActionException {
         if (currentState != null) return;
 
-        int x = rc.getLocation().x;
-        int y = rc.getLocation().y;
-
-        int HSize = this.rc.getMapHeight();
-        int WSize = this.rc.getMapWidth();
-
-        for (int i = 0; i < 4; i++) { // scouters are spawned either N, W, E, S of fulfillment center and not in diagonal dir
-            RobotInfo straight = rc.senseRobotAtLocation(new MapLocation(x + strX[i], y + strY[i]));
-            if (straight == null) continue;
-            System.out.println("buildingis "+straight.getType());
-            if (straight.getType() == RobotType.FULFILLMENT_CENTER && straight.getTeam() == rc.getTeam()) {
-                currentState = State.SCOUTER;
-                // opposite direction
-                if (i == 0) {dir = Direction.SOUTH;     edge = new MapLocation(x, 0);}
-                if (i == 1) {dir = Direction.WEST;      edge = new MapLocation(0, y);}
-                if (i == 2) {dir = Direction.NORTH;     edge = new MapLocation(x, HSize);}
-                if (i == 3) {dir = Direction.EAST;      edge = new MapLocation(WSize, y);}
-                System.out.println("scouting time");
-                return;
-            }
+        edge = communicationHandler.receiveScoutDirection(spawnTurn);
+        if (edge != null) {
+            currentState = State.SCOUTER;
+            System.out.println("received scout direction");
+            return;
         }
 
-        currentState = State.EMINER;
+        System.out.println("moving towards enemy HQ");
+        currentState = State.ESCAPER;
     }
 
-    Direction dir;
     MapLocation edge;
     public void execScout() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
         for (RobotInfo enemy : enemies) {
             if (enemy.getType() == RobotType.HQ) {
                 communicationHandler.sendEnemyHQLoc(enemy.location);
-                currentState = State.EMINER;
+                currentState = State.ESCAPER;
             }
         }
 
-        if (rc.getLocation().equals(edge)) {
-            currentState = State.EMINER;
+        if (movementSolver.nearEdge()) {
+            System.out.println("reached edge");
+            currentState = State.ESCAPER;
         } else {
-            tryMove(movementSolver.droneDirectionToGoal(edge));
+            tryMove(movementSolver.droneMoveAvoidGun(edge));
         }
     }
 
@@ -121,7 +112,7 @@ public class DeliveryDroneController extends Controller {
                     rc.pickUpUnit(cow.getID());
                     System.out.println("picked up cow");
                 } else {
-                    tryMove(moveGreedy(rc.getLocation(), cow.getLocation()));
+                    tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), cow.getLocation()));
                 }
                 return;
             }
@@ -136,7 +127,7 @@ public class DeliveryDroneController extends Controller {
                 if (isAdjacentTo(miner)) {
                     rc.pickUpUnit(miner.getID());
                 } else {
-                    tryMove(moveGreedy(rc.getLocation(), miner.getLocation()));
+                    tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), miner.getLocation()));
                 }
                 return;
             }
@@ -151,7 +142,7 @@ public class DeliveryDroneController extends Controller {
                 if (isAdjacentTo(scaper)) {
                     rc.pickUpUnit(scaper.getID());
                 } else {
-                    tryMove(moveGreedy(rc.getLocation(), scaper.getLocation()));
+                    tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), scaper.getLocation()));
                 }
                 return;
             }
@@ -166,13 +157,13 @@ public class DeliveryDroneController extends Controller {
                 if (isAdjacentTo(miner)) {
                     rc.pickUpUnit(miner.getID());
                 } else {
-                    tryMove(moveGreedy(rc.getLocation(), miner.getLocation()));
+                    tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), miner.getLocation()));
                 }
                 return;
             }
         }
         if (allyHQ != null)
-            tryMove(moveGreedy(allyHQ, rc.getLocation())); // move away from HQ
+            tryMove(movementSolver.droneMoveAvoidGun(allyHQ, rc.getLocation())); // move away from HQ
         else
             tryMove(randomDirection());
     }
@@ -184,12 +175,13 @@ public class DeliveryDroneController extends Controller {
                 if (isAdjacentTo(scaper)) {
                     rc.pickUpUnit(scaper.getID());
                 } else {
-                    tryMove(moveGreedy(rc.getLocation(), scaper.getLocation()));
+                    tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), scaper.getLocation()));
                 }
                 return;
             }
         }
-        tryMove(randomDirection()); // TODO
+
+        moveTowardsEnemy();
     }
 
     /* Current cow dropping strategy:
@@ -197,11 +189,9 @@ public class DeliveryDroneController extends Controller {
             Drop cow when enemy building is closer to current location than closest ally building
             Ignores net guns for now, since cows are dropped at location where shot down
      */
-    public void execDropCow() throws GameActionException {// FIXME : not working, not detecting nearby enemies
+    public void execDropCow() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
         RobotInfo[] allies = rc.senseNearbyRobots(SENSOR_RADIUS, ALLY);
-
-//        System.out.println("nearby: "+enemies.length);
 
         int distanceFromAlly = SENSOR_RADIUS + 1;
         for (RobotInfo ally : allies) {
@@ -282,12 +272,13 @@ public class DeliveryDroneController extends Controller {
         RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
 
         if (enemies.length > 0) {
-            move = tryMove(moveGreedy(rc.getLocation(), enemies[0].getLocation()));
+            move = tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), enemies[0].getLocation()));
         } else {
             if (enemyHQ != null) { // move towards enemy hq
-                move = tryMove(moveGreedy(rc.getLocation(), enemyHQ));
+                move = tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), enemyHQ));
+                System.out.println("moving directly to enemy");
             } else if (allyHQ != null) { // move away from own hq
-                move = tryMove(moveGreedy(allyHQ, rc.getLocation()));
+                move = tryMove(movementSolver.droneMoveAvoidGun(allyHQ, rc.getLocation()));
             }
         }
 
