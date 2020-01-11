@@ -10,6 +10,12 @@ import java.util.HashSet;
 import java.util.LinkedList;
 
 public class MinerController extends Controller {
+    /*
+        Current Miner strategy
+        - First few miners search for individual soup clusters
+            - Slowly turn into miners (that actually mine)
+        
+     */
     HashSet<MapLocation> soupSquares = new HashSet<>();
     MovementSolver movementSolver;
 
@@ -94,32 +100,13 @@ public class MinerController extends Controller {
             buildType = RobotType.FULFILLMENT_CENTER;
             if (!findBuildLoc()) currentState = State.SEARCH;
         }
-
     }
 
 
     public void run() throws GameActionException {
         System.out.println("I am a " + currentState.toString() + " - " + soupClusters.size());
-        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
-            for (Transaction tx : rc.getBlock(i)) {
-                int[] mess = tx.getMessage();
-                if (communicationHandler.identify(mess, i) == CommunicationHandler.CommunicationType.CLUSTER) {
-                    SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
 
-                    boolean seenBefore = false;
-                    for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
-                        if (alreadyFoundSoupCluster.pos.equals(broadcastedSoupCluster.pos)) seenBefore = true;
-                    }
-
-                    if (!seenBefore) {
-                        soupClusters.add(broadcastedSoupCluster);
-                        System.out.println("WOOHOO: (broadcasted)");
-                    }
-
-                }
-            }
-        }
-        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+        updateClusters();
 
         switch (currentState) {
             case SEARCH: execSearch();             break;
@@ -137,7 +124,7 @@ public class MinerController extends Controller {
         return crudeCount > 0;
     }
 
-    public void searchForSoup() throws GameActionException {
+    public SoupCluster searchForSoup() throws GameActionException {
         // Check to see if you can detect any soup
         for (int dx = -6; dx <= 6; ++dx) {
             for (int dy = -6; dy <= 6; ++dy) {
@@ -158,9 +145,11 @@ public class MinerController extends Controller {
 
                     soupClusters.add(foundSoupCluster);
                     communicationHandler.sendCluster(foundSoupCluster);
+                    return foundSoupCluster;
                 }
             }
         }
+        return null;
     }
 
     public void searchForSoupContinued() throws GameActionException {
@@ -192,7 +181,10 @@ public class MinerController extends Controller {
 
          */
 
-        searchForSoup();
+        SoupCluster soupCluster = searchForSoup();
+        if (soupCluster != null) {
+            while (true) Clock.yield();
+        }
 
 
         /* Movement approach:
@@ -313,7 +305,7 @@ public class MinerController extends Controller {
         int size = 0;
 
         MapLocation representativePos = pos;
-        boolean hasBeenBroadCasted = false;
+
 
         while (!queue.isEmpty()) {
             MapLocation current = queue.poll();
@@ -324,9 +316,6 @@ public class MinerController extends Controller {
             // Determine if we already know about this cluster
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
-            for (SoupCluster soupCluster : soupClusters) {
-                if (soupCluster.pos.equals(current)) hasBeenBroadCasted = true;
-            }
 
             ++size;
 
@@ -352,9 +341,40 @@ public class MinerController extends Controller {
                 }
             }
         }
+
+        // Check to see if other miners have already found this cluster
+        boolean hasBeenBroadCasted = false;
+        updateClusters();
+        for (SoupCluster soupCluster : soupClusters) {
+            if (soupCluster.pos.equals(representativePos)) hasBeenBroadCasted = true;
+        }
+
         if (hasBeenBroadCasted) return null;
         return new SoupCluster(representativePos, size);
     }
+
+    void updateClusters() throws GameActionException {
+        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess, i) == CommunicationHandler.CommunicationType.CLUSTER) {
+                    SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
+
+                    boolean seenBefore = false;
+                    for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
+                        if (alreadyFoundSoupCluster.pos.equals(broadcastedSoupCluster.pos)) seenBefore = true;
+                    }
+
+                    if (!seenBefore) {
+                        soupClusters.add(broadcastedSoupCluster);
+                    }
+
+                }
+            }
+        }
+        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+    }
+
     public void execBuilder() throws GameActionException {
         if (isAdjacentTo(buildLoc)) {
             System.out.println("trying to build");
