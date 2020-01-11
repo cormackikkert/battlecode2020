@@ -1,10 +1,15 @@
 package originalturtle.Controllers;
 
 import battlecode.common.*;
+import originalturtle.CommunicationHandler;
 
 public class HQController extends Controller {
+    boolean locationSent = false;
+
     public HQController(RobotController rc) {
         this.rc = rc;
+        this.comms = new CommunicationHandler(rc);
+        this.allyHQ = rc.getLocation();
     }
 
     public void run() throws GameActionException {
@@ -30,9 +35,17 @@ public class HQController extends Controller {
             }
         }
 
-        System.out.println("team soup now at "+rc.getTeamSoup());
-        if (rc.getRoundNum() % 5 == 0)
-            for (Direction dir : directions)
+        if (!locationSent) {
+            if (comms.sendAllyHQLoc(allyHQ)) locationSent = true;
+        }
+
+        if (rc.getRoundNum() % 10 == 0) {
+            for (Direction dir : directions) {
                 tryBuild(RobotType.MINER, dir);
+            }
+        }
+
+
+//        System.out.println("turn: "+rc.getRoundNum()+" "+"team soup now at "+rc.getTeamSoup());
     }
 }

@@ -1,9 +1,11 @@
 package originalturtle.Controllers;
 
 import battlecode.common.*;
+import originalturtle.CommunicationHandler;
 
 public class DeliveryDroneController extends Controller {
     private final int SENSOR_RADIUS = 24;
+
     Team NEUTRAL = Team.NEUTRAL;
     Team ALLY;
     Team ENEMY;
@@ -17,10 +19,11 @@ public class DeliveryDroneController extends Controller {
         ESCAPER,
     }
 
-    State currentState = State.COW;
+    State currentState = State.EMINER;
 
     public DeliveryDroneController(RobotController rc) {
         this.rc = rc;
+        this.comms = new CommunicationHandler(rc);
         ALLY = rc.getTeam();
         ENEMY = rc.getTeam().opponent();
         System.out.println("knock knock, Pizza delivery");
@@ -28,6 +31,8 @@ public class DeliveryDroneController extends Controller {
 
     public void run() throws GameActionException {
         if (!rc.isReady()) return;
+
+        if (allyHQ == null) allyHQ = comms.receiveAllyHQLoc();
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -106,7 +111,10 @@ public class DeliveryDroneController extends Controller {
                 return;
             }
         }
-        tryMove(randomDirection()); // TODO
+        if (allyHQ != null)
+            tryMove(moveGreedy(allyHQ, rc.getLocation())); // move away from HQ
+        else
+            tryMove(randomDirection());
     }
 
     public void execSearchEnemyScaper() throws GameActionException {

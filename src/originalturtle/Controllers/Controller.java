@@ -6,6 +6,7 @@ package originalturtle.Controllers;
 */
 
 import battlecode.common.*;
+import originalturtle.CommunicationHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +14,8 @@ import java.util.List;
 public abstract class Controller {
     MapLocation allyHQ = null; // to be filled out by a blockchain message
     MapLocation enemyHQ = null;
+
+    CommunicationHandler comms;
 
     RobotController rc = null;
 
