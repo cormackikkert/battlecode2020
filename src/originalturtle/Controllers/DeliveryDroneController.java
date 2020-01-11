@@ -26,7 +26,7 @@ public class DeliveryDroneController extends Controller {
 
     public DeliveryDroneController(RobotController rc) {
         this.rc = rc;
-        this.comms = new CommunicationHandler(rc);
+        this.communicationHandler = new CommunicationHandler(rc);
         this.movementSolver = new MovementSolver(rc);
         ALLY = rc.getTeam();
         ENEMY = rc.getTeam().opponent();
@@ -38,8 +38,8 @@ public class DeliveryDroneController extends Controller {
 
         if (!rc.isReady()) return;
 
-        if (allyHQ == null) allyHQ = comms.receiveAllyHQLoc();
-        if (enemyHQ == null) enemyHQ = comms.receiveEnemyHQLoc();
+        if (allyHQ == null) allyHQ = communicationHandler.receiveAllyHQLoc();
+        if (enemyHQ == null) enemyHQ = communicationHandler.receiveEnemyHQLoc();
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -101,7 +101,7 @@ public class DeliveryDroneController extends Controller {
         RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
         for (RobotInfo enemy : enemies) {
             if (enemy.getType() == RobotType.HQ) {
-                comms.sendEnemyHQLoc(enemy.location);
+                communicationHandler.sendEnemyHQLoc(enemy.location);
                 currentState = State.EMINER;
             }
         }
