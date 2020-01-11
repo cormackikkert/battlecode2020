@@ -39,7 +39,7 @@ public class HQController extends Controller {
             if (comms.sendAllyHQLoc(allyHQ)) locationSent = true;
         }
 
-        if (rc.getRoundNum() % 10 == 0) {
+        if (rc.getRoundNum() % 50 == 0) {
             for (Direction dir : directions) {
                 tryBuild(RobotType.MINER, dir);
             }

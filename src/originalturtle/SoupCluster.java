@@ -11,7 +11,8 @@ public class SoupCluster {
     public int width;
     public int height;
     public int size;
-    public SoupCluster(int x1, int y1, int x2, int y2, int size) {
+    public MapLocation refinery;
+    public SoupCluster(int x1, int y1, int x2, int y2, int size, MapLocation refinery) {
         this.x1 = x1;
         this.y1 = y1;
         this.x2 = x2;
@@ -19,6 +20,7 @@ public class SoupCluster {
         width = x2 - x1 + 1;
         height = y2 - y1 + 1;
         this.size = size;
+        this.refinery = refinery;
     }
 
     public MapLocation closest(MapLocation pos) {
@@ -36,5 +38,14 @@ public class SoupCluster {
     }
     public boolean inside(SoupCluster other) {
         return (other.x1 <= this.x1 && this.x2 <= other.x2 && other.y1 <= this.y1 && this.y2 <= other.y2);
+    }
+
+    public void draw(RobotController rc) {
+        System.out.println("DRAWING " + x1 + " " + x2 + " " + y1 + " " + y2);
+        rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x1, y2), 255, 255, 0);
+        rc.setIndicatorLine(new MapLocation(x2, y1), new MapLocation(x2, y2), 255, 255, 0);
+        rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x2, y1), 255, 255, 0);
+        rc.setIndicatorLine(new MapLocation(x1, y2), new MapLocation(x2, y2), 255, 255, 0);
+        rc.setIndicatorDot(this.refinery, 255, 255, 0);
     }
 }

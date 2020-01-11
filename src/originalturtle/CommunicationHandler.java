@@ -24,16 +24,38 @@ public class CommunicationHandler {
     /*
         XORs stuff as it is reversible
      */
-    public boolean sendCluster(SoupCluster cluster) throws GameActionException {
-        int[] message = new int[7];
-        message[0] = teamSecret ^ rc.getRoundNum(); // Stop opposition from resending same message 1 round later
-        message[1] = CommunicationType.CLUSTER.ordinal();
-        message[2] = teamSecret ^ cluster.x1;
-        message[3] = teamSecret ^ cluster.y1;
-        message[4] = teamSecret ^ cluster.x2;
-        message[5] = teamSecret ^ cluster.y2;
-        message[6] = teamSecret ^ cluster.size;
 
+    private int[] bluePrint(CommunicationType message) {
+        int[] arr = new int[7];
+        arr[0] = (message.ordinal() << 25);
+        return arr;
+    }
+
+    void encode(int[] arr) {
+        for (int i = 0; i < 7; ++i) arr[i] ^= teamSecret;
+    }
+
+    void decode(int[] arr) {
+        encode(arr);
+    }
+
+    public boolean sendCluster(SoupCluster cluster) throws GameActionException {
+        int[] message = bluePrint(CommunicationType.CLUSTER);
+
+        for (int val : new int[] {cluster.x1, cluster.y1, cluster.x2, cluster.y2}) {
+            message[1] <<= 8;
+            message[1] += val;
+        }
+
+        message[2] = cluster.size;
+
+        for (int val : new int[] {cluster.refinery.x, cluster.refinery.y}) {
+            message[3] <<= 8;
+            message[3] += val;
+        }
+        //System.out.println("BEFORE: " + message[2]);
+        encode(message);
+        //System.out.println("AFTER: " + message[2]);
         // TODO: flags for enemys
 
         if (rc.canSubmitTransaction(message, 1)) {
@@ -44,9 +66,8 @@ public class CommunicationHandler {
     }
 
     public CommunicationType identify(int[] message, int round) {
-        if ((message[0] ^ round) == teamSecret) {
-            // System.out.println("HMM - " + (message[1]) + " " + CommunicationType.values().length);
-            return CommunicationType.values()[message[1]];
+        if (message[0] % (1 << 25) == teamSecret) {
+            return CommunicationType.values()[message[0] >> 25];
         }
         return CommunicationType.ENEMY;
     }
@@ -56,10 +77,16 @@ public class CommunicationHandler {
     }
 
     public SoupCluster getCluster(int[] message) {
+        decode(message);
+        int y2 = message[1] % (1 << 8); message[1] >>= 8;
+        int x2 = message[1] % (1 << 8); message[1] >>= 8;
+        int y1 = message[1] % (1 << 8); message[1] >>= 8;
+        int x1 = message[1] % (1 << 8); message[1] >>= 8;
 
-        return new SoupCluster(
-                message[2] ^ teamSecret, message[3] ^ teamSecret, message[4] ^ teamSecret,
-                message[5] ^ teamSecret, message[6] ^ teamSecret);
+        int ry = message[3] % (1 << 8); message[3] >>= 8;
+        int rx = message[3] % (1 << 8); message[3] >>= 8;
+
+        return new SoupCluster(x1, y1, x2, y2, message[2], new MapLocation(rx, ry));
     }
 
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {

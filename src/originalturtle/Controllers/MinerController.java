@@ -103,7 +103,7 @@ public class MinerController extends Controller {
 
     public void run() throws GameActionException {
         System.out.println("I am a " + currentState.toString() + " - " + soupClusters.size());
-
+        if (this.currentSoupCluster != null) this.currentSoupCluster.draw(this.rc);
         updateClusters();
 
         switch (currentState) {
@@ -237,14 +237,16 @@ public class MinerController extends Controller {
         // If you can no longer carry any soup deposit it
         if (rc.getSoupCarrying() + GameConstants.SOUP_MINING_RATE > RobotType.MINER.soupLimit) {
             currentState = State.DEPOSIT;
+            return;
         }
 
         while (currentSoupSquare == null) {
+
             MapLocation randomSpot = new MapLocation(
                     random.nextInt() % (currentSoupCluster.width) + currentSoupCluster.x1,
                     random.nextInt() % (currentSoupCluster.height) + currentSoupCluster.y1);
 
-            while (!rc.getLocation().equals(randomSpot)) {
+            while (currentSoupSquare == null && !rc.getLocation().equals(randomSpot)) {
                 for (Direction dir : Direction.allDirections()) {
                     MapLocation neighbour = rc.getLocation().add(dir);
                     if (soupCount[neighbour.y][neighbour.x] == null) searchForSoupContinued();
@@ -277,13 +279,26 @@ public class MinerController extends Controller {
     }
 
     public void execDeposit() throws GameActionException {
-        if (getDistanceSquared(rc.getLocation(), allyHQ) <= 1) {
+        MapLocation refinePos = currentSoupCluster.refinery;
+
+        if (rc.getTeamSoup() < RobotType.REFINERY.cost + RobotType.MINER.cost) {
+            refinePos = allyHQ;
+        }
+
+        if (getDistanceSquared(rc.getLocation(), refinePos) <= 1) {
+            while (rc.senseRobotAtLocation(refinePos) == null ||
+                    !(rc.senseRobotAtLocation(refinePos).type == RobotType.REFINERY ||
+                            rc.senseRobotAtLocation(refinePos).type == RobotType.HQ)) {
+
+                tryBuild(RobotType.REFINERY, rc.getLocation().directionTo(refinePos));
+                Clock.yield();
+            }
             if (rc.isReady() && rc.getSoupCarrying() > 0) {
                 rc.depositSoup(rc.getLocation().directionTo(allyHQ), rc.getSoupCarrying());
                 currentState = State.SEARCHURGENT;
             }
         } else {
-            tryMove(movementSolver.directionToGoal(allyHQ));
+            tryMove(movementSolver.directionToGoal(refinePos));
         }
     }
 
@@ -376,8 +391,9 @@ public class MinerController extends Controller {
                 }
             }
         }
+        System.out.println("Finished finding cluster");
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, new MapLocation(x1, y1));
 
         // Check to see if other miners have already found this cluster
         boolean hasBeenBroadCasted = false;
@@ -403,6 +419,8 @@ public class MinerController extends Controller {
                     }
 
                     if (!seenBefore) {
+                        System.out.println("ADDED: " + broadcastedSoupCluster.toString());
+                        // broadcastedSoupCluster.draw(this.rc);
                         soupClusters.add(broadcastedSoupCluster);
                     }
 
