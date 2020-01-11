@@ -11,6 +11,7 @@ public class MinerController extends Controller {
         Current Miner strategy
         - First few miners search for individual soup clusters
             - Slowly turn into miners (that actually mine)
+        What should miners do after mining entire soup cluster
 
      */
     MovementSolver movementSolver;
@@ -130,27 +131,19 @@ public class MinerController extends Controller {
 
     public SoupCluster searchForSoup() throws GameActionException {
         // Check to see if you can detect any soup
-        for (int dx = -6; dx <= 6; ++dx) {
-            for (int dy = -6; dy <= 6; ++dy) {
-                MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
-                if (!rc.canSenseLocation(sensePos)) continue;
-                if (!rc.onTheMap(sensePos)) continue;
-                if (soupCount[sensePos.y][sensePos.x] != null) continue;
+        for (MapLocation sensePos : tilesInRange()) {
+            if (soupCount[sensePos.y][sensePos.x] != null) continue;
+            int crudeAmount = rc.senseSoup(sensePos);
+            soupCount[sensePos.y][sensePos.x] = crudeAmount;
 
+            if (containsEnoughSoup(crudeAmount)) {
+                SoupCluster foundSoupCluster = determineCluster(sensePos);
 
+                if (foundSoupCluster == null) continue;
 
-                int crudeAmount = rc.senseSoup(sensePos);
-                soupCount[sensePos.y][sensePos.x] = crudeAmount;
-
-                if (rc.canSenseLocation(sensePos) && containsEnoughSoup(crudeAmount)) {
-                    SoupCluster foundSoupCluster = determineCluster(sensePos);
-
-                    if (foundSoupCluster == null) continue;
-
-                    soupClusters.add(foundSoupCluster);
-                    communicationHandler.sendCluster(foundSoupCluster);
-                    return foundSoupCluster;
-                }
+                soupClusters.add(foundSoupCluster);
+                communicationHandler.sendCluster(foundSoupCluster);
+                return foundSoupCluster;
             }
         }
         return null;
@@ -179,12 +172,13 @@ public class MinerController extends Controller {
         // Slowly start converting searchers to miners
         // round:  50 - 100% searchers
         // round: 200 -   0% searchers
-        if ((rc.getID() % 150) <= (rc.getRoundNum() - 50)) {
+        if ((rc.getID() % 150) <= (rc.getRoundNum() - 50) && !soupClusters.isEmpty()) {
             currentState = State.SEARCHURGENT;
             return;
         }
 
         SoupCluster soupCluster = searchForSoup();
+        System.out.println("Found soup at " + soupCluster.toStringPos());
         if (soupCluster != null) {
             currentState = State.SEARCHURGENT;
             currentSoupCluster = soupCluster;
@@ -311,8 +305,9 @@ public class MinerController extends Controller {
     public void execSearchUrgent() throws GameActionException {
         // Decide which cluster each miner goes to by using ID's
         // So each cluster has the number of miners proportional to its size
-
+        // assuming soupClusters is not empty
         if (currentSoupCluster == null) {
+            System.out.println("Need to find soup cluster");
             int totalSoupSquares = 0;
             for (SoupCluster soupCluster : soupClusters) {
                 totalSoupSquares += soupCluster.size;
@@ -328,12 +323,12 @@ public class MinerController extends Controller {
                 behind += soupCluster.size;
             }
         }
-
         while (getDistanceSquared(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 1) {
             SoupCluster soupCluster = searchForSoup();
             if (soupCluster != null) {
                 currentSoupCluster = soupCluster;
             }
+            System.out.println("Heading to soup cluster at " + currentSoupCluster.toStringPos());
             tryMove(movementSolver.directionToGoal(currentSoupCluster.closest(rc.getLocation())));
             Clock.yield();
         }
@@ -346,7 +341,6 @@ public class MinerController extends Controller {
             Performs BFS to determine size of cluster
          */
 
-        System.out.println("Searching for cluster at " + pos.toString());
         if (searchedForSoupCluster[pos.y][pos.x]) return null;
 
         RingQueue<MapLocation> queue = new RingQueue<>(this.rc.getMapHeight() * this.rc.getMapWidth());
@@ -518,7 +512,7 @@ public class MinerController extends Controller {
         for (Direction dir : directions) {
             if (rc.canBuildRobot(robotType, dir)) {
                 rc.buildRobot(robotType, dir);
-//                System.out.println("built a "+robotType);
+                System.out.println("built a "+robotType);
                 currentState = State.SEARCH; // FIXME: switch to search for testing purposes, specifically to conserve soup
                 break;
             }
