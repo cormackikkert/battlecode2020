@@ -5,11 +5,8 @@ import originalturtle.CommunicationHandler;
 import originalturtle.MovementSolver;
 
 public class DeliveryDroneController extends Controller {
-    private final int SENSOR_RADIUS = 24;
-
-    Team NEUTRAL = Team.NEUTRAL;
-    Team ALLY;
-    Team ENEMY;
+    private static final int SENSOR_RADIUS = 24;
+    private static final int PATROL_RADIUS = 24;
 
     enum State { // (A for ally, E for enemy) TODO: decide when to switch roles
         COW,
@@ -17,24 +14,18 @@ public class DeliveryDroneController extends Controller {
         ASCAPER,
         EMINER,
         ESCAPER,
-        SCOUTER
+        SCOUTER,
+        DEFEND
         // TODO pick up drones
     }
 
     State currentState = null;
 
-    MovementSolver movementSolver;
-
-    int spawnTurn;
+    MapLocation scout;
+    boolean horizontalScout;
 
     public DeliveryDroneController(RobotController rc) {
-        this.rc = rc;
-        this.communicationHandler = new CommunicationHandler(rc);
-        this.movementSolver = new MovementSolver(rc);
-        this.spawnTurn = rc.getRoundNum();
-        System.out.println("Drone created at turn "+rc.getRoundNum());
-        ALLY = rc.getTeam();
-        ENEMY = rc.getTeam().opponent();
+        getInfo(rc);
     }
 
     public void run() throws GameActionException {
@@ -48,6 +39,7 @@ public class DeliveryDroneController extends Controller {
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
+                case DEFEND: execDefendPatrol();            break;
                 case COW: execSearchCow();                  break;
                 case AMINER: execSearchAllyMiner();         break;
                 case ASCAPER: execSearchAllyScaper();       break;
@@ -75,10 +67,11 @@ public class DeliveryDroneController extends Controller {
     public void assignRole() throws GameActionException {
         if (currentState != null) return;
 
-        edge = communicationHandler.receiveScoutDirection(spawnTurn);
-        if (edge != null) {
+        scout = communicationHandler.receiveScoutLocation(spawnTurn);
+        if (scout != null) {
             currentState = State.SCOUTER;
-            System.out.println("received scout direction");
+            horizontalScout = Math.abs(spawnPoint.y - scout.y) <= 3;
+            System.out.println("scout direction "+(horizontalScout?"horizontally":"vertically"));
             return;
         }
 
@@ -86,7 +79,6 @@ public class DeliveryDroneController extends Controller {
         currentState = State.ESCAPER;
     }
 
-    MapLocation edge;
     public void execScout() throws GameActionException {
         RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
         for (RobotInfo enemy : enemies) {
@@ -96,12 +88,28 @@ public class DeliveryDroneController extends Controller {
             }
         }
 
-        if (movementSolver.nearEdge()) {
-            System.out.println("reached edge");
+        if (rc.getLocation().isWithinDistanceSquared(scout, 2)) {
+            System.out.println("reached scout loc");
             currentState = State.ESCAPER;
         } else {
-            tryMove(movementSolver.droneMoveAvoidGun(edge));
+            tryMove(movementSolver.droneMoveAvoidGun(scout));
         }
+    }
+
+    public void execDefendPatrol() throws GameActionException {
+        RobotInfo[] enemyScapers = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
+        for (RobotInfo scaper : enemyScapers) {
+            if (scaper.type == RobotType.LANDSCAPER) { // TODO: heuristic for when to pick up
+                if (isAdjacentTo(scaper)) {
+                    rc.pickUpUnit(scaper.getID());
+                } else {
+                    tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), scaper.getLocation()));
+                }
+                return;
+            }
+        }
+
+        patrolBase();
     }
 
     public void execSearchCow() throws GameActionException {
@@ -181,7 +189,7 @@ public class DeliveryDroneController extends Controller {
             }
         }
 
-        moveTowardsEnemy();
+        patrolBase();
     }
 
     /* Current cow dropping strategy:
@@ -286,4 +294,15 @@ public class DeliveryDroneController extends Controller {
             tryMove(randomDirection());
         }
     }
+
+    public void patrolBase() throws GameActionException {
+        MapLocation mapLocation = rc.getLocation();
+        if (mapLocation.isWithinDistanceSquared(spawnPoint, PATROL_RADIUS)) {
+            tryMove(movementSolver.droneMoveAvoidGun(spawnBase, mapLocation));
+        } else {
+            tryMove(movementSolver.droneMoveAvoidGun(mapLocation, spawnBase));
+        }
+    }
+
+
 }

@@ -2,7 +2,7 @@ package originalturtle;
 
 import battlecode.common.*;
 
-public class CommunicationHandler {
+public class CommunicationHandler { // TODO : conserve bytecode by storing turn of last received message
     Team team;
     RobotController rc;
     int teamSecret;
@@ -12,7 +12,9 @@ public class CommunicationHandler {
         CLUSTER,
         ALLYHQ,
         ENEMYHQ,
-        SCOUTDIRECTION
+        SCOUTDIRECTION,
+        FAILHORIZONTAL, // for detecting enemy hq
+        FAILVERTICAL
     }
     public CommunicationHandler(RobotController rc) {
         // TODO: make this not garbage (Though surely no-one actually tries to decode this)
@@ -152,33 +154,25 @@ public class CommunicationHandler {
     }
 
     public static final int SCOUT_MESSAGE_COST = 5;
-    public boolean sendScoutDirection(boolean horizontal) throws GameActionException {
+    public boolean sendScoutDirection(MapLocation allyHQ, boolean horizontal) throws GameActionException {
         int HSize = this.rc.getMapHeight();
         int WSize = this.rc.getMapWidth();
-        MapLocation thisPos = this.rc.getLocation();
-        int x = thisPos.x;
-        int y = thisPos.y;
 
-        Direction dir;
+        int x = allyHQ.x;
+        int y = allyHQ.y;
+
+        MapLocation loc;
         if (horizontal) {
-            dir = (x > WSize / 2) ? Direction.WEST : Direction.EAST;
+            loc = new MapLocation(x, HSize - y);
         } else {
-            dir = (y > HSize / 2) ? Direction.SOUTH : Direction.NORTH;
-        }
-
-        MapLocation edge;
-        switch (dir) {
-            case SOUTH: edge = new MapLocation(x, 0); break;
-            case WEST:  edge = new MapLocation(0, y); break;
-            case NORTH: edge = new MapLocation(x, HSize); break;
-            default:    edge = new MapLocation(WSize, y); break;
+            loc = new MapLocation(WSize - x, y);
         }
 
         int[] message = new int[7];
         message[0] = teamSecret ^ rc.getRoundNum();
         message[1] = teamSecret ^ CommunicationType.SCOUTDIRECTION.ordinal();
-        message[2] = teamSecret ^ edge.x;
-        message[3] = teamSecret ^ edge.y;
+        message[2] = teamSecret ^ loc.x;
+        message[3] = teamSecret ^ loc.y;
 
         if (rc.canSubmitTransaction(message, SCOUT_MESSAGE_COST)) {
             rc.submitTransaction(message, SCOUT_MESSAGE_COST);
@@ -189,7 +183,7 @@ public class CommunicationHandler {
         return false;
     }
 
-    public MapLocation receiveScoutDirection(int spawnTurn) throws GameActionException {
+    public MapLocation receiveScoutLocation(int spawnTurn) throws GameActionException {
         int turn = spawnTurn - 1;
         Transaction[] ally = rc.getBlock(turn);
         for (Transaction t : ally) {
@@ -202,5 +196,29 @@ public class CommunicationHandler {
         }
         System.out.println("got nothing on turn "+turn);
         return null;
+    }
+
+    public boolean sendFailVertical() throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret ^ rc.getRoundNum();
+        message[1] = teamSecret ^ CommunicationType.FAILVERTICAL.ordinal();
+        if (rc.canSubmitTransaction(message, SCOUT_MESSAGE_COST)) {
+            rc.submitTransaction(message, SCOUT_MESSAGE_COST);
+            System.out.println("send message for fail found vert");
+            return true;
+        }
+        return false;
+    }
+
+    public boolean sendFailHorizontal() throws GameActionException {
+        int[] message = new int[7];
+        message[0] = teamSecret ^ rc.getRoundNum();
+        message[1] = teamSecret ^ CommunicationType.FAILHORIZONTAL.ordinal();
+        if (rc.canSubmitTransaction(message, SCOUT_MESSAGE_COST)) {
+            rc.submitTransaction(message, SCOUT_MESSAGE_COST);
+            System.out.println("send message for fail found hori");
+            return true;
+        }
+        return false;
     }
 }
