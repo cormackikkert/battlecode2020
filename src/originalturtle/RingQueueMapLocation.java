@@ -1,24 +1,25 @@
 package originalturtle;
 
-public class RingQueue<T> {
-    // Thanks jerry
-    // https://github.com/j-mao/battlecode-2019/blob/master/newstart/DankQueue.java
+import battlecode.common.MapLocation;
 
-    public T[] buf;
+public class RingQueueMapLocation {
+    // Java handles array of generics weirdly so I just remade this class
+
+    public MapLocation[] buf;
     public int l;
     public int r;
     public int ln;
 
-    public RingQueue() {
+    public RingQueueMapLocation() {
         ln = 10000;
-        buf = (T[]) new Object[ln];
+        buf = new MapLocation[ln];
         l = 0;
         r = 0;
     }
 
-    public RingQueue(int maxlen) {
+    public RingQueueMapLocation(int maxlen) {
         ln = maxlen + 5;
-        buf = (T[]) new Object[ln];
+        buf = new MapLocation[ln];
         l = 0;
         r = 0;
     }
@@ -35,7 +36,7 @@ public class RingQueue<T> {
         return (r - l + ln) % ln;
     }
 
-    public boolean add(T e) {
+    public boolean add(MapLocation e) {
         if ((r + 1) % ln == l) {
             return false;
         }
@@ -44,7 +45,7 @@ public class RingQueue<T> {
         return true;
     }
 
-    public boolean addFront(T e) {
+    public boolean addFront(MapLocation e) {
         int newl = l-1;
         if (newl == -1) newl = ln-1;
         if (newl == r) return false;
@@ -53,18 +54,18 @@ public class RingQueue<T> {
         return true;
     }
 
-    public T peek() {
+    public MapLocation peek() {
         if (l == r) {
             return null;
         }
         return buf[l];
     }
 
-    public T poll() {
+    public MapLocation poll() {
         if (l == r) {
             return null;
         }
-        T v = buf[l];
+        MapLocation v = buf[l];
         l = (l + 1) % ln;
         return v;
     }

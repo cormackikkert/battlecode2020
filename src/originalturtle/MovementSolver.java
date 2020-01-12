@@ -7,10 +7,15 @@ import battlecode.common.*;
 
 public class MovementSolver {
     MapLocation previous;
+
     RobotController rc;
+    boolean rotateCW = true;
+
+    public RingQueueMapLocation history;
 
     public MovementSolver(RobotController rc) {
         this.rc = rc;
+        history = new RingQueueMapLocation(this.rc.getMapHeight() * this.rc.getMapWidth());
     }
 
     public Direction directionToGoal(MapLocation goal) throws GameActionException {
@@ -24,11 +29,28 @@ public class MovementSolver {
         int changes = 0;
         // while obstacle ahead, keep rotating
         while (isObstacle(dir, from.add(dir))) {
-            dir = dir.rotateLeft();
+            dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
             changes++;
             // if blocked in every direction, stop rotating
             if (changes > 8) return Direction.CENTER;
         }
+
+
+
+        boolean failed = false;
+        if (history.size() > 3) {
+            for (int i = history.l; i != ((history.r - 3 + history.ln) % history.ln); i = (i + 1) % history.ln) {
+                if (history.buf[i].equals(from.add(dir))) failed = true;
+            }
+        }
+        if (failed) {
+            history.clear();
+            rotateCW = !rotateCW;
+            rc.setIndicatorDot(from, 255, 0, 0);
+            rc.setIndicatorLine(from, goal, 255, 0, 0);
+        }
+
+        history.add(from.add(dir));
         previous = from;
         return dir;
     }
