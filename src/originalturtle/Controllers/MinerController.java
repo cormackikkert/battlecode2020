@@ -63,6 +63,7 @@ public class MinerController extends Controller {
     Integer[][] soupCount = null;
     Boolean[][] containsWater = null;
     Integer[][] elevationHeight = null;
+    Integer[][] buildMap = null; // Stores what buildings have been built and where
 
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
 
@@ -92,6 +93,7 @@ public class MinerController extends Controller {
         containsWater = new Boolean[rc.getMapHeight()][rc.getMapWidth()];
         elevationHeight = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         searchedForSoupCluster = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+        buildMap = new Integer[rc.getMapHeight()][rc.getMapWidth()];
 
         /*
 
@@ -140,11 +142,21 @@ public class MinerController extends Controller {
                 if (!rc.canSenseLocation(sensePos)) continue;
                 if (!rc.onTheMap(sensePos)) continue;
 
+                if (elevationHeight[sensePos.y][sensePos.x] != null) continue;
+
+                // Check robot
+                RobotInfo robot = rc.senseRobotAtLocation(sensePos);
+                if (robot != null && (robot.type == RobotType.REFINERY)) {
+                    buildMap[sensePos.y][sensePos.x] = robot.type.ordinal();
+                }
+
                 // Check elevation
                 elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
 
                 // Check water
                 containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+
+
 
                 // Check soup
                 if (containsWater[sensePos.y][sensePos.x]) continue; // Ignore flooded soup (for now)
@@ -183,11 +195,21 @@ public class MinerController extends Controller {
                 if (!rc.canSenseLocation(sensePos)) continue;
                 if (!rc.onTheMap(sensePos)) continue;
 
+                if (elevationHeight[sensePos.y][sensePos.x] != null) continue;
+
                 // Check elevation
                 elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
 
                 // Check water
                 containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+
+                // Check robot
+                RobotInfo robot = rc.senseRobotAtLocation(sensePos);
+                if (robot != null && (robot.type == RobotType.REFINERY)) {
+                    System.out.println("Found refinery " + sensePos + " " + robot.type.ordinal());
+                    buildMap[sensePos.y][sensePos.x] = robot.type.ordinal();
+                    System.out.println(buildMap[sensePos.y][sensePos.x]);
+                }
 
                 // Check soup (ignore flooded tiles (for now))
                 if (containsWater[sensePos.y][sensePos.x]) {
@@ -372,6 +394,11 @@ public class MinerController extends Controller {
                 totalSoupSquares += soupCluster.size;
             }
 
+            if (totalSoupSquares == 0) {
+                currentState = State.SEARCH;
+                execSearch();
+            }
+
             int v = this.rc.getID() % totalSoupSquares;
             int behind = 0;
             for (SoupCluster soupCluster : soupClusters) {
@@ -414,9 +441,14 @@ public class MinerController extends Controller {
         int y1 = pos.y;
         int y2 = pos.y;
 
+        // Incase the enemy has already occupied this spot
+        MapLocation refineryPos = null;
+
         while (!queue.isEmpty()) {
             MapLocation current = queue.poll();
-
+            if (buildMap[current.y][current.x] != null && buildMap[current.y][current.x] == RobotType.REFINERY.ordinal()) {
+                refineryPos = current;
+            }
             x1 = Math.min(x1, current.x);
             x2 = Math.max(x2, current.x);
 
@@ -431,7 +463,6 @@ public class MinerController extends Controller {
 
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
-                if (neighbour == current) continue;
                 if (!inRange(neighbour.y, 0, rc.getMapHeight()) || !inRange(neighbour.x, 0, rc.getMapWidth())) continue;
                 if (searchedForSoupCluster[neighbour.y][neighbour.x]) continue;
 
@@ -449,7 +480,7 @@ public class MinerController extends Controller {
                     }
                 }
 
-                if (soupCount[neighbour.y][neighbour.x] > 0) {
+                if (soupCount[neighbour.y][neighbour.x] > 0 || (buildMap[neighbour.y][neighbour.x] != null && buildMap[neighbour.y][neighbour.x] == RobotType.REFINERY.ordinal())) {
                     queue.add(neighbour);
                     searchedForSoupCluster[neighbour.y][neighbour.x] = true;
                 }
@@ -457,7 +488,7 @@ public class MinerController extends Controller {
         }
         System.out.println("Finished finding cluster");
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, allyHQ);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, (refineryPos == null) ? allyHQ : refineryPos);
 
         // Check to see if other miners have already found this cluster
         boolean hasBeenBroadCasted = false;
