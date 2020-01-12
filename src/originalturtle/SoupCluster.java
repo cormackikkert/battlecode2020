@@ -40,6 +40,18 @@ public class SoupCluster {
         return (other.x1 <= this.x1 && this.x2 <= other.x2 && other.y1 <= this.y1 && this.y2 <= other.y2);
     }
 
+    public void update(SoupCluster other) {
+        // Updates values to other
+        this.x1 = other.x1;
+        this.y1 = other.y1;
+        this.x2 = other.x2;
+        this.y2 = other.y2;
+        width = x2 - x1 + 1;
+        height = y2 - y1 + 1;
+        this.size = other.size;
+        this.refinery = other.refinery;
+    }
+
     public void draw(RobotController rc) {
         System.out.println("DRAWING " + x1 + " " + x2 + " " + y1 + " " + y2);
         rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x1, y2), 255, 255, 0);
