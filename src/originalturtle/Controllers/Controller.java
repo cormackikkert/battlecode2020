@@ -10,6 +10,7 @@ import originalturtle.CommunicationHandler;
 import originalturtle.MovementSolver;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 public abstract class Controller {
@@ -139,14 +140,16 @@ public abstract class Controller {
     }
 
     List<MapLocation> tilesInRange() {
-        List<MapLocation> tiles = new ArrayList<>();
+        List<MapLocation> tiles = new LinkedList<>();
         int rsq = rc.getCurrentSensorRadiusSquared();
         int r = 1; while (r*r < rsq) r++;
         int x = rc.getLocation().x; int y = rc.getLocation().y;
         for (int dx = -r; dx <= r; dx++) {
             for (int dy = -r; dy <= r; dy++) {
                 MapLocation pos = new MapLocation(x+dx,y+dy);
-                if (rc.canSenseLocation(pos) ) { // within range and on map
+                // apparently doesn't check if on map
+                if (x+dx < 0 || x + dx >= rc.getMapWidth() || y+dy < 0 || y+dy >= rc.getMapHeight()) continue;
+                if (rc.canSenseLocation(pos)) { // within range and on map
                     tiles.add(pos);
                 }
             }
