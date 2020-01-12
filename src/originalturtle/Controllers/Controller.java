@@ -7,15 +7,18 @@ package originalturtle.Controllers;
 
 import battlecode.common.*;
 import originalturtle.CommunicationHandler;
+import originalturtle.MovementSolver;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public abstract class Controller {
     MapLocation allyHQ = null; // to be filled out by a blockchain message
     MapLocation enemyHQ = null;
 
-    CommunicationHandler comms;
+    CommunicationHandler communicationHandler;
+    MovementSolver movementSolver;
 
     RobotController rc = null;
 
@@ -50,6 +53,19 @@ public abstract class Controller {
             rc.move(dir);
             return true;
         } else return false;
+    }
+
+    void goToLocationToSense(MapLocation goal) throws GameActionException {
+        while (!rc.canSenseLocation(goal)) {
+            if (tryMove(movementSolver.directionToGoal(goal))) Clock.yield();
+        }
+    }
+
+    void goToLocationToDeposit(MapLocation goal) throws GameActionException {
+        while ( rc.getLocation().distanceSquaredTo(goal) > 1
+                || !rc.canDepositDirt(rc.getLocation().directionTo(goal)) ) {
+            if (tryMove(movementSolver.directionToGoal(goal))) Clock.yield();
+        }
     }
 
     void tryBlockchain() throws GameActionException {
@@ -109,18 +125,36 @@ public abstract class Controller {
     }
 
     MapLocation adjacentTile(Direction dir) {
-        return new MapLocation(rc.getLocation().x + dir.dx, rc.getLocation().y + dir.dy);
+        return rc.getLocation().add(dir);
     }
 
     List<MapLocation> adjacentTiles() {
         List<MapLocation> out = new ArrayList<>();
+        MapLocation curr = rc.getLocation();
         for (Direction dir : directions) {
-            MapLocation adj = adjacentTile(dir);
+            MapLocation adj = curr.add(dir);
             if (!rc.canSenseLocation(adj)) continue;
             out.add(adj);
         }
         return out;
     }
+
+    List<MapLocation> tilesInRange() {
+        List<MapLocation> tiles = new ArrayList<>();
+        int rsq = rc.getCurrentSensorRadiusSquared();
+        int r = 1; while (r*r < rsq) r++;
+        int x = rc.getLocation().x; int y = rc.getLocation().y;
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dy = -r; dy <= r; dy++) {
+                MapLocation pos = new MapLocation(x+dx,y+dy);
+                if (rc.canSenseLocation(pos) ) { // within range and on map
+                    tiles.add(pos);
+                }
+            }
+        }
+        return tiles;
+    }
+
 
     Direction getAdjacentDirection(MapLocation loc) { // assuming adjacency
         if (!isAdjacentTo(loc)) return null;

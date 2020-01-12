@@ -8,7 +8,7 @@ public class HQController extends Controller {
 
     public HQController(RobotController rc) {
         this.rc = rc;
-        this.comms = new CommunicationHandler(rc);
+        this.communicationHandler = new CommunicationHandler(rc);
         this.allyHQ = rc.getLocation();
     }
 
@@ -36,7 +36,7 @@ public class HQController extends Controller {
         }
 
         if (!locationSent) {
-            if (comms.sendAllyHQLoc(allyHQ)) locationSent = true;
+            if (communicationHandler.sendAllyHQLoc(allyHQ)) locationSent = true;
         }
 
         if (rc.getRoundNum() % 50 == 0) {
