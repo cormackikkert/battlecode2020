@@ -55,6 +55,10 @@ public class MovementSolver {
         return dir;
     }
 
+    public void restart() {
+        this.history.clear();
+    }
+
     boolean isObstacle(Direction dir, MapLocation to) throws GameActionException {
         //point is obstacle if there is a building, is not on map (checked by canMove)
         // if it is flooded, or is previous point
