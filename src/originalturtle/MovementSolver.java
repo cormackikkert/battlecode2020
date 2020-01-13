@@ -7,6 +7,7 @@ import battlecode.common.*;
 
 public class MovementSolver {
     final static int DISTANCE_FROM_EDGE = 3;
+    final static int NET_GUN_RANGE = 15;
 
     MapLocation previous;
 
@@ -77,7 +78,8 @@ public class MovementSolver {
         if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
 
-        RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, rc.getTeam().opponent());
+        RobotInfo[] enemies = rc.senseNearbyRobots();
+        System.out.println("sensing robots in range "+rc.getCurrentSensorRadiusSquared());
 
         Direction dir = from.directionTo(goal);
         int changes = 0;
@@ -99,9 +101,11 @@ public class MovementSolver {
     */
     boolean isDroneObstacleAvoidGun(Direction dir, MapLocation to, RobotInfo[] enemies) throws GameActionException {
         for (RobotInfo enemy : enemies) {
-            if (enemy.getType() == RobotType.DELIVERY_DRONE && to.isWithinDistanceSquared(enemy.getLocation(), 2) ||
-                    enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN && to.isWithinDistanceSquared(enemy.getLocation(), 24)) {
-                System.out.println("dangerous!");
+            if (enemy.getTeam() != rc.getTeam().opponent()) continue;
+            if (
+//                    enemy.getType() == RobotType.DELIVERY_DRONE && to.isWithinDistanceSquared(enemy.getLocation(), 2)|| TODO : figure out optimal way to deal with opposing drones
+                    (enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
+                System.out.println("dangerous! within range "+to.distanceSquaredTo(enemy.getLocation()));
                 return true;
             }
         }
