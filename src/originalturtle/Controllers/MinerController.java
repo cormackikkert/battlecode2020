@@ -99,8 +99,7 @@ public class MinerController extends Controller {
         buildMap = new Integer[rc.getMapHeight()][rc.getMapWidth()];
 
 
-
-        if (this.rc.getRoundNum() == 2 || this.rc.getRoundNum() == 3) {
+        if (born == 2 || born == 3 || born == 11) {
             isRush = true;
         }
 
@@ -123,7 +122,7 @@ public class MinerController extends Controller {
         System.out.println("I am a " + currentState.toString() + " - " + soupClusters.size());
         if (this.currentSoupCluster != null) this.currentSoupCluster.draw(this.rc);
 
-        if (rc.getSoupCarrying() > PlayerConstants.RUSH_THRESHOLD) {
+        if (rc.getTeamSoup() > PlayerConstants.RUSH_THRESHOLD && isRush) {
             currentState = State.RUSHBOT;
         }
 
@@ -136,6 +135,7 @@ public class MinerController extends Controller {
             case SEARCHURGENT: execSearchUrgent(); break;
             case BUILDER: execBuilder();           break;
             case SCOUT: execScout();               break;
+            case RUSHBOT: execRush();              break;
         }
     }
 
@@ -236,6 +236,7 @@ public class MinerController extends Controller {
     }
 
     public void execSearch() throws GameActionException {
+        currentSoupSquare = null;
 
         // Slowly start converting searchers to miners
         // round:  50 - 100% searchers
@@ -306,13 +307,13 @@ public class MinerController extends Controller {
 
             If soup cluster is finished, tell everyone else and go to another one
          */
+        updateClusters();
 
         // If you can no longer carry any soup deposit it
         if (rc.getSoupCarrying() + GameConstants.SOUP_MINING_RATE > RobotType.MINER.soupLimit) {
             currentState = State.DEPOSIT;
             return;
         }
-
         if (currentSoupSquare == null) {
             // Find closest square that doesn't have no soup guaranteed (it may not know)
             // runs in same time as BFS worst case but I have a feeling this is faster (queue overhead)
@@ -329,18 +330,23 @@ public class MinerController extends Controller {
             }
         }
 
-        if (currentSoupSquare == null) {
-            currentState = State.SEARCH;
+        if (currentSoupSquare == null || currentSoupCluster.size == 0) {
+            currentState = State.SEARCHURGENT;
 
             // Communicate that the soup cluster is finished
             currentSoupCluster.size = 0;
             communicationHandler.sendCluster(currentSoupCluster);
+
+            // Reset variables
+            currentSoupCluster = null;
+            currentSoupSquare = null;
+
             return;
         }
 
         movementSolver.restart();
         while (getDistanceSquared(rc.getLocation(), currentSoupSquare) > 1) {
-            System.out.println("I am a miner going to soup I have found");
+            System.out.println("I am a miner going to soup I have found " + currentSoupSquare.toString() + " " + currentSoupCluster.toStringPos());
             if (tryMove(movementSolver.directionToGoal(currentSoupSquare))) Clock.yield();
         }
 
@@ -375,7 +381,8 @@ public class MinerController extends Controller {
     public void execDeposit() throws GameActionException {
         if (currentSoupCluster.refinery.equals(this.allyHQ)) {
             if (rc.getTeamSoup() > PlayerConstants.REFINERY_BUILD_THRESHOLD &&
-                currentSoupCluster.size > PlayerConstants.REFINERY_BUILD_CLUSTER_SIZE) {
+                currentSoupCluster.size > PlayerConstants.REFINERY_BUILD_CLUSTER_SIZE &&
+                currentSoupCluster.contains(rc.getLocation())) {
                 // build refinery
 
                 MapLocation refineryPos = null;
@@ -412,14 +419,18 @@ public class MinerController extends Controller {
         // So each cluster has the number of miners proportional to its size
 
         if (currentSoupCluster == null) {
+            currentSoupSquare = null;
+            updateClusters();
+
             int totalSoupSquares = 0;
             for (SoupCluster soupCluster : soupClusters) {
                 totalSoupSquares += soupCluster.size;
             }
 
             if (totalSoupSquares == 0) {
-                currentState = State.SEARCHURGENT;
-                execSearchUrgent();
+                currentState = State.SEARCH;
+                execSearch();
+                return;
             }
 
             int v = this.rc.getID() % totalSoupSquares;
@@ -431,8 +442,10 @@ public class MinerController extends Controller {
                 }
                 behind += soupCluster.size;
             }
+            System.out.println("HANDING out " + currentSoupCluster.size);
         }
 
+        movementSolver.restart();
         while (getDistanceSquared(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 1) {
             SoupCluster soupCluster = searchSurroundings();
             if (soupCluster != null) {
@@ -494,15 +507,21 @@ public class MinerController extends Controller {
 
                 while (!rc.isReady()) Clock.yield();
 
+                int usedMoves = 0; // remove infinite loops
                 while (soupCount[neighbour.y][neighbour.x] == null){
-
+                    if (usedMoves > 10) {
+                        usedMoves = -1; // lazy flag
+                        break;
+                    }
                     if (tryMove(movementSolver.directionToGoal(neighbour))) {
+                        ++usedMoves;
                         searchSurroundingsContinued();
 
                         // Only do nothing if you need to make another move
                         if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
                     }
                 }
+                if (usedMoves < 0) continue;
 
                 if (soupCount[neighbour.y][neighbour.x] > 0 || (buildMap[neighbour.y][neighbour.x] != null && buildMap[neighbour.y][neighbour.x] == RobotType.REFINERY.ordinal())) {
                     queue.add(neighbour);
@@ -553,7 +572,8 @@ public class MinerController extends Controller {
     }
 
     public void execBuilder() throws GameActionException {
-        if (isAdjacentTo(buildLoc)) {
+        // TODO: neaten, integrate building cost into some variable
+        if (isAdjacentTo(buildLoc) && rc.getTeamSoup() > 150 + 200) {
             System.out.println("trying to build");
             switch (buildType) {
                 case REFINERY: tryMultiBuild(RobotType.REFINERY); break;
@@ -584,6 +604,63 @@ public class MinerController extends Controller {
             System.out.println("Stop enemy searching");
             currentState = State.SEARCH;
         }
+    }
+
+    public void execRush() throws GameActionException {
+        searchSurroundings();
+        isRush = false; // This function is meant to only execute once
+
+        MapLocation candidateEnemyHQ;
+        switch (born) {
+            case 2 :
+                candidateEnemyHQ = new MapLocation(rc.getMapWidth() - allyHQ.x - 1, allyHQ.y);
+                break;
+            case 3:
+                candidateEnemyHQ = new MapLocation(allyHQ.x, rc.getMapHeight() - allyHQ.y - 1);
+                break;
+            case 11:
+                candidateEnemyHQ = new MapLocation(rc.getMapWidth() - allyHQ.x - 1, rc.getMapHeight() - allyHQ.y - 1);
+                break;
+            default:
+                candidateEnemyHQ = new MapLocation(rc.getMapWidth() - allyHQ.x - 1, rc.getMapHeight() - allyHQ.y - 1);
+                System.out.println("REEE");
+
+        }
+
+        movementSolver.restart();
+        while (getDistanceSquared(rc.getLocation(),candidateEnemyHQ) > 8) {
+            System.out.println("I am searching for enemy HQ");
+            tryMove(movementSolver.directionToGoal(candidateEnemyHQ));
+            Clock.yield();
+        }
+
+        boolean found = false;
+        for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
+            if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
+                // Found HQ yahtzee!!
+                System.out.println("Found enemy HQ");
+                communicationHandler.sendEnemyHQLoc(robotInfo.location);
+                enemyHQ = robotInfo.location;
+                found = true;
+            }
+        }
+
+        if (found) {
+            // If we found the enemy HQ build a design school right next to it
+            while (rc.getTeamSoup() < RobotType.DESIGN_SCHOOL.cost) {
+                Clock.yield();
+            }
+
+            // Build design school near enemy HQ
+            if (!tryBuild(RobotType.DELIVERY_DRONE, rc.getLocation().directionTo(enemyHQ))) {
+                for (Direction dir : Direction.allDirections()) {
+                    if (tryBuild(RobotType.DESIGN_SCHOOL, dir)) break;
+                }
+            }
+        }
+
+        currentState = State.SEARCH;
+        execSearch();
     }
 
     int reduce(int val, int decay) {

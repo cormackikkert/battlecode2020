@@ -13,6 +13,7 @@ public class MovementSolver {
 
     RobotController rc;
     boolean rotateCW = true;
+    boolean chosenDirection = false;
 
     public RingQueueMapLocation history;
 
@@ -28,7 +29,14 @@ public class MovementSolver {
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
         if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
+
         Direction dir = from.directionTo(goal);
+
+        if (!chosenDirection) {
+            rotateCW = (distance(rc.getLocation().add(dir.rotateRight()), goal) < distance(rc.getLocation().add(dir.rotateLeft()), goal));
+            chosenDirection = true;
+        }
+
         int changes = 0;
         // while obstacle ahead, keep rotating
         while (isObstacle(dir, from.add(dir))) {
@@ -58,8 +66,14 @@ public class MovementSolver {
         return dir;
     }
 
+    public int distance(MapLocation p1, MapLocation p2) {
+        // Accounts for the fact that you can move diagonally
+        return Math.max(Math.abs(p1.x - p2.x), Math.abs(p1.y - p2.y));
+    }
+
     public void restart() {
         this.history.clear();
+        this.chosenDirection = false;
     }
 
     boolean isObstacle(Direction dir, MapLocation to) throws GameActionException {
