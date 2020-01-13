@@ -26,6 +26,10 @@ public class MovementSolver {
         return directionToGoal(rc.getLocation(), goal);
     }
 
+    public Direction directionFromPoint(MapLocation point) throws GameActionException {
+        return directionToGoal(point, rc.getLocation());
+    }
+
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
         if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
@@ -39,14 +43,22 @@ public class MovementSolver {
 
         int changes = 0;
         // while obstacle ahead, keep rotating
-        while (isObstacle(dir, from.add(dir))) {
-            dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
-            changes++;
-            // if blocked in every direction, stop rotating
-            if (changes > 8) return Direction.CENTER;
+        if (rc.getType() == RobotType.DELIVERY_DRONE) {
+            RobotInfo[] enemies = rc.senseNearbyRobots();
+            while (isDroneObstacleAvoidGun(dir, from.add(dir), enemies)) {
+                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+                changes++;
+                // if blocked in every direction, stop rotating
+                if (changes > 8) return Direction.CENTER;
+            }
+        } else {
+            while (isObstacle(dir, from.add(dir))) {
+                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+                changes++;
+                // if blocked in every direction, stop rotating
+                if (changes > 8) return Direction.CENTER;
+            }
         }
-
-
 
         boolean failed = false;
         if (history.size() > 3) {
@@ -80,32 +92,6 @@ public class MovementSolver {
         //point is obstacle if there is a building, is not on map (checked by canMove)
         // if it is flooded, or is previous point
         return !rc.canMove(dir) || rc.senseFlooding(to) || to.equals(previous);
-    }
-
-    // TODO modify for drones
-    public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {
-        return droneMoveAvoidGun(rc.getLocation(), goal);
-    }
-
-    public static final int SENSOR_RADIUS = 24;
-    public Direction droneMoveAvoidGun(MapLocation from, MapLocation goal) throws GameActionException {
-        if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
-
-
-        RobotInfo[] enemies = rc.senseNearbyRobots();
-//        System.out.println("sensing robots in range "+rc.getCurrentSensorRadiusSquared());
-
-        Direction dir = from.directionTo(goal);
-        int changes = 0;
-        // while obstacle ahead, keep rotating
-        while (isDroneObstacleAvoidGun(dir, from.add(dir), enemies)) {
-            dir = dir.rotateLeft();
-            changes++;
-            // if blocked in every direction, stop rotating
-            if (changes > 8) return Direction.CENTER;
-        }
-        previous = from;
-        return dir;
     }
 
     /*

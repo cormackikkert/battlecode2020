@@ -5,6 +5,7 @@ import battlecode.common.*;
 public class DeliveryDroneController extends Controller {
     private static final int SENSOR_RADIUS = 24;
     private static final int CHASE_RADIUS = 24;
+    private static final int SWITCH_TO_ATTACK = 300; // turn for switching to attack mode
 
     enum State {
         COW,
@@ -50,7 +51,7 @@ public class DeliveryDroneController extends Controller {
     public void assignRole() throws GameActionException {
 
         /*
-            Initial role assignment called when unit is spawned
+            Role assignment depending on turn
          */
 
         if (currentState != null) return;
@@ -78,7 +79,7 @@ public class DeliveryDroneController extends Controller {
             // TODO: send message for not finding hq
             switchToDefenceMode();
         } else {
-            tryMove(movementSolver.droneMoveAvoidGun(target));
+            tryMove(movementSolver.directionToGoal(target));
         }
     }
 
@@ -93,7 +94,7 @@ public class DeliveryDroneController extends Controller {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (!tryPickUpUnit(enemy)) {
                     System.out.println("moving towards enemy");
-                    tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), enemy.getLocation()));
+                    tryMove(movementSolver.directionToGoal(rc.getLocation(), enemy.getLocation()));
                 }
                 return;
             }
@@ -116,7 +117,7 @@ public class DeliveryDroneController extends Controller {
         for (RobotInfo cow : cows) {
             if (true) { // TODO: heuristic for when to pick up cow, i.e. when far from enemy HQ and close to own HQ
                 if (!tryPickUpUnit(cow)) {
-                    tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), cow.getLocation()));
+                    tryMove(movementSolver.directionToGoal(rc.getLocation(), cow.getLocation()));
                 }
             }
         }
@@ -195,13 +196,13 @@ public class DeliveryDroneController extends Controller {
         RobotInfo[] enemies = rc.senseNearbyRobots(SENSOR_RADIUS, ENEMY);
 
         if (enemies.length > 0) {
-            tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), enemies[0].getLocation()));
+            tryMove(movementSolver.directionToGoal(rc.getLocation(), enemies[0].getLocation()));
         } else {
             if (enemyHQ != null) { // move towards enemy hq
-                tryMove(movementSolver.droneMoveAvoidGun(rc.getLocation(), enemyHQ));
+                tryMove(movementSolver.directionToGoal(rc.getLocation(), enemyHQ));
                 System.out.println("moving directly to enemy");
             } else if (allyHQ != null) { // move away from own hq
-                tryMove(movementSolver.droneMoveAvoidGun(allyHQ, rc.getLocation()));
+                tryMove(movementSolver.directionToGoal(allyHQ, rc.getLocation()));
             } else {
                 tryMove(randomDirection());
             }
@@ -211,7 +212,7 @@ public class DeliveryDroneController extends Controller {
     public void moveToTargetAndStay() throws GameActionException {
         MapLocation mapLocation = rc.getLocation();
         if (!mapLocation.equals(target))
-            tryMove(movementSolver.droneMoveAvoidGun(target));
+            tryMove(movementSolver.directionToGoal(target));
 
     }
 

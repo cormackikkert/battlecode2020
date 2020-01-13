@@ -29,7 +29,7 @@ public class RobotPlayer {
             case DESIGN_SCHOOL:      myController = new DesignSchoolController(rc);         break;
             case FULFILLMENT_CENTER: myController = new FulfillmentCenterController(rc);    break;
             case LANDSCAPER:         myController = new LandscaperController(rc);           break;
-            case DELIVERY_DRONE:     myController = new DeliveryDroneController(rc);        break;
+            case DELIVERY_DRONE:     myController = new DeliveryDroneControllerMk2(rc);     break;
             case NET_GUN:            myController = new NetGunController(rc);               break;
 
         }
