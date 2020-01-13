@@ -18,8 +18,11 @@ public abstract class Controller {
     Team ALLY;
     Team ENEMY;
 
-    MapLocation allyHQ = null; // to be filled out by a blockchain message
+    MapLocation allyHQ  = null; // to be filled out by a blockchain message
     MapLocation enemyHQ = null;
+
+    RobotInfo[] enemies;
+    RobotInfo[] allies;
 
     CommunicationHandler communicationHandler;
     MovementSolver movementSolver;
@@ -54,8 +57,7 @@ public abstract class Controller {
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
         getSpawnBase();
-        tryFindHomeHQLoc();
-        receiveHQLocInfo();
+        getHQInfo();
     }
 
     boolean tryBuild(RobotType type, Direction dir) throws GameActionException {
@@ -157,11 +159,14 @@ public abstract class Controller {
         return tiles;
     }
 
-    /*
-        Information for units regarding production location, source (building) and direction
-        assumes only one adjacent production source
-     */
+
     public void getSpawnBase() {
+
+        /*
+            Information for units regarding production location, source (building) and direction
+            assumes only one adjacent production source
+        */
+
         RobotType spawnType;
         switch (rc.getType()) {
             case MINER: spawnType = RobotType.HQ; break;
@@ -186,8 +191,19 @@ public abstract class Controller {
         }
     }
 
+    public void hqInfo() throws GameActionException {
+        scanRobots();
+        tryFindHomeHQLoc();
+        tryFindEnemyHQLoc();
+        getHQInfo();
+    }
+
+    public void scanRobots() {
+        enemies = rc.senseNearbyRobots(100, ENEMY);
+        allies  = rc.senseNearbyRobots(100, ALLY);
+    }
+
     public void tryFindHomeHQLoc() {
-        RobotInfo[] allies = rc.senseNearbyRobots();
         for (RobotInfo ally : allies) {
             if (ally.getType() == RobotType.HQ && ally.getTeam() == ALLY) {
                 allyHQ = ally.getLocation();
@@ -196,7 +212,17 @@ public abstract class Controller {
         }
     }
 
-    public void receiveHQLocInfo() { // FIXME : reimplement later
+    public void tryFindEnemyHQLoc() throws GameActionException {
+        for (RobotInfo enemy : enemies) {
+            if (enemy.getType() == RobotType.HQ && enemy.getTeam() == ENEMY) {
+                enemyHQ = enemy.getLocation();
+                communicationHandler.sendEnemyHQLoc(enemyHQ);
+                return;
+            }
+        }
+    }
+
+    public void getHQInfo() { // FIXME : reimplement later
         if (rc.getRoundNum() == 1) return;
         if (allyHQ == null) {
             try {
