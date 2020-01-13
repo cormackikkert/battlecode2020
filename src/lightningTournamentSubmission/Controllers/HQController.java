@@ -1,4 +1,4 @@
-package originalturtle.Controllers;
+package lightningTournamentSubmission.Controllers;
 
 import battlecode.common.*;
 
@@ -11,6 +11,7 @@ public class HQController extends Controller {
     }
 
     public void run() throws GameActionException {
+        System.out.println("soup at round "+rc.getRoundNum()+" is "+rc.getTeamSoup());
         if (this.rc.getRoundNum() == 1) {
             /*
                 Send first 2 miners on scouting mission to determine which axis the board is symmetrical

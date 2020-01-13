@@ -1,7 +1,7 @@
 package lightningTournamentSubmission;
 
 import battlecode.common.*;
-import originalturtle.Controllers.*;
+import lightningTournamentSubmission.Controllers.*;
 
 public class RobotPlayer {
     private static Controller myController;

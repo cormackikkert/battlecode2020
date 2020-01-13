@@ -1,7 +1,7 @@
 package lightningTournamentSubmission.Controllers;
 
 import battlecode.common.*;
-import originalturtle.*;
+import lightningTournamentSubmission.*;
 
 import java.util.HashSet;
 import java.util.LinkedList;

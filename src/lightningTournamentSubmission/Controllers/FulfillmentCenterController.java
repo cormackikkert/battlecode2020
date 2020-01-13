@@ -1,7 +1,7 @@
-package originalturtle.Controllers;
+package lightningTournamentSubmission.Controllers;
 
 import battlecode.common.*;
-import originalturtle.CommunicationHandler;
+import lightningTournamentSubmission.CommunicationHandler;
 
 public class FulfillmentCenterController extends Controller {
 
@@ -12,6 +12,7 @@ public class FulfillmentCenterController extends Controller {
     boolean[] dirSpawn = new boolean[directions.length];
 
     int sent = 0;
+    Direction latestDirSpawn;
 
     public FulfillmentCenterController(RobotController rc) {
         getInfo(rc);
@@ -42,21 +43,22 @@ public class FulfillmentCenterController extends Controller {
                 Direction horizontalDir = (thisPos.x > WSize / 2) ? Direction.WEST : Direction.EAST;
                 Direction verticalDir = (thisPos.y > HSize / 2) ? Direction.SOUTH : Direction.NORTH;
 
-                if (!horizontal && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, horizontalDir)) {
+                if (!horizontal && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuildA(horizontalDir)) {
                     horizontal = true;
                     communicationHandler.sendScoutDirection(allyHQ, true);
-                    dirSpawn[horizontalDir.ordinal()] = true;
+                    dirSpawn[latestDirSpawn.ordinal()] = true;
                     sent++;
                 }
 
-                if (!vertical && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, verticalDir)) {
+                if (!vertical && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuildA(verticalDir)) {
                     vertical = true;
                     communicationHandler.sendScoutDirection(allyHQ, false);
-                    dirSpawn[verticalDir.ordinal()] = true;
+                    dirSpawn[latestDirSpawn.ordinal()] = true;
                     sent++;
                 }
             }
         } else {
+            System.out.println("trying to build");
             for (int i = 0; i < directions.length; i++) {
                 if (!dirSpawn[i] && tryBuild(RobotType.DELIVERY_DRONE, directions[i])) {
                     dirSpawn[i] = true;
@@ -64,5 +66,25 @@ public class FulfillmentCenterController extends Controller {
                 }
             }
         }
+    }
+
+    public boolean tryBuildA(Direction direction) throws GameActionException {
+        for (int i = 0; i < 8; i++) {
+            if (i % 2 == 0) {
+                for (int j = 0; j < i; j++) {
+                    direction = direction.rotateLeft();
+                }
+            } else {
+                for (int j = 0; j < i; j++) {
+                    direction = direction.rotateRight();
+                }
+            }
+            i++;
+            if (tryBuild(RobotType.DELIVERY_DRONE, direction)) {
+                latestDirSpawn = direction;
+                return true;
+            }
+        }
+        return false;
     }
 }

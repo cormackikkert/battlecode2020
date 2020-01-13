@@ -1,7 +1,7 @@
 package lightningTournamentSubmission.Controllers;
 
 import battlecode.common.*;
-import originalturtle.*;
+import lightningTournamentSubmission.*;
 
 public class LandscaperController extends Controller {
     MovementSolver movementSolver;
