@@ -34,8 +34,6 @@ public class HQController extends Controller {
             }
         }
 
-        receiveHQLocInfo();
-
         if (!locationSent) {
             if (communicationHandler.sendAllyHQLoc(allyHQ)) locationSent = true;
         }
