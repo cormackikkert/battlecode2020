@@ -79,7 +79,7 @@ public class MovementSolver {
 
 
         RobotInfo[] enemies = rc.senseNearbyRobots();
-        System.out.println("sensing robots in range "+rc.getCurrentSensorRadiusSquared());
+//        System.out.println("sensing robots in range "+rc.getCurrentSensorRadiusSquared());
 
         Direction dir = from.directionTo(goal);
         int changes = 0;
@@ -105,7 +105,7 @@ public class MovementSolver {
             if (
 //                    enemy.getType() == RobotType.DELIVERY_DRONE && to.isWithinDistanceSquared(enemy.getLocation(), 2)|| TODO : figure out optimal way to deal with opposing drones
                     (enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
-                System.out.println("dangerous! within range "+to.distanceSquaredTo(enemy.getLocation()));
+//                System.out.println("dangerous! within range "+to.distanceSquaredTo(enemy.getLocation()));
                 return true;
             }
         }

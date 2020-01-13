@@ -6,6 +6,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     Team team;
     RobotController rc;
     int teamSecret;
+    int turn = 1;
 
     public enum CommunicationType {
         ENEMY,
@@ -111,7 +112,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (loc == null) return false;
         int[] message = new int[7];
         message[0] = teamSecret ^ rc.getRoundNum();
-        message[1] = teamSecret ^ CommunicationType.CLUSTER.ordinal();
+        message[1] = teamSecret ^ CommunicationType.ENEMYHQ.ordinal();
         message[2] = teamSecret ^ loc.x;
         message[3] = teamSecret ^ loc.y;
 
@@ -123,9 +124,10 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return false;
     }
 
-    public MapLocation receiveAllyHQLoc() throws GameActionException { // FIXME : is within restrictions?
+    public MapLocation receiveAllyHQLoc() throws GameActionException { // FIXME : reimplement this later
         MapLocation out = null;
-        outer : for (int i = 1; i < rc.getRoundNum(); i++) {
+        outer : for (int i = rc.getRoundNum()-1
+                     ; i < rc.getRoundNum(); i++) {
             Transaction[] ally = rc.getBlock(i);
             for (Transaction t : ally) {
                 int[] message = t.getMessage();
@@ -140,12 +142,14 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     public MapLocation receiveEnemyHQLoc() throws GameActionException {
         MapLocation out = null;
-        outer : for (int i = 1; i < rc.getRoundNum(); i++) {
+        outer : for (int i = rc.getRoundNum()-1
+                     ; i < rc.getRoundNum(); i++) {
             Transaction[] ally = rc.getBlock(i);
             for (Transaction t : ally) {
                 int[] message = t.getMessage();
                 if ((CommunicationType.ENEMYHQ.ordinal() ^ teamSecret) == message[1]) {
                     out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
+                    System.out.println("received enemy location");
                     break outer;
                 }
             }

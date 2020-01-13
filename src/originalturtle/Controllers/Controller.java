@@ -9,9 +9,7 @@ import battlecode.common.*;
 import originalturtle.CommunicationHandler;
 import originalturtle.MovementSolver;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 public abstract class Controller {
     RobotController rc = null;
@@ -26,9 +24,10 @@ public abstract class Controller {
     CommunicationHandler communicationHandler;
     MovementSolver movementSolver;
 
-    MapLocation spawnPoint;     // loc of production
-    MapLocation spawnBase;      // loc of building which produced this unit (relevant for units)
-    Direction spawnBaseDir;     // dir TO building which produced this unit
+    MapLocation spawnPoint;         // loc of production
+    MapLocation spawnBase;          // loc of building which produced this unit (relevant for units)
+    Direction spawnBaseDirFrom;     // dir FROM building which produced this unit
+    Direction spawnBaseDirTo;       // dir TO building which produced this unit
 
     int spawnTurn;
 
@@ -55,6 +54,7 @@ public abstract class Controller {
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
         getSpawnBase();
+        tryFindHomeHQLoc();
         receiveHQLocInfo();
     }
 
@@ -180,12 +180,24 @@ public abstract class Controller {
             if (robotAt != null && robotAt.getTeam().equals(rc.getTeam()) && robotAt.getType().equals(spawnType)) {
                 System.out.println("found spawn base");
                 spawnBase = loc.add(dir);
-                spawnBaseDir = dir;
+                spawnBaseDirTo = dir;
+                spawnBaseDirFrom = dir.opposite();
             }
         }
     }
 
-    public void receiveHQLocInfo() {
+    public void tryFindHomeHQLoc() {
+        RobotInfo[] allies = rc.senseNearbyRobots();
+        for (RobotInfo ally : allies) {
+            if (ally.getType() == RobotType.HQ && ally.getTeam() == ALLY) {
+                allyHQ = ally.getLocation();
+                return;
+            }
+        }
+    }
+
+    public void receiveHQLocInfo() { // FIXME : reimplement later
+        if (rc.getRoundNum() == 1) return;
         if (allyHQ == null) {
             try {
                 allyHQ = communicationHandler.receiveAllyHQLoc();

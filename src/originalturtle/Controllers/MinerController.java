@@ -99,7 +99,7 @@ public class MinerController extends Controller {
         /*
 
         if (this.rc.getRoundNum() == 2 || this.rc.getRoundNum() == 3) {
-            // This miner is now a scout
+            // This miner is now a target
             // currentState = State.SCOUT;
             // boardElevations = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         }

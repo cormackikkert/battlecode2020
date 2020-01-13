@@ -33,9 +33,12 @@ public class HQController extends Controller {
             }
         }
 
+        receiveHQLocInfo();
+
         if (!locationSent) {
             if (communicationHandler.sendAllyHQLoc(allyHQ)) locationSent = true;
         }
+
 
         if (rc.getRoundNum() % 50 == 0) {
             for (Direction dir : directions) {

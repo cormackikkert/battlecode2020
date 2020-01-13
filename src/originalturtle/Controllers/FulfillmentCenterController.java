@@ -9,6 +9,7 @@ public class FulfillmentCenterController extends Controller {
 
     boolean horizontal = false;
     boolean vertical = false;
+    boolean[] dirSpawn = new boolean[directions.length];
 
     int sent = 0;
 
@@ -38,21 +39,27 @@ public class FulfillmentCenterController extends Controller {
 
                 MapLocation thisPos = this.rc.getLocation();
 
-                if (!horizontal && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, (thisPos.x > WSize / 2) ? Direction.WEST : Direction.EAST)) {
+                Direction horizontalDir = (thisPos.x > WSize / 2) ? Direction.WEST : Direction.EAST;
+                Direction verticalDir = (thisPos.y > HSize / 2) ? Direction.SOUTH : Direction.NORTH;
+
+                if (!horizontal && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, horizontalDir)) {
                     horizontal = true;
                     communicationHandler.sendScoutDirection(allyHQ, true);
+                    dirSpawn[horizontalDir.ordinal()] = true;
                     sent++;
                 }
 
-                if (!vertical && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, (thisPos.y > HSize / 2) ? Direction.SOUTH : Direction.NORTH)) {
+                if (!vertical && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, verticalDir)) {
                     vertical = true;
                     communicationHandler.sendScoutDirection(allyHQ, false);
+                    dirSpawn[verticalDir.ordinal()] = true;
                     sent++;
                 }
             }
         } else {
-            for (Direction dir : directions) {
-                if (tryBuild(RobotType.DELIVERY_DRONE, dir)) {
+            for (int i = 0; i < directions.length; i++) {
+                if (!dirSpawn[i] && tryBuild(RobotType.DELIVERY_DRONE, directions[i])) {
+                    dirSpawn[i] = true;
                     sent++;
                 }
             }
