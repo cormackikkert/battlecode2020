@@ -23,6 +23,11 @@ public class MovementSolver {
         return directionToGoal(rc.getLocation(), goal);
     }
 
+    public Direction directionFromPoint(MapLocation point) throws GameActionException {
+        return directionToGoal(point, rc.getLocation());
+    }
+
+
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
         // TODO: account for "hallways"
         if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
@@ -32,14 +37,27 @@ public class MovementSolver {
 
         int changes = 0;
         boolean failed = false;
-        // while obstacle ahead, keep rotating
-        while (isObstacle(dir, from.add(dir))) {
-            if (!onTheMap(rc.getLocation().add(dir))) {
-                rotateCW = !rotateCW; previous = null; failed = true;
+
+        if (rc.getType() == RobotType.DELIVERY_DRONE) {
+            RobotInfo[] enemies = rc.senseNearbyRobots();
+            while (isDroneObstacleAvoidGun(dir, from.add(dir), enemies)) {
+                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+                changes++;
+                // if blocked in every direction, stop rotating
+                if (changes > 8) return Direction.CENTER;
             }
-            dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
-            // if blocked in every direction, stop rotating
-            if (changes > 8) return Direction.CENTER;
+        } else {
+
+            // while obstacle ahead, keep rotating
+            while (isObstacle(dir, from.add(dir))) {
+                if (!onTheMap(rc.getLocation().add(dir))) {
+                    rotateCW = !rotateCW; previous = null; failed = true;
+                }
+                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+                // if blocked in every direction, stop rotating
+                if (changes > 8) return Direction.CENTER;
+            }
+
         }
 
 
