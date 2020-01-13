@@ -6,8 +6,8 @@ package lightningTournamentSubmission.Controllers;
 */
 
 import battlecode.common.*;
-import originalturtle.CommunicationHandler;
-import originalturtle.MovementSolver;
+import lightningTournamentSubmission.CommunicationHandler;
+import lightningTournamentSubmission.MovementSolver;
 
 import java.util.*;
 
