@@ -23,7 +23,8 @@ public class MinerController extends Controller {
         DEPOSIT,
         SCOUT,
         BUILDER,
-        SPECIALOPSBUILDER // builds the fulfillment center which builds the drone scouts
+        SPECIALOPSBUILDER, // builds the fulfillment center which builds the drone scouts
+        RUSHBOT // Rushes to enemy HQ and builds a design school
     }
 
     CommunicationHandler communicationHandler;
@@ -75,6 +76,7 @@ public class MinerController extends Controller {
 
     int born;
     int lastRound = 1;
+    boolean isRush = false; // Only given to first 2 miners for now
 
     public MinerController(RobotController rc) {
         this.rc = rc;
@@ -96,14 +98,11 @@ public class MinerController extends Controller {
         searchedForSoupCluster = new boolean[rc.getMapHeight()][rc.getMapWidth()];
         buildMap = new Integer[rc.getMapHeight()][rc.getMapWidth()];
 
-        /*
+
 
         if (this.rc.getRoundNum() == 2 || this.rc.getRoundNum() == 3) {
-            // This miner is now a scout
-            // currentState = State.SCOUT;
-            // boardElevations = new Integer[rc.getMapHeight()][rc.getMapWidth()];
+            isRush = true;
         }
-        */
 
         try {
             enemyHQ = communicationHandler.receiveEnemyHQLoc();
@@ -122,6 +121,10 @@ public class MinerController extends Controller {
     public void run() throws GameActionException {
         System.out.println("I am a " + currentState.toString() + " - " + soupClusters.size());
         if (this.currentSoupCluster != null) this.currentSoupCluster.draw(this.rc);
+
+        if (rc.getSoupCarrying() > PlayerConstants.RUSH_THRESHOLD) {
+            currentState = State.RUSHBOT;
+        }
 
         updateClusters();
 
