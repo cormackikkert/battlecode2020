@@ -3,21 +3,22 @@ package originalturtle.Controllers;
 import battlecode.common.*;
 import originalturtle.CommunicationHandler;
 
-import static originalturtle.CommunicationHandler.SCOUT_MESSAGE_COST;
-
 public class FulfillmentCenterController extends Controller {
+
+    static final int PRODUCTION_CAP = 8;
+
     boolean horizontal = false;
     boolean vertical = false;
+    boolean[] dirSpawn = new boolean[directions.length];
+
     int sent = 0;
+
     public FulfillmentCenterController(RobotController rc) {
-        this.rc = rc;
-        this.communicationHandler = new CommunicationHandler(rc);
+        getInfo(rc);
     }
 
-    Direction[] diagonal = {Direction.NORTHEAST, Direction.NORTHWEST, Direction.SOUTHEAST, Direction.SOUTHWEST};
-    Direction[] straight = {Direction.NORTH, Direction.WEST, Direction.SOUTH, Direction.EAST};
-
     public void run() throws GameActionException {
+        if (sent >= PRODUCTION_CAP) return; // cap to how many drones to build as to not waste resources
 
         // send enemy scouters
         if (enemyHQ == null && (!horizontal || !vertical)) {
@@ -27,6 +28,7 @@ public class FulfillmentCenterController extends Controller {
             for (RobotInfo ally : allies) {
                 if (ally.getType() == RobotType.HQ) {
                     closest = true;
+                    allyHQ = ally.getLocation();
                     break;
                 }
             }
@@ -37,21 +39,30 @@ public class FulfillmentCenterController extends Controller {
 
                 MapLocation thisPos = this.rc.getLocation();
 
-                if (!horizontal && rc.getTeamSoup() >= 150 + SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, (thisPos.x > WSize / 2) ? Direction.WEST : Direction.EAST)) {
+                Direction horizontalDir = (thisPos.x > WSize / 2) ? Direction.WEST : Direction.EAST;
+                Direction verticalDir = (thisPos.y > HSize / 2) ? Direction.SOUTH : Direction.NORTH;
+
+                if (!horizontal && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, horizontalDir)) {
                     horizontal = true;
-                    communicationHandler.sendScoutDirection(true);
+                    communicationHandler.sendScoutDirection(allyHQ, true);
+                    dirSpawn[horizontalDir.ordinal()] = true;
                     sent++;
                 }
 
-                if (!vertical && rc.getTeamSoup() >= 150 + SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, (thisPos.x > HSize / 2) ? Direction.SOUTH : Direction.NORTH)) {
+                if (!vertical && rc.getTeamSoup() >= 150 + CommunicationHandler.SCOUT_MESSAGE_COST && tryBuild(RobotType.DELIVERY_DRONE, verticalDir)) {
                     vertical = true;
-                    communicationHandler.sendScoutDirection(false);
+                    communicationHandler.sendScoutDirection(allyHQ, false);
+                    dirSpawn[verticalDir.ordinal()] = true;
                     sent++;
                 }
             }
         } else {
-            for (Direction dir : directions)
-                tryBuild(RobotType.DELIVERY_DRONE, dir);
+            for (int i = 0; i < directions.length; i++) {
+                if (!dirSpawn[i] && tryBuild(RobotType.DELIVERY_DRONE, directions[i])) {
+                    dirSpawn[i] = true;
+                    sent++;
+                }
+            }
         }
     }
 }

@@ -9,19 +9,27 @@ import battlecode.common.*;
 import originalturtle.CommunicationHandler;
 import originalturtle.MovementSolver;
 
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public abstract class Controller {
+    RobotController rc = null;
+
+    Team NEUTRAL = Team.NEUTRAL;
+    Team ALLY;
+    Team ENEMY;
+
     MapLocation allyHQ = null; // to be filled out by a blockchain message
     MapLocation enemyHQ = null;
 
     CommunicationHandler communicationHandler;
     MovementSolver movementSolver;
 
-    RobotController rc = null;
+    MapLocation spawnPoint;         // loc of production
+    MapLocation spawnBase;          // loc of building which produced this unit (relevant for units)
+    Direction spawnBaseDirFrom;     // dir FROM building which produced this unit
+    Direction spawnBaseDirTo;       // dir TO building which produced this unit
+
+    int spawnTurn;
 
     Direction[] directions = {
             Direction.NORTH,
@@ -33,6 +41,22 @@ public abstract class Controller {
             Direction.WEST,
             Direction.NORTHWEST
     };
+
+    Direction[] cardinal = {directions[0], directions[2], directions[4], directions[6]};
+    Direction[] ordinal  = {directions[1], directions[3], directions[5], directions[7]};
+
+    public void getInfo(RobotController rc) {
+        ALLY = rc.getTeam();
+        ENEMY = rc.getTeam().opponent();
+        this.rc = rc;
+        this.communicationHandler = new CommunicationHandler(rc);
+        this.movementSolver = new MovementSolver(rc);
+        this.spawnTurn = rc.getRoundNum();
+        this.spawnPoint = rc.getLocation();
+        getSpawnBase();
+        tryFindHomeHQLoc();
+        receiveHQLocInfo();
+    }
 
     boolean tryBuild(RobotType type, Direction dir) throws GameActionException {
         if (rc.isReady() && rc.canBuildRobot(type, dir)) {
@@ -89,20 +113,6 @@ public abstract class Controller {
         return directions[(int) (Math.random() * directions.length)];
     }
 
-    Direction moveGreedy(MapLocation from, MapLocation to) {
-        // Turns out this already exists
-        // TODO: remove
-        if (from.x < to.x && from.y < to.y)   return Direction.NORTHEAST;
-        if (from.x < to.x && from.y == to.y)  return Direction.EAST;
-        if (from.x < to.x && from.y > to.y)   return Direction.SOUTHEAST;
-        if (from.x == to.x && from.y < to.y)  return Direction.NORTH;
-        if (from.x == to.x && from.y > to.y)  return Direction.SOUTH;
-        if (from.x > to.x && from.y < to.y)   return Direction.NORTHWEST;
-        if (from.x > to.x && from.y == to.y)  return Direction.WEST;
-        if (from.x > to.x && from.y > to.y)   return Direction.SOUTHWEST;
-        return Direction.CENTER;
-    }
-
     int getDistanceSquared(MapLocation p1, MapLocation p2) {
         return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y);
     }
@@ -129,17 +139,6 @@ public abstract class Controller {
         return rc.getLocation().add(dir);
     }
 
-    List<MapLocation> adjacentTiles() {
-        List<MapLocation> out = new ArrayList<>();
-        MapLocation curr = rc.getLocation();
-        for (Direction dir : directions) {
-            MapLocation adj = curr.add(dir);
-            if (!rc.canSenseLocation(adj)) continue;
-            out.add(adj);
-        }
-        return out;
-    }
-
     List<MapLocation> tilesInRange() {
         List<MapLocation> tiles = new LinkedList<>();
         int rsq = rc.getCurrentSensorRadiusSquared();
@@ -158,20 +157,61 @@ public abstract class Controller {
         return tiles;
     }
 
+    /*
+        Information for units regarding production location, source (building) and direction
+        assumes only one adjacent production source
+     */
+    public void getSpawnBase() {
+        RobotType spawnType;
+        switch (rc.getType()) {
+            case MINER: spawnType = RobotType.HQ; break;
+            case DELIVERY_DRONE: spawnType = RobotType.FULFILLMENT_CENTER; break;
+            case LANDSCAPER: spawnType = RobotType.DESIGN_SCHOOL; break;
+            default: return; // ignore if robot is a building
+        }
+        MapLocation loc = rc.getLocation();
+        for (Direction dir : directions) {
+            RobotInfo robotAt = null;
+            try {
+                robotAt = rc.senseRobotAtLocation(loc.add(dir));
+            } catch (GameActionException e) {
+                e.printStackTrace();
+            }
+            if (robotAt != null && robotAt.getTeam().equals(rc.getTeam()) && robotAt.getType().equals(spawnType)) {
+                System.out.println("found spawn base");
+                spawnBase = loc.add(dir);
+                spawnBaseDirTo = dir;
+                spawnBaseDirFrom = dir.opposite();
+            }
+        }
+    }
 
-    Direction getAdjacentDirection(MapLocation loc) { // assuming adjacency
-        if (!isAdjacentTo(loc)) return null;
-        int x1 = rc.getLocation().x; int x2 = loc.x;
-        int y1 = rc.getLocation().y; int y2 = loc.y;
-        if (x1 == x2 && y1 < y2)        return Direction.NORTH;
-        if (x1 == x2 && y1 > y2)        return Direction.SOUTH;
-        if (x1 > x2 && y1 < y2)         return Direction.NORTHWEST;
-        if (x1 > x2 && y1 == y2)        return Direction.WEST;
-        if (x1 > x2 && y1 > y2)         return Direction.SOUTHWEST;
-        if (x1 < x2 && y1 < y2)         return Direction.NORTHEAST;
-        if (x1 < x2 && y1 == y2)        return Direction.EAST;
-        if (x1 < x2 && y1 > y2)         return Direction.SOUTHEAST;
-        return Direction.CENTER;
+    public void tryFindHomeHQLoc() {
+        RobotInfo[] allies = rc.senseNearbyRobots();
+        for (RobotInfo ally : allies) {
+            if (ally.getType() == RobotType.HQ && ally.getTeam() == ALLY) {
+                allyHQ = ally.getLocation();
+                return;
+            }
+        }
+    }
+
+    public void receiveHQLocInfo() { // FIXME : reimplement later
+        if (rc.getRoundNum() == 1) return;
+        if (allyHQ == null) {
+            try {
+                allyHQ = communicationHandler.receiveAllyHQLoc();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        if (enemyHQ == null) {
+            try {
+                enemyHQ = communicationHandler.receiveEnemyHQLoc();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     abstract public void run() throws GameActionException;

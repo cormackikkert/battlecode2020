@@ -1,15 +1,13 @@
 package originalturtle.Controllers;
 
 import battlecode.common.*;
-import originalturtle.CommunicationHandler;
 
 public class HQController extends Controller {
     boolean locationSent = false;
 
     public HQController(RobotController rc) {
-        this.rc = rc;
-        this.communicationHandler = new CommunicationHandler(rc);
         this.allyHQ = rc.getLocation();
+        getInfo(rc);
     }
 
     public void run() throws GameActionException {
@@ -35,9 +33,12 @@ public class HQController extends Controller {
             }
         }
 
+        receiveHQLocInfo();
+
         if (!locationSent) {
             if (communicationHandler.sendAllyHQLoc(allyHQ)) locationSent = true;
         }
+
 
         if (rc.getRoundNum() % 50 == 0) {
             for (Direction dir : directions) {

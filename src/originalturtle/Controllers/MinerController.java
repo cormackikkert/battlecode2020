@@ -104,6 +104,7 @@ public class MinerController extends Controller {
             isRush = true;
         }
 
+
         try {
             enemyHQ = communicationHandler.receiveEnemyHQLoc();
         } catch (Exception e) {
