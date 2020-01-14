@@ -323,6 +323,7 @@ public class MinerController extends Controller {
             If soup cluster is finished, tell everyone else and go to another one
          */
         updateClusters();
+        searchSurroundingsContinued();
 
         // If you can no longer carry any soup deposit it
         if (rc.getSoupCarrying() + GameConstants.SOUP_MINING_RATE > RobotType.MINER.soupLimit) {
@@ -338,6 +339,7 @@ public class MinerController extends Controller {
             for (int x = currentSoupCluster.x1; x <= currentSoupCluster.x2; ++x) {
                 for (int y = currentSoupCluster.y1; y <= currentSoupCluster.y2; ++y) {
                     if (soupCount[y][x] != null && soupCount[y][x] == 0) continue;
+                    if (containsWater[y][x] == null || containsWater[y][x]) continue;
                     int dist = getDistanceSquared(rc.getLocation(), new MapLocation(x, y));
                     if (dist < bestDistance) {
                         currentSoupSquare = new MapLocation(x, y);
@@ -396,6 +398,8 @@ public class MinerController extends Controller {
     }
 
     public void execDeposit() throws GameActionException {
+        searchSurroundingsContinued();
+
         if (currentSoupCluster.refinery.equals(this.allyHQ)) {
             if (rc.getTeamSoup() > PlayerConstants.REFINERY_BUILD_THRESHOLD &&
                 currentSoupCluster.size > PlayerConstants.REFINERY_BUILD_CLUSTER_SIZE &&
