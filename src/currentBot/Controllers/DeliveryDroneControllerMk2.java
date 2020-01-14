@@ -101,10 +101,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         // camp outside enemy hq
         if (enemyHQ != null) {
-            if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, OUTSIDE_NET_GUN_RADIUS)) {
-                tryMove(movementSolver.directionToGoal(rc.getLocation(), enemyHQ));
+            if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RADIUS)) {
+                tryMove(movementSolver.droneDirectionToGoal(rc.getLocation(), enemyHQ));
                 System.out.println("moving directly to enemy hq");
             } else {
+                tryMove(movementSolver.directionFromPoint(enemyHQ));
                 // TODO : AVOID net guns and stay still and wait for enemies to come near
             }
         } else if (allyHQ != null) { // move away from own hq
