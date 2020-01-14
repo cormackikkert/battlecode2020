@@ -27,12 +27,12 @@ public class SoupCluster {
     public MapLocation closest(MapLocation pos) {
         // Returns closest position in cluster to pos
         int tx, ty;
-        if (pos.y >= y2) ty = y2;
-        else if (pos.y <= y1) ty = y1;
+        if (pos.y <= y1) ty = y1;
+        else if (y2 <= pos.y) ty = y2;
         else ty = pos.y;
 
-        if (pos.x >= x2) tx = x2;
-        else if (pos.x <= x1) tx = x1;
+        if (pos.x <= x1) tx = x1;
+        else if (x2 <= pos.x) tx = x2;
         else tx = pos.x;
 
         return new MapLocation(tx, ty);

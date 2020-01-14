@@ -35,6 +35,12 @@ public abstract class Controller {
 
     int spawnTurn;
 
+    enum Symmetry {
+        HORIZONTAL,
+        VERTICAL,
+        ROTATIONAL
+    }
+
     Direction[] directions = {
             Direction.NORTH,
             Direction.NORTHEAST,
@@ -241,5 +247,8 @@ public abstract class Controller {
         }
     }
 
+    public boolean onTheMap(MapLocation pos) {
+        return (0 <= pos.x && pos.x < rc.getMapWidth() && 0 <= pos.y && pos.y < rc.getMapHeight());
+    }
     abstract public void run() throws GameActionException;
 }
