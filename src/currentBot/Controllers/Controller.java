@@ -112,6 +112,15 @@ public abstract class Controller {
         } else return false;
     }
 
+    public boolean tryShoot(RobotInfo robotInfo) throws GameActionException {
+        if (rc.canShootUnit(robotInfo.getID())) {
+            rc.shootUnit(robotInfo.getID());
+            System.out.println("shot down enemy");
+            return true;
+        }
+        return false;
+    }
+
     Direction randomDirection() {
         return directions[(int) (Math.random() * directions.length)];
     }
@@ -199,31 +208,39 @@ public abstract class Controller {
         getHQInfo();
     }
 
-    public void scanRobots() {
-        enemies = rc.senseNearbyRobots(100, ENEMY);
-        allies  = rc.senseNearbyRobots(100, ALLY);
+    public void scanRobots() throws GameActionException {
+//        enemies = rc.senseNearbyRobots();
+        System.out.println("scan radius is "+rc.getCurrentSensorRadiusSquared()+", pollution is "+rc.sensePollution(rc.getLocation()));
+        enemies = rc.senseNearbyRobots(-1, ENEMY);
+        allies  = rc.senseNearbyRobots(-1, ALLY);
     }
 
     public void tryFindHomeHQLoc() {
+        if (allyHQ != null) return;
+        System.out.println("trying to find ally HQ out of "+allies.length+" options");
         for (RobotInfo ally : allies) {
             if (ally.getType() == RobotType.HQ && ally.getTeam() == ALLY) {
                 allyHQ = ally.getLocation();
+                System.out.println("found home HQ location");
                 return;
             }
         }
     }
 
     public void tryFindEnemyHQLoc() throws GameActionException {
+        if (enemyHQ != null) return;
+        System.out.println("trying to find enemy HQ out of "+enemies.length+" options");
         for (RobotInfo enemy : enemies) {
             if (enemy.getType() == RobotType.HQ && enemy.getTeam() == ENEMY) {
                 enemyHQ = enemy.getLocation();
                 communicationHandler.sendEnemyHQLoc(enemyHQ);
+                System.out.println("found enemy HQ location");
                 return;
             }
         }
     }
 
-    public void getHQInfo() { // FIXME : reimplement later
+    public void getHQInfo() {
         if (rc.getRoundNum() == 1) return;
         if (allyHQ == null) {
             try {

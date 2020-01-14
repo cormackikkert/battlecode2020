@@ -14,6 +14,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     private static final int CHASE_RADIUS = 24;
     private static final int DEFENSE_RADIUS = 35; // radius from hq to defend
     private static final int NET_GUN_RADIUS = 15;
+    private static final int OUTSIDE_NET_GUN_RADIUS = SENSOR_RADIUS;
     private static final int SWITCH_TO_ATTACK = 300; // turn for switching to attack mode
 
     enum State {
@@ -70,14 +71,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
         // trying to pick up enemies
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
-                tryPickUpUnit(enemy);
-                return;
+                if (tryPickUpUnit(enemy)) return;
             }
         }
 
         // camp around home FIXME : case when allyHQ = null or guarantee get hq
         if (rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_RADIUS)) {
             tryMove(movementSolver.directionFromPoint(allyHQ));
+            System.out.println("move to defend");
+        } else {
+            System.out.println("stand still to defend");
         }
     }
 
@@ -92,14 +95,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
         RobotInfo[] enemies = rc.senseNearbyRobots(CHASE_RADIUS, ENEMY);
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
-                tryPickUpUnit(enemy);
-                return;
+                if (tryPickUpUnit(enemy)) return;
             }
         }
 
         // camp outside enemy hq
         if (enemyHQ != null) {
-            if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RADIUS)) {
+            if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, OUTSIDE_NET_GUN_RADIUS)) {
                 tryMove(movementSolver.directionToGoal(rc.getLocation(), enemyHQ));
                 System.out.println("moving directly to enemy hq");
             } else {
@@ -107,6 +109,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         } else if (allyHQ != null) { // move away from own hq
             tryMove(movementSolver.directionFromPoint(allyHQ));
+            System.out.println("moving away from home hq");
         } else {
             tryMove(randomDirection());
         }

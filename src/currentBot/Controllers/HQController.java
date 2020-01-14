@@ -11,7 +11,8 @@ public class HQController extends Controller {
     }
 
     public void run() throws GameActionException {
-        System.out.println("soup at round "+rc.getRoundNum()+" is "+rc.getTeamSoup());
+
+//        System.out.println("soup at round "+rc.getRoundNum()+" is "+rc.getTeamSoup());
         if (this.rc.getRoundNum() == 1) {
             /*
                 Send first 2 miners on scouting mission to determine which axis the board is symmetrical
@@ -36,6 +37,13 @@ public class HQController extends Controller {
 
         if (!locationSent) {
             if (communicationHandler.sendAllyHQLoc(allyHQ)) locationSent = true;
+        }
+
+        scanRobots();
+        for (RobotInfo enemy : enemies) {
+            if (enemy.getType() == RobotType.DELIVERY_DRONE) {
+                tryShoot(enemy);
+            }
         }
 
 

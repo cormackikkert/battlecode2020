@@ -13,13 +13,10 @@ public class MovementSolver {
 
     RobotController rc;
     boolean rotateCW = true;
-    boolean chosenDirection = false;
 
-    public RingQueueMapLocation history;
 
     public MovementSolver(RobotController rc) {
         this.rc = rc;
-        history = new RingQueueMapLocation(this.rc.getMapHeight() * this.rc.getMapWidth());
     }
 
     public Direction directionToGoal(MapLocation goal) throws GameActionException {
@@ -30,19 +27,17 @@ public class MovementSolver {
         return directionToGoal(point, rc.getLocation());
     }
 
+
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
+        // TODO: account for "hallways"
         if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
 
         Direction dir = from.directionTo(goal);
 
-        if (!chosenDirection) {
-            rotateCW = (distance(rc.getLocation().add(dir.rotateRight()), goal) < distance(rc.getLocation().add(dir.rotateLeft()), goal));
-            chosenDirection = true;
-        }
-
         int changes = 0;
-        // while obstacle ahead, keep rotating
+        boolean failed = false;
+
         if (rc.getType() == RobotType.DELIVERY_DRONE) {
             RobotInfo[] enemies = rc.senseNearbyRobots();
             while (isDroneObstacleAvoidGun(dir, from.add(dir), enemies)) {
@@ -52,28 +47,28 @@ public class MovementSolver {
                 if (changes > 8) return Direction.CENTER;
             }
         } else {
+
+            // while obstacle ahead, keep rotating
             while (isObstacle(dir, from.add(dir))) {
+                if (!onTheMap(rc.getLocation().add(dir))) {
+                    rotateCW = !rotateCW; previous = null; failed = true;
+                }
                 dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
-                changes++;
                 // if blocked in every direction, stop rotating
                 if (changes > 8) return Direction.CENTER;
             }
+
         }
 
-        boolean failed = false;
-        if (history.size() > 3) {
-            for (int i = history.l; i != ((history.r - 3 + history.ln) % history.ln); i = (i + 1) % history.ln) {
-                if (history.buf[i].equals(from.add(dir))) failed = true;
-            }
-        }
+
+
+
         if (failed) {
-            history.clear();
-            rotateCW = !rotateCW;
+            // rotateCW = !rotateCW;
             rc.setIndicatorDot(from, 255, 0, 0);
             rc.setIndicatorLine(from, goal, 255, 0, 0);
         }
 
-        history.add(from.add(dir));
         previous = from;
         return dir;
     }
@@ -84,14 +79,38 @@ public class MovementSolver {
     }
 
     public void restart() {
-        this.history.clear();
-        this.chosenDirection = false;
     }
 
     boolean isObstacle(Direction dir, MapLocation to) throws GameActionException {
         //point is obstacle if there is a building, is not on map (checked by canMove)
         // if it is flooded, or is previous point
         return !rc.canMove(dir) || rc.senseFlooding(to) || to.equals(previous);
+    }
+
+    // TODO modify for drones
+    public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {
+        return droneMoveAvoidGun(rc.getLocation(), goal);
+    }
+
+    public static final int SENSOR_RADIUS = 24;
+    public Direction droneMoveAvoidGun(MapLocation from, MapLocation goal) throws GameActionException {
+        if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
+
+
+        RobotInfo[] enemies = rc.senseNearbyRobots();
+//        System.out.println("sensing robots in range "+rc.getCurrentSensorRadiusSquared());
+
+        Direction dir = from.directionTo(goal);
+        int changes = 0;
+        // while obstacle ahead, keep rotating
+        while (isDroneObstacleAvoidGun(dir, from.add(dir), enemies)) {
+            dir = dir.rotateLeft();
+            changes++;
+            // if blocked in every direction, stop rotating
+            if (changes > 8) return Direction.CENTER;
+        }
+        previous = from;
+        return dir;
     }
 
     /*
@@ -111,6 +130,10 @@ public class MovementSolver {
         }
 
         return !rc.canMove(dir);
+    }
+
+    public boolean onTheMap(MapLocation pos) {
+        return (0 <= pos.x && pos.x < rc.getMapWidth() && 0 <= pos.y && pos.y < rc.getMapHeight());
     }
 
     public boolean nearEdge() {

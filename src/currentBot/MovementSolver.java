@@ -46,6 +46,7 @@ public class MovementSolver {
                 // if blocked in every direction, stop rotating
                 if (changes > 8) return Direction.CENTER;
             }
+            return dir;
         } else {
 
             // while obstacle ahead, keep rotating
@@ -59,9 +60,6 @@ public class MovementSolver {
             }
 
         }
-
-
-
 
         if (failed) {
             // rotateCW = !rotateCW;
@@ -87,44 +85,16 @@ public class MovementSolver {
         return !rc.canMove(dir) || rc.senseFlooding(to) || to.equals(previous);
     }
 
-    // TODO modify for drones
-    public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {
-        return droneMoveAvoidGun(rc.getLocation(), goal);
-    }
-
-    public static final int SENSOR_RADIUS = 24;
-    public Direction droneMoveAvoidGun(MapLocation from, MapLocation goal) throws GameActionException {
-        if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
-
-
-        RobotInfo[] enemies = rc.senseNearbyRobots();
-//        System.out.println("sensing robots in range "+rc.getCurrentSensorRadiusSquared());
-
-        Direction dir = from.directionTo(goal);
-        int changes = 0;
-        // while obstacle ahead, keep rotating
-        while (isDroneObstacleAvoidGun(dir, from.add(dir), enemies)) {
-            dir = dir.rotateLeft();
-            changes++;
-            // if blocked in every direction, stop rotating
-            if (changes > 8) return Direction.CENTER;
-        }
-        previous = from;
-        return dir;
-    }
-
     /*
         Drones are weak to
             other drones (range 2 since moving next to them leaves chance to being captured)
             net guns (range 15 as in spec)
-    */
+    */ // FIXME : certain edge cases where drone cannot detect net gun/hq and moving diagonally will walk into range
     boolean isDroneObstacleAvoidGun(Direction dir, MapLocation to, RobotInfo[] enemies) throws GameActionException {
         for (RobotInfo enemy : enemies) {
             if (enemy.getTeam() != rc.getTeam().opponent()) continue;
-            if (
-//                    enemy.getType() == RobotType.DELIVERY_DRONE && to.isWithinDistanceSquared(enemy.getLocation(), 2)|| TODO : figure out optimal way to deal with opposing drones
-                    (enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
-//                System.out.println("dangerous! within range "+to.distanceSquaredTo(enemy.getLocation()));
+            if ((enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN)
+                    && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
                 return true;
             }
         }
