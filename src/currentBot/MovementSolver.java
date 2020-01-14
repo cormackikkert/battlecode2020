@@ -7,7 +7,7 @@ import currentBot.Controllers.Controller;
  */
 
 public class MovementSolver {
-    final static int DISTANCE_FROM_EDGE = 3;
+    final static int DISTANCE_FROM_EDGE = 5;
     final static int NET_GUN_RANGE = 15;
 
     MapLocation previous;
@@ -39,6 +39,11 @@ public class MovementSolver {
                 directionToGoal(point, rc.getLocation());
     }
 
+    public Direction directionGo(Direction direction) throws GameActionException {
+        return rc.getType() == RobotType.DELIVERY_DRONE ?
+                droneDirectionToGoal(rc.getLocation(), rc.getLocation().add(direction)) :
+                directionToGoal(rc.getLocation(), rc.getLocation().add(direction));
+    }
 
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
         // TODO: account for "hallways"

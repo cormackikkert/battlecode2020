@@ -19,6 +19,8 @@ public abstract class Controller {
     public Team ALLY;
     public Team ENEMY;
 
+    public int mapX, mapY;
+
     public MapLocation allyHQ  = null; // to be filled out by a blockchain message
     public MapLocation enemyHQ = null;
 
@@ -32,8 +34,10 @@ public abstract class Controller {
     public MapLocation spawnBase;          // loc of building which produced this unit (relevant for units)
     public Direction spawnBaseDirFrom;     // dir FROM building which produced this unit
     public Direction spawnBaseDirTo;       // dir TO building which produced this unit
+    public Direction favourableDirection;  // direction to roam
 
     public int spawnTurn;
+
 
     enum Symmetry {
         HORIZONTAL,
@@ -56,15 +60,13 @@ public abstract class Controller {
     Direction[] ordinal  = {directions[1], directions[3], directions[5], directions[7]};
 
     public void getInfo(RobotController rc) {
+        mapX = rc.getMapWidth();
+        mapY = rc.getMapHeight();
         ALLY = rc.getTeam();
         ENEMY = rc.getTeam().opponent();
         this.rc = rc;
         this.communicationHandler = new CommunicationHandler(rc);
-        if (rc.getType() == RobotType.DELIVERY_DRONE) {
-            this.movementSolver = new MovementSolver(rc, this);
-        } else {
-            this.movementSolver = new MovementSolver(rc);
-        }
+        this.movementSolver = rc.getType() == RobotType.DELIVERY_DRONE ? new MovementSolver(rc, this) : new MovementSolver(rc);
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
         getSpawnBase();
@@ -207,6 +209,7 @@ public abstract class Controller {
                 spawnBase = loc.add(dir);
                 spawnBaseDirTo = dir;
                 spawnBaseDirFrom = dir.opposite();
+                favourableDirection = spawnBaseDirFrom;
             }
         }
     }
