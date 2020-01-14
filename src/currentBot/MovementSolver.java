@@ -10,6 +10,7 @@ public class MovementSolver {
     final static int NET_GUN_RANGE = 15;
 
     MapLocation previous;
+    MapLocation twoback;
 
     RobotController rc;
     boolean rotateCW = true;
@@ -47,11 +48,11 @@ public class MovementSolver {
                 if (changes > 8) return Direction.CENTER;
             }
         } else {
-
             // while obstacle ahead, keep rotating
             while (isObstacle(dir, from.add(dir))) {
                 if (!onTheMap(rc.getLocation().add(dir))) {
                     rotateCW = !rotateCW; previous = null; failed = true;
+                    ++changes;
                 }
                 dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
                 // if blocked in every direction, stop rotating
@@ -61,7 +62,7 @@ public class MovementSolver {
         }
 
 
-
+        rc.setIndicatorLine(from, goal, 255, 255, 255);
 
         if (failed) {
             // rotateCW = !rotateCW;
@@ -69,6 +70,11 @@ public class MovementSolver {
             rc.setIndicatorLine(from, goal, 255, 0, 0);
         }
 
+        if (rc.getLocation().add(dir).equals(twoback)) {
+            rotateCW = !rotateCW;
+        }
+
+        twoback = previous;
         previous = from;
         return dir;
     }
