@@ -1,59 +1,78 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
+import currentBot.CommunicationHandler;
+import currentBot.SoupCluster;
+
+import java.util.LinkedList;
 
 public class HQController extends Controller {
     boolean locationSent = false;
 
+    int totalMiners;
+    int totalSoup = 0;
+    int lastRound = 1;
+    LinkedList<SoupCluster> soupClusters = new LinkedList<>();
+
     public HQController(RobotController rc) {
         this.allyHQ = rc.getLocation();
         getInfo(rc);
+        totalMiners = 0;
+    }
+
+    void updateClusters() throws GameActionException {
+        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess, i) == CommunicationHandler.CommunicationType.CLUSTER) {
+                    SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
+
+                    boolean seenBefore = false;
+                    for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
+                        if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) {
+                            alreadyFoundSoupCluster.update(broadcastedSoupCluster);
+                            seenBefore = true;
+                        }
+                    }
+
+                    if (!seenBefore) {
+                        // broadcastedSoupCluster.draw(this.rc);
+                        soupClusters.add(broadcastedSoupCluster);
+                    }
+
+                }
+            }
+        }
+        totalSoup = 0;
+        for (SoupCluster soupCluster : soupClusters) totalSoup += soupCluster.size;
+
+        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 
     public void run() throws GameActionException {
+        updateClusters();
 
-//        System.out.println("soup at round "+rc.getRoundNum()+" is "+rc.getTeamSoup());
         if (this.rc.getRoundNum() == 1) {
-            /*
-                Send first 2 miners on scouting mission to determine which axis the board is symmetrical
-                (If HQ is positioned on center line we just need 1)
-            */
-
             int HSize = this.rc.getMapHeight();
             int WSize = this.rc.getMapWidth();
 
             MapLocation HQPos = this.rc.getLocation();
-            if (HQPos.x == WSize / 2 + 1 && WSize % 2 == 1) {
-                // Cant be horizontally symmetric
-            } else if (HQPos.y == HSize / 2 + 1 && HSize % 2 == 1) {
-                // Cant be vertically symmetric
-            } else {
-                // Can be anything
-                rc.buildRobot(RobotType.MINER, (HQPos.x > WSize / 2) ? Direction.WEST : Direction.EAST);
-                Clock.yield();
-                rc.buildRobot(RobotType.MINER, (HQPos.y > HSize / 2) ? Direction.SOUTH : Direction.NORTH);
-            }
+
+            rc.buildRobot(RobotType.MINER, (HQPos.x > WSize / 2) ? Direction.WEST : Direction.EAST);
+            Clock.yield();
+            rc.buildRobot(RobotType.MINER, (HQPos.y > HSize / 2) ? Direction.SOUTH : Direction.NORTH);
         }
 
         if (!locationSent) {
             if (communicationHandler.sendAllyHQLoc(allyHQ)) locationSent = true;
         }
 
-        scanRobots();
-        for (RobotInfo enemy : enemies) {
-            if (enemy.getType() == RobotType.DELIVERY_DRONE) {
-                tryShoot(enemy);
-            }
-        }
+        updateClusters();
 
-
-        if (rc.getRoundNum() % 50 == 0) {
+        if (totalMiners < totalSoup / PlayerConstants.SOUP_PER_MINER + 4) {
             for (Direction dir : directions) {
-                tryBuild(RobotType.MINER, dir);
+                if (tryBuild(RobotType.MINER, dir)) {totalMiners++; break;}
             }
         }
-
-
-//        System.out.println("turn: "+rc.getRoundNum()+" "+"team soup now at "+rc.getTeamSoup());
     }
 }

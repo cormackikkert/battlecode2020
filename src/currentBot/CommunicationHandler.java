@@ -3,10 +3,10 @@ package currentBot;
 import battlecode.common.*;
 
 public class CommunicationHandler { // TODO : conserve bytecode by storing turn of last received message
+    public static final int SCOUT_MESSAGE_COST = 5;
     Team team;
     RobotController rc;
     int teamSecret;
-    int turn = 1;
 
     public enum CommunicationType {
         ENEMY,
@@ -96,7 +96,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {
         int[] message = new int[7];
         message[0] = teamSecret ^ rc.getRoundNum();
-        message[1] = teamSecret ^ CommunicationType.CLUSTER.ordinal();
+        message[1] = teamSecret ^ CommunicationType.ALLYHQ.ordinal();
         message[2] = teamSecret ^ loc.x;
         message[3] = teamSecret ^ loc.y;
 
@@ -124,15 +124,18 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return false;
     }
 
+    int turnA = 1;
     public MapLocation receiveAllyHQLoc() throws GameActionException { // FIXME : reimplement this later
         MapLocation out = null;
-        outer : for (int i = rc.getRoundNum()-1
+        outer : for (int i = turnA
                      ; i < rc.getRoundNum(); i++) {
+            turnA++;
             Transaction[] ally = rc.getBlock(i);
             for (Transaction t : ally) {
                 int[] message = t.getMessage();
                 if ((CommunicationType.ALLYHQ.ordinal() ^ teamSecret) == message[1]) {
                     out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
+                    System.out.println("received ally location");
                     break outer;
                 }
             }
@@ -140,10 +143,12 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return out;
     }
 
+    int turnE = 1;
     public MapLocation receiveEnemyHQLoc() throws GameActionException {
         MapLocation out = null;
-        outer : for (int i = rc.getRoundNum()-1
+        outer : for (int i = turnE
                      ; i < rc.getRoundNum(); i++) {
+            turnE++;
             Transaction[] ally = rc.getBlock(i);
             for (Transaction t : ally) {
                 int[] message = t.getMessage();
@@ -157,7 +162,6 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return out;
     }
 
-    public static final int SCOUT_MESSAGE_COST = 5;
     public boolean sendScoutDirection(MapLocation allyHQ, boolean horizontal) throws GameActionException {
         int HSize = this.rc.getMapHeight();
         int WSize = this.rc.getMapWidth();

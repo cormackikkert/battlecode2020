@@ -1,5 +1,6 @@
 package currentBot;
 import battlecode.common.*;
+import currentBot.Controllers.Controller;
 
 /*
     A class that handles movement
@@ -10,8 +11,10 @@ public class MovementSolver {
     final static int NET_GUN_RANGE = 15;
 
     MapLocation previous;
+    MapLocation twoback;
 
     RobotController rc;
+    Controller controller;
     boolean rotateCW = true;
 
 
@@ -19,12 +22,21 @@ public class MovementSolver {
         this.rc = rc;
     }
 
+    public MovementSolver(RobotController rc, Controller controller) {
+        this.rc = rc;
+        this.controller = controller;
+    }
+
     public Direction directionToGoal(MapLocation goal) throws GameActionException {
-        return directionToGoal(rc.getLocation(), goal);
+        return rc.getType() == RobotType.DELIVERY_DRONE ?
+                droneDirectionToGoal(rc.getLocation(), goal) :
+                directionToGoal(rc.getLocation(), goal);
     }
 
     public Direction directionFromPoint(MapLocation point) throws GameActionException {
-        return directionToGoal(point, rc.getLocation());
+        return rc.getType() == RobotType.DELIVERY_DRONE ?
+                droneDirectionToGoal(point, rc.getLocation()) :
+                directionToGoal(point, rc.getLocation());
     }
 
 
@@ -38,28 +50,19 @@ public class MovementSolver {
         int changes = 0;
         boolean failed = false;
 
-        if (rc.getType() == RobotType.DELIVERY_DRONE) {
-            RobotInfo[] enemies = rc.senseNearbyRobots();
-            while (isDroneObstacleAvoidGun(dir, from.add(dir), enemies)) {
-                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
-                changes++;
-                // if blocked in every direction, stop rotating
-                if (changes > 8) return Direction.CENTER;
+        // while obstacle ahead, keep rotating
+        while (isObstacle(dir, from.add(dir))) {
+            if (!onTheMap(rc.getLocation().add(dir))) {
+                rotateCW = !rotateCW; previous = null; failed = true;
+                ++changes;
             }
-            return dir;
-        } else {
-
-            // while obstacle ahead, keep rotating
-            while (isObstacle(dir, from.add(dir))) {
-                if (!onTheMap(rc.getLocation().add(dir))) {
-                    rotateCW = !rotateCW; previous = null; failed = true;
-                }
-                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
-                // if blocked in every direction, stop rotating
-                if (changes > 8) return Direction.CENTER;
-            }
-
+            dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+            // if blocked in every direction, stop rotating
+            if (changes > 8) return Direction.CENTER;
         }
+
+
+        rc.setIndicatorLine(from, goal, 255, 255, 255);
 
         if (failed) {
             // rotateCW = !rotateCW;
@@ -67,7 +70,36 @@ public class MovementSolver {
             rc.setIndicatorLine(from, goal, 255, 0, 0);
         }
 
+        if (rc.getLocation().add(dir).equals(twoback)) {
+            rotateCW = !rotateCW;
+        }
+
+        twoback = previous;
         previous = from;
+        return dir;
+    }
+
+    public Direction droneDirectionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
+        if (!rc.isReady()) Clock.yield();
+
+        Direction dir = from.directionTo(goal);
+        int changes = 0;
+        // while obstacle ahead, keep rotating
+        while (isDroneObstacleAvoidGun(dir, from.add(dir), controller.enemies)) {
+            dir = dir.rotateLeft();
+            changes++;
+            // if blocked in every direction, stop rotating
+            if (changes > 8) {
+                dir = Direction.CENTER;
+                break;
+            }
+        }
+
+        // move away from enemy HQ if within range of their net gun
+        if (controller.enemyHQ != null && from.isWithinDistanceSquared(controller.enemyHQ, NET_GUN_RANGE)) {
+            dir = controller.enemyHQ.directionTo(from);
+        }
+
         return dir;
     }
 
@@ -85,16 +117,44 @@ public class MovementSolver {
         return !rc.canMove(dir) || rc.senseFlooding(to) || to.equals(previous);
     }
 
+    // TODO modify for drones
+    public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {
+        return droneMoveAvoidGun(rc.getLocation(), goal);
+    }
+
+    public static final int SENSOR_RADIUS = 24;
+    public Direction droneMoveAvoidGun(MapLocation from, MapLocation goal) throws GameActionException {
+        if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
+
+
+        RobotInfo[] enemies = rc.senseNearbyRobots();
+//        System.out.println("sensing robots in range "+rc.getCurrentSensorRadiusSquared());
+
+        Direction dir = from.directionTo(goal);
+        int changes = 0;
+        // while obstacle ahead, keep rotating
+        while (isDroneObstacleAvoidGun(dir, from.add(dir), enemies)) {
+            dir = dir.rotateLeft();
+            changes++;
+            // if blocked in every direction, stop rotating
+            if (changes > 8) return Direction.CENTER;
+        }
+        previous = from;
+        return dir;
+    }
+
     /*
         Drones are weak to
             other drones (range 2 since moving next to them leaves chance to being captured)
             net guns (range 15 as in spec)
-    */ // FIXME : certain edge cases where drone cannot detect net gun/hq and moving diagonally will walk into range
+    */
     boolean isDroneObstacleAvoidGun(Direction dir, MapLocation to, RobotInfo[] enemies) throws GameActionException {
         for (RobotInfo enemy : enemies) {
             if (enemy.getTeam() != rc.getTeam().opponent()) continue;
-            if ((enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN)
-                    && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
+            if (
+//                    enemy.getType() == RobotType.DELIVERY_DRONE && to.isWithinDistanceSquared(enemy.getLocation(), 2)|| TODO : figure out optimal way to deal with opposing drones
+                    (enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
+//                System.out.println("dangerous! within range "+to.distanceSquaredTo(enemy.getLocation()));
                 return true;
             }
         }

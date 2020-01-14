@@ -54,10 +54,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
             Role assignment depending on turn. Early game defend, late game attack.
          */
 
-        if (rc.getRoundNum() <= SWITCH_TO_ATTACK) {
-            switchToDefenceMode();
-        } else {
+        if (rc.getRoundNum() >= SWITCH_TO_ATTACK) {
             switchToAttackMode();
+        } else {
+            switchToDefenceMode();
         }
     }
 

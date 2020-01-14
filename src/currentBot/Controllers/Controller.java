@@ -13,27 +13,33 @@ import java.util.LinkedList;
 import java.util.List;
 
 public abstract class Controller {
-    RobotController rc = null;
+    public RobotController rc = null;
 
-    Team NEUTRAL = Team.NEUTRAL;
-    Team ALLY;
-    Team ENEMY;
+    public Team NEUTRAL = Team.NEUTRAL;
+    public Team ALLY;
+    public Team ENEMY;
 
-    MapLocation allyHQ  = null; // to be filled out by a blockchain message
-    MapLocation enemyHQ = null;
+    public MapLocation allyHQ  = null; // to be filled out by a blockchain message
+    public MapLocation enemyHQ = null;
 
-    RobotInfo[] enemies;
-    RobotInfo[] allies;
+    public RobotInfo[] enemies;
+    public RobotInfo[] allies;
 
-    CommunicationHandler communicationHandler;
-    MovementSolver movementSolver;
+    public CommunicationHandler communicationHandler;
+    public MovementSolver movementSolver;
 
-    MapLocation spawnPoint;         // loc of production
-    MapLocation spawnBase;          // loc of building which produced this unit (relevant for units)
-    Direction spawnBaseDirFrom;     // dir FROM building which produced this unit
-    Direction spawnBaseDirTo;       // dir TO building which produced this unit
+    public MapLocation spawnPoint;         // loc of production
+    public MapLocation spawnBase;          // loc of building which produced this unit (relevant for units)
+    public Direction spawnBaseDirFrom;     // dir FROM building which produced this unit
+    public Direction spawnBaseDirTo;       // dir TO building which produced this unit
 
-    int spawnTurn;
+    public int spawnTurn;
+
+    enum Symmetry {
+        HORIZONTAL,
+        VERTICAL,
+        ROTATIONAL
+    }
 
     Direction[] directions = {
             Direction.NORTH,
@@ -219,9 +225,9 @@ public abstract class Controller {
         if (allyHQ != null) return;
         System.out.println("trying to find ally HQ out of "+allies.length+" options");
         for (RobotInfo ally : allies) {
+            System.out.println("found home HQ location");
             if (ally.getType() == RobotType.HQ && ally.getTeam() == ALLY) {
                 allyHQ = ally.getLocation();
-                System.out.println("found home HQ location");
                 return;
             }
         }
@@ -232,9 +238,9 @@ public abstract class Controller {
         System.out.println("trying to find enemy HQ out of "+enemies.length+" options");
         for (RobotInfo enemy : enemies) {
             if (enemy.getType() == RobotType.HQ && enemy.getTeam() == ENEMY) {
+                System.out.println("found enemy HQ location");
                 enemyHQ = enemy.getLocation();
                 communicationHandler.sendEnemyHQLoc(enemyHQ);
-                System.out.println("found enemy HQ location");
                 return;
             }
         }
@@ -256,6 +262,10 @@ public abstract class Controller {
                 e.printStackTrace();
             }
         }
+    }
+
+    public boolean onTheMap(MapLocation pos) {
+        return (0 <= pos.x && pos.x < rc.getMapWidth() && 0 <= pos.y && pos.y < rc.getMapHeight());
     }
 
     abstract public void run() throws GameActionException;
