@@ -46,6 +46,8 @@ public class MovementSolver {
     }
 
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
+        if (rc.getType() == RobotType.DELIVERY_DRONE) return droneDirectionToGoal(from, goal);
+
         // TODO: account for "hallways"
         if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
@@ -82,6 +84,10 @@ public class MovementSolver {
         twoback = previous;
         previous = from;
         return dir;
+    }
+
+    public Direction droneDirectionToGoal(MapLocation goal) throws GameActionException {
+        return droneDirectionToGoal(rc.getLocation(), goal);
     }
 
     public Direction droneDirectionToGoal(MapLocation from, MapLocation goal) throws GameActionException {

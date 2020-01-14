@@ -8,6 +8,7 @@ package currentBot.Controllers;
 import battlecode.common.*;
 import currentBot.CommunicationHandler;
 import currentBot.MovementSolver;
+import currentBot.RingQueue;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -21,7 +22,7 @@ public abstract class Controller {
 
     public int mapX, mapY;
 
-    public MapLocation allyHQ  = null; // to be filled out by a blockchain message
+    public MapLocation allyHQ = null; // to be filled out by a blockchain message
     public MapLocation enemyHQ = null;
 
     public RobotInfo[] enemies;
@@ -38,6 +39,8 @@ public abstract class Controller {
 
     public int spawnTurn;
 
+    Boolean[][] containsWater;
+    public RingQueue<MapLocation> queue;
 
     enum Symmetry {
         HORIZONTAL,
@@ -57,7 +60,7 @@ public abstract class Controller {
     };
 
     Direction[] cardinal = {directions[0], directions[2], directions[4], directions[6]};
-    Direction[] ordinal  = {directions[1], directions[3], directions[5], directions[7]};
+    Direction[] ordinal = {directions[1], directions[3], directions[5], directions[7]};
 
     public void getInfo(RobotController rc) {
         mapX = rc.getMapWidth();
@@ -102,8 +105,8 @@ public abstract class Controller {
     }
 
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
-        while ( rc.getLocation().distanceSquaredTo(goal) > 1
-                || !rc.canDepositDirt(rc.getLocation().directionTo(goal)) ) {
+        while (rc.getLocation().distanceSquaredTo(goal) > 1
+                || !rc.canDepositDirt(rc.getLocation().directionTo(goal))) {
             if (tryMove(movementSolver.directionToGoal(goal))) Clock.yield();
         }
     }
@@ -156,7 +159,7 @@ public abstract class Controller {
     }
 
     boolean isAdjacentTo(MapLocation loc) {
-        return getDistanceFrom(loc) == 1;
+        return getDistanceFrom(loc) <= 2;
     }
 
     MapLocation adjacentTile(Direction dir) {
@@ -166,13 +169,15 @@ public abstract class Controller {
     List<MapLocation> tilesInRange() {
         List<MapLocation> tiles = new LinkedList<>();
         int rsq = rc.getCurrentSensorRadiusSquared();
-        int r = 1; while (r*r < rsq) r++;
-        int x = rc.getLocation().x; int y = rc.getLocation().y;
+        int r = 1;
+        while (r * r < rsq) r++;
+        int x = rc.getLocation().x;
+        int y = rc.getLocation().y;
         for (int dx = -r; dx <= r; dx++) {
             for (int dy = -r; dy <= r; dy++) {
-                MapLocation pos = new MapLocation(x+dx,y+dy);
+                MapLocation pos = new MapLocation(x + dx, y + dy);
                 // apparently doesn't check if on map
-                if (x+dx < 0 || x + dx >= rc.getMapWidth() || y+dy < 0 || y+dy >= rc.getMapHeight()) continue;
+                if (x + dx < 0 || x + dx >= rc.getMapWidth() || y + dy < 0 || y + dy >= rc.getMapHeight()) continue;
                 if (rc.canSenseLocation(pos)) { // within range and on map
                     tiles.add(pos);
                 }
@@ -191,10 +196,17 @@ public abstract class Controller {
 
         RobotType spawnType;
         switch (rc.getType()) {
-            case MINER: spawnType = RobotType.HQ; break;
-            case DELIVERY_DRONE: spawnType = RobotType.FULFILLMENT_CENTER; break;
-            case LANDSCAPER: spawnType = RobotType.DESIGN_SCHOOL; break;
-            default: return; // ignore if robot is a building
+            case MINER:
+                spawnType = RobotType.HQ;
+                break;
+            case DELIVERY_DRONE:
+                spawnType = RobotType.FULFILLMENT_CENTER;
+                break;
+            case LANDSCAPER:
+                spawnType = RobotType.DESIGN_SCHOOL;
+                break;
+            default:
+                return; // ignore if robot is a building
         }
         MapLocation loc = rc.getLocation();
         for (Direction dir : directions) {
@@ -225,12 +237,12 @@ public abstract class Controller {
 //        enemies = rc.senseNearbyRobots();
 //        System.out.println("scan radius is "+rc.getCurrentSensorRadiusSquared()+", pollution is "+rc.sensePollution(rc.getLocation()));
         enemies = rc.senseNearbyRobots(-1, ENEMY);
-        allies  = rc.senseNearbyRobots(-1, ALLY);
+        allies = rc.senseNearbyRobots(-1, ALLY);
     }
 
     public void tryFindHomeHQLoc() {
         if (allyHQ != null) return;
-        System.out.println("trying to find ally HQ out of "+allies.length+" options");
+        System.out.println("trying to find ally HQ out of " + allies.length + " options");
         for (RobotInfo ally : allies) {
             System.out.println("found home HQ location");
             if (ally.getType() == RobotType.HQ && ally.getTeam() == ALLY) {
@@ -242,7 +254,7 @@ public abstract class Controller {
 
     public void tryFindEnemyHQLoc() throws GameActionException {
         if (enemyHQ != null) return;
-        System.out.println("trying to find enemy HQ out of "+enemies.length+" options");
+        System.out.println("trying to find enemy HQ out of " + enemies.length + " options");
         for (RobotInfo enemy : enemies) {
             if (enemy.getType() == RobotType.HQ && enemy.getTeam() == ENEMY) {
                 System.out.println("found enemy HQ location");
@@ -274,6 +286,86 @@ public abstract class Controller {
     public boolean onTheMap(MapLocation pos) {
         return (0 <= pos.x && pos.x < rc.getMapWidth() && 0 <= pos.y && pos.y < rc.getMapHeight());
     }
+
+
+    public MapLocation getNearestWaterTile() throws GameActionException {
+        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+        queue.clear();
+
+        queue.add(rc.getLocation());
+        visited[rc.getLocation().y][rc.getLocation().x] = true;
+
+        while (!queue.isEmpty()) {
+            MapLocation node = queue.poll();
+
+            for (Direction dir : Direction.allDirections()) {
+                MapLocation nnode = node.add(dir);
+                if (visited[nnode.y][nnode.x]) continue;
+                while (containsWater[nnode.y][nnode.x] == null) {
+                    if (!rc.isReady()) Clock.yield();
+                    if (tryMove(movementSolver.directionToGoal(nnode))) {
+                        // Update surroundings
+                        // Done here (instead of using the updateSurroundings fuction as this way we can
+                        // respond to changes in the map) (code speed > code quality I guess)
+
+                        for (int dx = -4; dx <= 4; ++dx) {
+                            for (int dy = -4; dy <= 4; ++dy) {
+                                MapLocation sensePos = new MapLocation(
+                                        rc.getLocation().x + dx,
+                                        rc.getLocation().y + dy);
+
+                                if (!rc.canSenseLocation(sensePos)) continue;
+
+                                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+
+                                // If we have already visited this tile it must have a shorter distance then
+                                // what we are looking at now
+                                if (containsWater[sensePos.y][sensePos.x] && visited[sensePos.y][sensePos.x]) {
+                                    return sensePos;
+                                }
+                            }
+                        }
+
+                    }
+                }
+                if (containsWater[nnode.y][nnode.x]) return nnode;
+                queue.add(nnode);
+                visited[nnode.y][nnode.x] = true;
+            }
+
+        }
+        return null;
+
+        /*
+        // Find nearest water tile, without using any datastructures
+        // (like a queue or visited set in normal BFS) (bad when it comes to exploring)
+        int cx = rc.getLocation().x;
+        int cy = rc.getLocation().y;
+        if (containsWater[cy][cx]) return rc.getLocation();
+
+        for (int offset = 1; ; ++offset) {
+            // Trace out a square around current position
+            for (int i = 0; i < offset + 1; ++i) {
+                MapLocation c1 = new MapLocation(cx - offset + i, cy + offset);
+                MapLocation c2 = new MapLocation(cx + offset, cy - offset + i);
+                MapLocation c3 = new MapLocation(cx + offset - i, cy - offset);
+                MapLocation c4 = new MapLocation(cx - offset, cy + offset - i);
+                for (MapLocation pos : new MapLocation[] {c1, c2, c3, c4}) {
+                    System.out.println("in here");
+                    while (shouldExplore.test(pos)) {
+                        rc.setIndicatorLine(rc.getLocation(), pos, 0,0, 255);
+                            tryMove(movementSolver.directionToGoal(pos));
+
+                    }
+                    if (shouldReturn.test(pos)) return pos;
+                }
+            }
+        }
+
+         */
+    }
+
+    public void searchSurroundingsContinued() throws GameActionException {}
 
     abstract public void run() throws GameActionException;
 }

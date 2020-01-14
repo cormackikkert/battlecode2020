@@ -612,9 +612,7 @@ public class MinerController extends Controller {
     }
 
     public void execBuilder() throws GameActionException {
-        currentState = State.SEARCHURGENT;
-        return;
-        /*
+
         // TODO: neaten, integrate building cost into some variable
         if (isAdjacentTo(buildLoc) && rc.getTeamSoup() > 150 + 200) {
             System.out.println("trying to build");
@@ -627,7 +625,7 @@ public class MinerController extends Controller {
             }
         } else {
             tryMove(movementSolver.directionToGoal(buildLoc));
-        }*/
+        }
     }
 
     public void execScout() throws GameActionException {

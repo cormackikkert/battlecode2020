@@ -1,6 +1,7 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
+import currentBot.RingQueue;
 
 /**
  * New strategy since 14/01/2020:
@@ -22,13 +23,38 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     State currentState = null;
 
+    MapLocation nearestWaterTile;
+
     public DeliveryDroneControllerMk2(RobotController rc) {
+        // Do heavy computation stuff here as 10 rounds are spent being built
+        containsWater = new Boolean[rc.getMapHeight()][rc.getMapWidth()];
+        queue = new RingQueue<>(rc.getMapHeight() * rc.getMapWidth());
         getInfo(rc);
     }
 
+    public void searchSurroundingsContinued() throws GameActionException {
+        // Yep bad naming on my part, searchSurroundings() is used in miner but has a return type
+        for (int dx = -4; dx <= 4; ++dx) {
+            for (int dy = -4; dy <= 4; ++dy) {
+                MapLocation delta = new MapLocation(dx, dy);
+                MapLocation sensePos = new MapLocation(
+                        rc.getLocation().x + dx,
+                        rc.getLocation().y + dy);
+
+                if (!rc.canSenseLocation(sensePos)) continue;
+
+                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+            }
+        }
+    }
 
     public void run() throws GameActionException {
-        if (!rc.isReady()) return;
+        if (!rc.isReady()) {
+            searchSurroundingsContinued();
+            return;
+        }
+
+
 
         assignRole();
         hqInfo();
@@ -108,7 +134,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 System.out.println("camping outside enemy hq");
             } else {
                 System.out.println("moving directly to enemy hq");
-                tryMove(movementSolver.droneDirectionToGoal(rc.getLocation(), enemyHQ));
+                tryMove(movementSolver.droneDirectionToGoal(enemyHQ));
             }
         } else if (allyHQ != null) { // move away from own hq
             if (movementSolver.nearEdge()) {
@@ -142,14 +168,21 @@ public class DeliveryDroneControllerMk2 extends Controller {
         /*
             move randomly until find water and drop unit // TODO improve like remembering water locations
          */
+        if (nearestWaterTile == null) {
+            System.out.println("Looking for water tile");
+            nearestWaterTile = getNearestWaterTile();
+        }
 
-        for (Direction dir : directions) {
-            if (rc.canDropUnit(dir) && rc.canSenseLocation(adjacentTile(dir)) && rc.senseFlooding(adjacentTile(dir))) {
-                rc.dropUnit(dir);
-                return;
+        if (!isAdjacentTo(nearestWaterTile)) {
+            System.out.println("Moving to water tile");
+            tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
+        } else {
+            System.out.println("dropping in water tile");
+            if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
+                rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
+                nearestWaterTile = null; // look for different water tile next time
             }
         }
-        tryMove(randomDirection());
     }
 
     public boolean tryPickUpUnit(RobotInfo enemy) throws GameActionException {
