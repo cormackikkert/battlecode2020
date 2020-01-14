@@ -220,7 +220,7 @@ public abstract class Controller {
 
     public void scanRobots() throws GameActionException {
 //        enemies = rc.senseNearbyRobots();
-        System.out.println("scan radius is "+rc.getCurrentSensorRadiusSquared()+", pollution is "+rc.sensePollution(rc.getLocation()));
+//        System.out.println("scan radius is "+rc.getCurrentSensorRadiusSquared()+", pollution is "+rc.sensePollution(rc.getLocation()));
         enemies = rc.senseNearbyRobots(-1, ENEMY);
         allies  = rc.senseNearbyRobots(-1, ALLY);
     }

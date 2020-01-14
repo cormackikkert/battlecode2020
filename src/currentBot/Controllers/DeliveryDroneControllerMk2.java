@@ -14,6 +14,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     private static final int CHASE_RADIUS = 24;
     private static final int DEFENSE_RADIUS = 35; // radius from hq to defend
     private static final int NET_GUN_RADIUS = 15;
+    private static final int CAMPING_RADIUS = 25; // for camping just outside net gun range
     private static final int OUTSIDE_NET_GUN_RADIUS = SENSOR_RADIUS;
     private static final int SWITCH_TO_ATTACK = 300; // turn for switching to attack mode
 
@@ -101,12 +102,14 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         // camp outside enemy hq
         if (enemyHQ != null) {
-            if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RADIUS)) {
-                tryMove(movementSolver.droneDirectionToGoal(rc.getLocation(), enemyHQ));
-                System.out.println("moving directly to enemy hq");
+            if (rc.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RADIUS)) {
+                System.out.println("moving away from enemy hq at "+enemyHQ);
+                tryMove(enemyHQ.directionTo(rc.getLocation()));
+            } else if (rc.getLocation().isWithinDistanceSquared(enemyHQ, CAMPING_RADIUS)) {
+                System.out.println("camping outside enemy hq");
             } else {
-                tryMove(movementSolver.directionFromPoint(enemyHQ));
-                // TODO : AVOID net guns and stay still and wait for enemies to come near
+                System.out.println("moving directly to enemy hq");
+                tryMove(movementSolver.droneDirectionToGoal(rc.getLocation(), enemyHQ));
             }
         } else if (allyHQ != null) { // move away from own hq
             tryMove(movementSolver.directionFromPoint(allyHQ));

@@ -50,6 +50,16 @@ public class HQController extends Controller {
     }
 
     public void run() throws GameActionException {
+        /*
+            Prioritise shooting over creating miners?
+         */
+        scanRobots();
+        for (RobotInfo enemy : enemies) {
+            if (rc.canShootUnit(enemy.getID())) {
+                rc.shootUnit(enemy.getID());
+            }
+        }
+
         updateClusters();
 
         if (this.rc.getRoundNum() == 1) {
