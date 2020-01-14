@@ -162,21 +162,22 @@ public class MinerController extends Controller {
                 if (elevationHeight[sensePos.y][sensePos.x] != null) continue;
 
                 // Check robot
-
                 RobotInfo robot = rc.senseRobotAtLocation(sensePos);
                 if (robot != null && (robot.type == RobotType.REFINERY)) {
                     buildMap[sensePos.y][sensePos.x] = robot.type.ordinal();
                 }
 
                 // Check elevation
+                if (!rc.canSenseLocation(sensePos)) continue;
                 elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
 
                 // Check water
+                if (!rc.canSenseLocation(sensePos)) continue;
                 containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
 
                 // Check soup
                 if (containsWater[sensePos.y][sensePos.x]) continue; // Ignore flooded soup (for now)
-
+                if (!rc.canSenseLocation(sensePos)) continue;
                 int crudeAmount = rc.senseSoup(sensePos);
 
                 if (soupCount[sensePos.y][sensePos.x] != null) {
@@ -339,7 +340,15 @@ public class MinerController extends Controller {
             for (int x = currentSoupCluster.x1; x <= currentSoupCluster.x2; ++x) {
                 for (int y = currentSoupCluster.y1; y <= currentSoupCluster.y2; ++y) {
                     if (soupCount[y][x] != null && soupCount[y][x] == 0) continue;
-                    if (containsWater[y][x] == null || containsWater[y][x]) continue;
+                    if (containsWater[y][x] == null) {
+                        // Try to reach water
+                        for (int i = 0; i < PlayerConstants.MOVES_BY_MINER && containsWater[y][x] == null;) {
+                            i += (rc.isReady()) ? 1 : 0;
+                            tryMove(movementSolver.directionToGoal(new MapLocation(x, y)));
+                            searchSurroundingsContinued();
+                        }
+                    }
+                    if (containsWater[y][x]) continue;
                     int dist = getDistanceSquared(rc.getLocation(), new MapLocation(x, y));
                     if (dist < bestDistance) {
                         currentSoupSquare = new MapLocation(x, y);
@@ -354,6 +363,7 @@ public class MinerController extends Controller {
 
             // Communicate that the soup cluster is finished
             currentSoupCluster.size = 0;
+            System.out.println("This cluster is finished");
             communicationHandler.sendCluster(currentSoupCluster);
 
             // Reset variables
@@ -602,6 +612,9 @@ public class MinerController extends Controller {
     }
 
     public void execBuilder() throws GameActionException {
+        currentState = State.SEARCHURGENT;
+        return;
+        /*
         // TODO: neaten, integrate building cost into some variable
         if (isAdjacentTo(buildLoc) && rc.getTeamSoup() > 150 + 200) {
             System.out.println("trying to build");
@@ -614,7 +627,7 @@ public class MinerController extends Controller {
             }
         } else {
             tryMove(movementSolver.directionToGoal(buildLoc));
-        }
+        }*/
     }
 
     public void execScout() throws GameActionException {
