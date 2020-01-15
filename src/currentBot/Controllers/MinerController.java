@@ -15,8 +15,6 @@ public class MinerController extends Controller {
         - After mining they go to other soup locations
 
      */
-    MovementSolver movementSolver;
-
     public enum State {
         SEARCH,        // Explores randomly looking for soup
         SEARCHURGENT,  // Goes to area where it knows soup already is
@@ -65,7 +63,6 @@ public class MinerController extends Controller {
 
     // Arrays that are filled as each miner searches the map
     Integer[][] soupCount = null;
-    Boolean[][] containsWater = null;
     Integer[][] elevationHeight = null;
     Integer[][] buildMap = null; // Stores what buildings have been built and where
 
@@ -85,16 +82,29 @@ public class MinerController extends Controller {
 
     public MinerController(RobotController rc) {
         this.rc = rc;
+        System.out.println("Soup is at " + rc.getTeamSoup());
         int round = rc.getRoundNum();
         this.born = round;
         this.movementSolver = new MovementSolver(this.rc);
         this.communicationHandler = new CommunicationHandler(this.rc);
+        queue = new RingQueue<>(rc.getMapHeight() * rc.getMapWidth());
 
-        System.out.println("I got built on round " + this.rc.getRoundNum());
+//        System.out.println("I got built on round " + this.rc.getRoundNum());
         bias = (int) (Math.random() * BIAS_TYPES);
 
+        // Check if a fulfillment center hasn't been built already
+        boolean foundHQ = false;
+        boolean builtFC = false;
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
-            if (robotInfo.getType() == RobotType.HQ) allyHQ = robotInfo.location;
+            if (robotInfo.getType() == RobotType.HQ) {foundHQ = true; allyHQ = robotInfo.location;}
+            if (robotInfo.getType() == RobotType.FULFILLMENT_CENTER) {builtFC = true;}
+        }
+
+
+        if (!builtFC && foundHQ &&
+                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
+            currentState = State.BUILDER;
+            buildType = RobotType.FULFILLMENT_CENTER;
         }
 
         soupCount = new Integer[rc.getMapHeight()][rc.getMapWidth()];
@@ -118,12 +128,10 @@ public class MinerController extends Controller {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        if (round % 3 == 0 && round > 3) { // FIXME: used for testing building buildings
-            System.out.println("me BUILDER");
-            currentState = State.BUILDER;
-            buildType = RobotType.FULFILLMENT_CENTER;
-            if (!findBuildLoc()) currentState = State.SEARCH;
-        }
+
+        //System.out.println("Spawned: " + builtFC + " " + foundHQ + " " + PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER));// + " " + (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)));
+
+
     }
 
 
@@ -227,9 +235,9 @@ public class MinerController extends Controller {
                 // Check robot
                 RobotInfo robot = rc.senseRobotAtLocation(sensePos);
                 if (robot != null && (robot.type == RobotType.REFINERY)) {
-                    System.out.println("Found refinery " + sensePos + " " + robot.type.ordinal());
+//                    System.out.println("Found refinery " + sensePos + " " + robot.type.ordinal());
                     buildMap[sensePos.y][sensePos.x] = robot.type.ordinal();
-                    System.out.println(buildMap[sensePos.y][sensePos.x]);
+//                    System.out.println(buildMap[sensePos.y][sensePos.x]);
                 }
 
                 // Check soup (ignore flooded tiles (for now))
@@ -363,7 +371,7 @@ public class MinerController extends Controller {
 
             // Communicate that the soup cluster is finished
             currentSoupCluster.size = 0;
-            System.out.println("This cluster is finished");
+//            System.out.println("This cluster is finished");
             communicationHandler.sendCluster(currentSoupCluster);
 
             // Reset variables
@@ -375,7 +383,7 @@ public class MinerController extends Controller {
 
         movementSolver.restart();
         while (getDistanceSquared(rc.getLocation(), currentSoupSquare) > 1) {
-            System.out.println("I am a miner going to soup I have found " + currentSoupSquare.toString() + " " + currentSoupCluster.toStringPos());
+//            System.out.println("I am a miner going to soup I have found " + currentSoupSquare.toString() + " " + currentSoupCluster.toStringPos());
             if (tryMove(movementSolver.directionToGoal(currentSoupSquare))) Clock.yield();
         }
 
@@ -383,7 +391,7 @@ public class MinerController extends Controller {
             if (!rc.isReady()) Clock.yield();
 
             while (rc.canMineSoup(rc.getLocation().directionTo(currentSoupSquare))) {
-                System.out.println("I am mining soup");
+//                System.out.println("I am mining soup");
                 rc.mineSoup(rc.getLocation().directionTo(currentSoupSquare));
 
                 // Might as well do computation now as we have already made our turn
@@ -396,7 +404,7 @@ public class MinerController extends Controller {
                         try {
                             soupCount[tile.y][tile.x] = rc.senseSoup(tile);
                         } catch (Exception e) {
-                            System.out.println("WtF " + tile + " " + rc.getLocation() + " " + start + " " + rc.getRoundNum());
+//                            System.out.println("WtF " + tile + " " + rc.getLocation() + " " + start + " " + rc.getRoundNum());
                         }
                     }
                 }
@@ -420,7 +428,7 @@ public class MinerController extends Controller {
 
                 // While loop as there may be robots in the way
                 while (refineryPos == null) {
-                    System.out.println("I am looking for a place to build a refinery");
+//                    System.out.println("I am looking for a place to build a refinery");
                     for (Direction dir : Direction.allDirections()) {
                         if (tryBuild(RobotType.REFINERY, dir)) {
                             refineryPos = rc.getLocation().add(dir);
@@ -487,11 +495,11 @@ public class MinerController extends Controller {
             }
 
              */
-            System.out.println("Heading to soup cluster at " + currentSoupCluster.toStringPos());
+//            System.out.println("Heading to soup cluster at " + currentSoupCluster.toStringPos());
             tryMove(movementSolver.directionToGoal(currentSoupCluster.closest(rc.getLocation())));
             Clock.yield();
         }
-        System.out.println("Arrived");
+//        System.out.println("Arrived");
         currentState = State.MINE;
     }
 
@@ -500,7 +508,7 @@ public class MinerController extends Controller {
             Performs BFS to determine size of cluster
          */
 
-        System.out.println("Searching for cluster at " + pos.toString());
+//        System.out.println("Searching for cluster at " + pos.toString());
         if (searchedForSoupCluster[pos.y][pos.x]) return null;
 
         RingQueue<MapLocation> queue = new RingQueue<>(this.rc.getMapHeight() * this.rc.getMapWidth());
@@ -572,7 +580,7 @@ public class MinerController extends Controller {
 
         SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, (refineryPos == null) ? allyHQ : refineryPos);
 
-        System.out.println("Finished finding cluster: " + found.size);
+//        System.out.println("Finished finding cluster: " + found.size);
 
         // Check to see if other miners have already found this cluster
         boolean hasBeenBroadCasted = false;
@@ -612,19 +620,19 @@ public class MinerController extends Controller {
     }
 
     public void execBuilder() throws GameActionException {
+//        System.out.println("Builder stuff");
+        if (buildLoc == null) {
+            buildLoc = getNearestBuildTile();
+        }
 
-        // TODO: neaten, integrate building cost into some variable
-        if (isAdjacentTo(buildLoc) && rc.getTeamSoup() > 150 + 200) {
-            System.out.println("trying to build");
-            switch (buildType) {
-                case REFINERY: tryMultiBuild(RobotType.REFINERY); break;
-                case VAPORATOR: tryMultiBuild(RobotType.VAPORATOR); break;
-                case DESIGN_SCHOOL: tryMultiBuild(RobotType.DESIGN_SCHOOL); break;
-                case FULFILLMENT_CENTER: tryMultiBuild(RobotType.FULFILLMENT_CENTER); break;
-                case NET_GUN: tryMultiBuild(RobotType.NET_GUN); break;
-            }
-        } else {
+        if (!isAdjacentTo(buildLoc)) {
             tryMove(movementSolver.directionToGoal(buildLoc));
+        } else {
+            if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
+                if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc))) {
+                    currentState = State.SEARCHURGENT;
+                }
+            }
         }
     }
 
@@ -634,7 +642,7 @@ public class MinerController extends Controller {
         // Currently just keep walking until you have found the enemy HQ or you cant anymore
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
-                System.out.println("YIPEEE - Found HQ");
+//                System.out.println("YIPEEE - Found HQ");
                 currentState = State.SEARCH;
                 // FIXME : for transmitting enemy HQ loc
                 communicationHandler.sendEnemyHQLoc(robotInfo.location);
@@ -642,7 +650,7 @@ public class MinerController extends Controller {
             }
         }
         if (rc.isReady() && !tryMove(allyHQ.directionTo(this.rc.getLocation()))) {
-            System.out.println("Stop enemy searching");
+//            System.out.println("Stop enemy searching");
             currentState = State.SEARCH;
         }
     }
@@ -664,13 +672,13 @@ public class MinerController extends Controller {
                 break;
             default:
                 candidateEnemyHQ = new MapLocation(rc.getMapWidth() - allyHQ.x - 1, rc.getMapHeight() - allyHQ.y - 1);
-                System.out.println("REEE");
+//                System.out.println("REEE");
 
         }
 
         movementSolver.restart();
         while (getDistanceSquared(rc.getLocation(),candidateEnemyHQ) > 8) {
-            System.out.println("I am searching for enemy HQ");
+//            System.out.println("I am searching for enemy HQ");
             tryMove(movementSolver.directionToGoal(candidateEnemyHQ));
             Clock.yield();
         }
@@ -679,7 +687,7 @@ public class MinerController extends Controller {
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
                 // Found HQ yahtzee!!
-                System.out.println("Found enemy HQ");
+//                System.out.println("Found enemy HQ");
                 communicationHandler.sendEnemyHQLoc(robotInfo.location);
                 enemyHQ = robotInfo.location;
                 found = true;
@@ -793,7 +801,7 @@ public class MinerController extends Controller {
         for (Direction dir : directions) {
             if (rc.canBuildRobot(robotType, dir)) {
                 rc.buildRobot(robotType, dir);
-                System.out.println("built a "+robotType);
+//                System.out.println("built a "+robotType);
                 currentState = State.SEARCH; // FIXME: switch to search for testing purposes, specifically to conserve soup
                 break;
             }
