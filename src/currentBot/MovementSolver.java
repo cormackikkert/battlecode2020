@@ -12,10 +12,14 @@ public class MovementSolver {
 
     MapLocation previous;
     MapLocation twoback;
+    Direction previousDir = null;
 
     RobotController rc;
     Controller controller;
     boolean rotateCW = true;
+
+    Direction[] cardinal = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
+    Direction[] ordinal  = {Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST};
 
 
     public MovementSolver(RobotController rc) {
@@ -124,16 +128,34 @@ public class MovementSolver {
 
     boolean isObstacle(Direction dir, MapLocation to) throws GameActionException {
         //point is obstacle if there is a building, is not on map (checked by canMove)
-        // if it is flooded, or is previous point
+        // if it is flooded, next to a drone or is previous point
+        
+        // pretty crap implementation to avoid drones since gets stuck if many drones around
+//        boolean alreadyInDroneRange = false;
+//        controller.scanRobots();
+//        for (RobotInfo robotInfo : controller.enemies) {
+//            if (robotInfo.getType() == RobotType.DELIVERY_DRONE &&
+//                    rc.getLocation().isAdjacentTo(robotInfo.getLocation())) {
+//                System.out.println("already adjacent to drone");
+//                alreadyInDroneRange = true;
+//            }
+//        }
+//        if (!alreadyInDroneRange) {
+//            for (RobotInfo robotInfo : controller.enemies) {
+//                if (robotInfo.getType() == RobotType.DELIVERY_DRONE &&
+//                        to.isAdjacentTo(robotInfo.getLocation())) {
+//                    return true;
+//                }
+//            }
+//        }
+
         return !rc.canMove(dir) || rc.senseFlooding(to) || to.equals(previous);
     }
 
-    // TODO modify for drones
     public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {
         return droneMoveAvoidGun(rc.getLocation(), goal);
     }
 
-    public static final int SENSOR_RADIUS = 24;
     public Direction droneMoveAvoidGun(MapLocation from, MapLocation goal) throws GameActionException {
         if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
@@ -154,11 +176,6 @@ public class MovementSolver {
         return dir;
     }
 
-    /*
-        Drones are weak to
-            other drones (range 2 since moving next to them leaves chance to being captured)
-            net guns (range 15 as in spec)
-    */
     boolean isDroneObstacleAvoidGun(Direction dir, MapLocation to, RobotInfo[] enemies) throws GameActionException {
         for (RobotInfo enemy : enemies) {
             if (enemy.getTeam() != rc.getTeam().opponent()) continue;
@@ -173,6 +190,36 @@ public class MovementSolver {
         return !rc.canMove(dir);
     }
 
+    public void windowsRoam() throws GameActionException {
+        if (previousDir == null) {
+            previousDir = controller.spawnBaseDirFrom;
+        }
+
+        Direction direction = previousDir;
+
+        if (isCardinal(direction)) {
+            direction = (rc.getID() & 1) == 0 ? direction.rotateLeft() : direction.rotateRight();
+        }
+
+        if (nearHEdge()) {
+            switch (direction) {
+                case NORTHEAST: case SOUTHWEST: direction = rotate90R(direction); break;
+                case NORTHWEST: case SOUTHEAST: direction = rotate90L(direction); break;
+            }
+        }
+
+        if (nearVEdge()) {
+            switch (direction) {
+                case NORTHEAST: case SOUTHWEST: direction = rotate90L(direction); break;
+                case NORTHWEST: case SOUTHEAST: direction = rotate90R(direction); break;
+            }
+        }
+
+        controller.tryMove(directionGo(direction));
+
+        previousDir = direction;
+    }
+
     public boolean onTheMap(MapLocation pos) {
         return (0 <= pos.x && pos.x < rc.getMapWidth() && 0 <= pos.y && pos.y < rc.getMapHeight());
     }
@@ -185,5 +232,32 @@ public class MovementSolver {
         int WSize = this.rc.getMapWidth();
 
         return (x <= DISTANCE_FROM_EDGE || x >= WSize - DISTANCE_FROM_EDGE || y <= DISTANCE_FROM_EDGE || y >= HSize - DISTANCE_FROM_EDGE);
+    }
+
+    public boolean nearHEdge() {
+        return (rc.getLocation().y <= DISTANCE_FROM_EDGE || rc.getLocation().y >= rc.getMapHeight() - DISTANCE_FROM_EDGE);
+    }
+
+    public boolean nearVEdge() {
+        return (rc.getLocation().x <= DISTANCE_FROM_EDGE || rc.getLocation().x >= rc.getMapWidth() - DISTANCE_FROM_EDGE);
+    }
+
+    public Direction rotate90L(Direction direction) {
+        return direction.rotateLeft().rotateLeft();
+    }
+
+    public Direction rotate90R(Direction direction) {
+        return direction.rotateRight().rotateRight();
+    }
+
+    public boolean isCardinal(Direction dir) {
+        for (Direction direction : cardinal) {
+            if (dir == direction) return true;
+        }
+        return false;
+    }
+
+    public boolean isOrdinal(Direction dir) {
+        return !isCardinal(dir);
     }
 }

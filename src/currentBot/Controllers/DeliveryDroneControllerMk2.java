@@ -3,6 +3,8 @@ package currentBot.Controllers;
 import battlecode.common.*;
 import currentBot.RingQueue;
 
+import static currentBot.Controllers.PlayerConstants.*;
+
 /**
  * New strategy since 14/01/2020:
  * > get soup
@@ -11,14 +13,11 @@ import currentBot.RingQueue;
  * > drone attack (muddle up enemy formations)
  */
 public class DeliveryDroneControllerMk2 extends Controller {
-    static final int DEFENSE_RADIUS = 35; // radius from hq to defend
-    static final int NET_GUN_RADIUS = 15;
-    static final int CAMPING_RADIUS = 25; // for camping just outside net gun range
-    static final int SWITCH_TO_ATTACK = 300; // turn for switching to attack mode
 
     enum State {
         DEFEND,
         ATTACK,
+        WANDER
     }
 
     State currentState = null;
@@ -57,18 +56,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
 
         assignRole();
-        hqInfo();
+        hqInfo(); // includes scanning robots
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
                 case ATTACK: execAttackPatrol();            break;
                 case DEFEND: execDefendPatrol();            break;
+                case WANDER: execWanderPatrol();            break;
             }
         } else {
-            switch (currentState) {
-                case ATTACK: execAttackKill();              break;
-                case DEFEND: execDefendKill();              break;
-            }
+            execKill();
         }
     }
 
@@ -81,7 +78,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         if (rc.getRoundNum() >= SWITCH_TO_ATTACK) {
             switchToAttackMode();
         } else {
-            switchToDefenceMode();
+//            switchToDefenceMode();
+            switchToWanderMode();
         }
     }
 
@@ -99,14 +97,20 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        // camp around home FIXME : case when allyHQ = null or guarantee get hq
-        if (rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_RADIUS)) {
-            if (!tryMove(spawnBaseDirFrom)) {
-                tryMove(randomDirection());
+        // camp around home
+        if (ADJACENT_DEFEND ?
+                isAdjacentTo(allyHQ) :
+                rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_RADIUS)) {
+            System.out.println("stand still to defend");
+        } else {
+            if (allyHQ != null) {
+                if (!tryMove(rc.getLocation().directionTo(allyHQ))) {
+                    tryMove(randomDirection());
+                }
+            } else {
+                tryMove(randomDirection()); // should never get here since should find hq
             }
             System.out.println("move to defend");
-        } else {
-            System.out.println("stand still to defend");
         }
     }
 
@@ -147,12 +151,14 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
     }
 
-    public void execDefendKill() throws GameActionException {
-        execKill();
-    }
+    public void execWanderPatrol() throws GameActionException {
+        for (RobotInfo enemy : enemies) {
+            if (tryPickUpUnit(enemy)) {
+                return;
+            }
+        }
 
-    public void execAttackKill() throws GameActionException {
-        execKill();
+        movementSolver.windowsRoam();
     }
 
     public void switchToAttackMode() throws GameActionException {
@@ -161,6 +167,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public void switchToDefenceMode() throws GameActionException {
         currentState = State.DEFEND;
+    }
+
+    public void switchToWanderMode() throws GameActionException {
+        currentState = State.WANDER;
     }
 
     public void execKill() throws GameActionException {
