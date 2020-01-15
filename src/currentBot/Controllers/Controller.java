@@ -90,7 +90,7 @@ public abstract class Controller {
         } else return false;
     }
 
-    boolean tryMove(Direction dir) throws GameActionException {
+    public boolean tryMove(Direction dir) throws GameActionException {
         // System.out.println("I am trying to move " + dir + "; " + rc.isReady() + " " + rc.getCooldownTurns() + " " + rc.canMove(dir));
         if (rc.isReady() && rc.canMove(dir)) {
             rc.move(dir);

@@ -85,7 +85,7 @@ public class MinerController extends Controller {
         System.out.println("Soup is at " + rc.getTeamSoup());
         int round = rc.getRoundNum();
         this.born = round;
-        this.movementSolver = new MovementSolver(this.rc);
+        this.movementSolver = new MovementSolver(this.rc, this);
         this.communicationHandler = new CommunicationHandler(this.rc);
         queue = new RingQueue<>(rc.getMapHeight() * rc.getMapWidth());
 
