@@ -10,6 +10,8 @@ public class PlayerConstants {
     static final int SOUP_PER_MINER = 8; // how much new soup needs to be found before spawning another miner
     static final int MOVES_BY_MINER = 10; // How many moves a miner makes to explore an unexplored tile in its territory (before giving up)
 
+    static final int GRID_BLOCK_SIZE = 7;
+
     static int buildSoupRequirements(RobotType buildType) {
         switch (buildType) {
             case DESIGN_SCHOOL:

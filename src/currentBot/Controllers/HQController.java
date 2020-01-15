@@ -24,7 +24,7 @@ public class HQController extends Controller {
         for (int i = lastRound; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
-                if (communicationHandler.identify(mess, i) == CommunicationHandler.CommunicationType.CLUSTER) {
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.CLUSTER) {
                     SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
 
                     boolean seenBefore = false;

@@ -11,6 +11,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public enum CommunicationType {
         ENEMY,
         CLUSTER,
+        MAPBLOCK,
         ALLYHQ,
         ENEMYHQ,
         SCOUTDIRECTION,
@@ -43,6 +44,15 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         encode(arr);
     }
 
+
+
+    public CommunicationType identify(int[] message) {
+        if (message[0] % (1 << 25) == teamSecret && message.length == 7) {
+            return CommunicationType.values()[message[0] >> 25];
+        }
+        return CommunicationType.ENEMY;
+    }
+
     public boolean sendCluster(SoupCluster cluster) throws GameActionException {
         int[] message = bluePrint(CommunicationType.CLUSTER);
 
@@ -69,17 +79,6 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return false;
     }
 
-    public CommunicationType identify(int[] message, int round) {
-        if (message[0] % (1 << 25) == teamSecret) {
-            return CommunicationType.values()[message[0] >> 25];
-        }
-        return CommunicationType.ENEMY;
-    }
-
-    public SoupCluster getCluster(int[] message, int round) {
-        return getCluster(message);
-    }
-
     public SoupCluster getCluster(int[] message) {
         decode(message);
         int y2 = message[1] % (1 << 8); message[1] >>= 8;
@@ -91,6 +90,28 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int rx = message[3] % (1 << 8); message[3] >>= 8;
 
         return new SoupCluster(x1, y1, x2, y2, message[2], new MapLocation(rx, ry));
+    }
+
+    public boolean sendMapBlock(MapBlock mapBlock) throws GameActionException {
+        int[] message = bluePrint(CommunicationType.MAPBLOCK);
+        message[1] = mapBlock.pos.x;
+        message[2] = mapBlock.pos.y;
+        message[3] = mapBlock.soupCount;
+        message[4] = mapBlock.enemyCount;
+        message[5] = (mapBlock.isReachable) ? 1 : 0;
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
+            return true;
+        }
+        return false;
+    }
+
+    public MapBlock getMapBlock(int[] message) {
+        decode(message);
+        return new MapBlock(new MapLocation(message[1], message[2]), message[3], message[4], message[5] == 1);
     }
 
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {
@@ -126,6 +147,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     int turnA = 1;
     public MapLocation receiveAllyHQLoc() throws GameActionException { // FIXME : reimplement this later
+        // TODO: use my encode and decode methods lol
+        // also fyi I put this sort of thing in my miner class so I avoid scanning
+        // the same part of the block chain multiple times
         MapLocation out = null;
         outer : for (int i = turnA
                      ; i < rc.getRoundNum(); i++) {

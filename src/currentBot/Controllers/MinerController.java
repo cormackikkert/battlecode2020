@@ -68,8 +68,6 @@ public class MinerController extends Controller {
 
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
 
-    boolean[][] visited = null;
-
     SoupCluster currentSoupCluster; // Soup cluster the miner goes to
     MapLocation currentSoupSquare; // Soup square the miner mines
 
@@ -160,7 +158,7 @@ public class MinerController extends Controller {
         return crudeCount > 0;
     }
 
-    public SoupCluster searchSurroundings() throws GameActionException {
+    public SoupCluster searchSurroundingsSoup() throws GameActionException {
         // Check to see if you can detect any soup
         for (int dx = -6; dx <= 6; ++dx) {
             for (int dy = -6; dy <= 6; ++dy) {
@@ -268,7 +266,7 @@ public class MinerController extends Controller {
             return;
         }
 
-        SoupCluster soupCluster = searchSurroundings();
+        SoupCluster soupCluster = searchSurroundingsSoup();
         if (soupCluster != null) {
             currentState = State.SEARCHURGENT;
             currentSoupCluster = soupCluster;
@@ -489,7 +487,7 @@ public class MinerController extends Controller {
             /*
                 Now as we have dedicated searches we only focus on getting to the soup cluster
 
-            SoupCluster soupCluster = searchSurroundings();
+            SoupCluster soupCluster = searchSurroundingsSoup();
             if (soupCluster != null) {
                 currentSoupCluster = soupCluster;
             }
@@ -515,6 +513,7 @@ public class MinerController extends Controller {
         queue.add(pos);
         searchedForSoupCluster[pos.y][pos.x] = true;
 
+        int crudeSoup = 0;
         int size = 0;
 
         int x1 = pos.x;
@@ -525,7 +524,7 @@ public class MinerController extends Controller {
         // Incase the enemy has already occupied this spot
         MapLocation refineryPos = null;
 
-        while (!queue.isEmpty()) {
+        while (!queue.isEmpty() && (x2 - x1) * (y2 - y1) <= 50) {
             MapLocation current = queue.poll();
             if (buildMap[current.y][current.x] != null && buildMap[current.y][current.x] == RobotType.REFINERY.ordinal()) {
                 refineryPos = current;
@@ -542,8 +541,6 @@ public class MinerController extends Controller {
             // Determine if we already know about this cluster
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
-
-            ++size;
 
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
@@ -570,6 +567,8 @@ public class MinerController extends Controller {
                 }
                 if (usedMoves < 0) continue;
 
+                crudeSoup += (soupCount[neighbour.y][neighbour.x] == null) ? 0 : soupCount[neighbour.y][neighbour.x];
+
                 if (soupCount[neighbour.y][neighbour.x] > 0 || (buildMap[neighbour.y][neighbour.x] != null && buildMap[neighbour.y][neighbour.x] == RobotType.REFINERY.ordinal())) {
                     queue.add(neighbour);
                     searchedForSoupCluster[neighbour.y][neighbour.x] = true;
@@ -578,7 +577,7 @@ public class MinerController extends Controller {
         }
 
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, (refineryPos == null) ? allyHQ : refineryPos);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, crudeSoup, (refineryPos == null) ? allyHQ : refineryPos);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 
@@ -597,7 +596,7 @@ public class MinerController extends Controller {
         for (int i = lastRound; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
-                if (communicationHandler.identify(mess, i) == CommunicationHandler.CommunicationType.CLUSTER) {
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.CLUSTER) {
                     SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
 
                     boolean seenBefore = false;
@@ -611,6 +610,11 @@ public class MinerController extends Controller {
                     if (!seenBefore) {
                         // broadcastedSoupCluster.draw(this.rc);
                         soupClusters.add(broadcastedSoupCluster);
+                        for (int y = broadcastedSoupCluster.y1; y <= broadcastedSoupCluster.y2; ++y) {
+                            for (int x = broadcastedSoupCluster.x1; x < broadcastedSoupCluster.x2; ++x) {
+                                searchedForSoupCluster[y][x] = true;
+                            }
+                        }
                     }
 
                 }
@@ -637,7 +641,7 @@ public class MinerController extends Controller {
     }
 
     public void execScout() throws GameActionException {
-        searchSurroundings();
+        searchSurroundingsSoup();
 
         // Currently just keep walking until you have found the enemy HQ or you cant anymore
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
@@ -656,7 +660,7 @@ public class MinerController extends Controller {
     }
 
     public void execRush() throws GameActionException {
-        searchSurroundings();
+        searchSurroundingsSoup();
         // isRush = false; // This function is meant to only execute once
 
         MapLocation candidateEnemyHQ;
@@ -715,7 +719,7 @@ public class MinerController extends Controller {
     public void execExplore() throws GameActionException {
         Stack<MapLocation> stack = new Stack<>();
         stack.push(rc.getLocation());
-        searchSurroundings();
+        searchSurroundingsSoup();
 
         while (!stack.isEmpty()) {
             MapLocation node = stack.pop();
@@ -729,7 +733,7 @@ public class MinerController extends Controller {
 
                 while (elevationHeight[nnode.y][nnode.x] == null) {
                     tryMove(movementSolver.directionToGoal(nnode));
-                    searchSurroundings();
+                    searchSurroundingsSoup();
 
                     Clock.yield();
                 }

@@ -7,6 +7,7 @@ package currentBot.Controllers;
 
 import battlecode.common.*;
 import currentBot.CommunicationHandler;
+import currentBot.MapBlock;
 import currentBot.MovementSolver;
 import currentBot.RingQueue;
 
@@ -40,6 +41,15 @@ public abstract class Controller {
     public int spawnTurn;
 
     Boolean[][] containsWater;
+    Integer[][] elevationMap;
+    Integer[][] soupCount;
+    RobotType[][] allyBuildMap;
+    RobotType[][] enemyBuildMap;
+    boolean[][] visited;
+
+    MapBlock[][] mapBlocks;
+    int lastRound = 1;
+
     public RingQueue<MapLocation> queue;
 
     enum Symmetry {
@@ -287,6 +297,7 @@ public abstract class Controller {
         return (0 <= pos.x && pos.x < rc.getMapWidth() && 0 <= pos.y && pos.y < rc.getMapHeight());
     }
 
+    public void searchSurroundings() throws GameActionException {};
 
     public MapLocation getNearestWaterTile() throws GameActionException {
         boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
@@ -419,7 +430,56 @@ public abstract class Controller {
         return null;
     }
 
+    public MapLocation getNearestSoupTile() throws GameActionException {
+        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+        searchSurroundings();
+        queue.clear();
+
+        queue.add(rc.getLocation());
+        visited[rc.getLocation().y][rc.getLocation().x] = true;
+
+        while (!queue.isEmpty()) {
+            MapLocation node = queue.poll();
+
+            if (soupCount[node.y][node.x] == null ||
+                    soupCount[node.y][node.x] > 0) return node;
+
+            for (Direction dir : Direction.allDirections()) {
+                MapLocation nnode = node.add(dir);
+                if (!onTheMap(nnode)) continue;
+                if (visited[nnode.y][nnode.x]) continue;
+                queue.add(nnode);
+                visited[nnode.y][nnode.x] = true;
+            }
+
+        }
+        return null;
+    }
+
     public void searchSurroundingsContinued() throws GameActionException {}
+
+    void updateMapBlocks() throws GameActionException {
+        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCK) {
+                    MapBlock mb = communicationHandler.getMapBlock(mess);
+                    mapBlocks[mb.pos.y][mb.pos.x] = mb;
+
+                    if (visited != null) {
+                        int BS = PlayerConstants.GRID_BLOCK_SIZE;
+                        for (int x = BS * mb.pos.x; x < Math.min(BS * (mb.pos.x + 1), rc.getMapWidth()); ++x) {
+                            for (int y = BS * mb.pos.y; y < Math.min(BS * (mb.pos.y + 1), rc.getMapHeight()); ++y) {
+                                visited[y][x] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+    }
+
 
     abstract public void run() throws GameActionException;
 }
