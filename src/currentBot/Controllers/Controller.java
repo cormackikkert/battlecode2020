@@ -300,6 +300,7 @@ public abstract class Controller {
 
             for (Direction dir : Direction.allDirections()) {
                 MapLocation nnode = node.add(dir);
+                if (!onTheMap(nnode)) continue;
                 if (visited[nnode.y][nnode.x]) continue;
                 while (containsWater[nnode.y][nnode.x] == null) {
                     if (!rc.isReady()) Clock.yield();
@@ -363,6 +364,59 @@ public abstract class Controller {
         }
 
          */
+    }
+
+    public MapLocation getNearestBuildTile() throws GameActionException {
+        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+        queue.clear();
+
+        queue.add(rc.getLocation());
+        visited[rc.getLocation().y][rc.getLocation().x] = true;
+
+        while (!queue.isEmpty()) {
+            System.out.println("Searching for build tile");
+            MapLocation node = queue.poll();
+
+            for (Direction dir : Direction.allDirections()) {
+                MapLocation nnode = node.add(dir);
+                if (!onTheMap(nnode)) continue;
+                if (visited[nnode.y][nnode.x]) continue;
+                while (containsWater[nnode.y][nnode.x] == null) {
+                    if (!rc.isReady()) Clock.yield();
+                    if (tryMove(movementSolver.directionToGoal(nnode))) {
+                        // Update surroundings
+                        // Done here (instead of using the updateSurroundings fuction as this way we can
+                        // respond to changes in the map) (code speed > code quality I guess)
+
+                        for (int dx = -4; dx <= 4; ++dx) {
+                            for (int dy = -4; dy <= 4; ++dy) {
+                                MapLocation sensePos = new MapLocation(
+                                        rc.getLocation().x + dx,
+                                        rc.getLocation().y + dy);
+
+                                if (!rc.canSenseLocation(sensePos)) continue;
+
+                                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+
+                                // If we have already visited this tile it must have a shorter distance then
+                                // what we are looking at now
+                                if (!containsWater[sensePos.y][sensePos.x] &&
+                                        (rc.senseRobotAtLocation(sensePos) == null) &&
+                                        visited[sensePos.y][sensePos.x]) {
+                                    return sensePos;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (containsWater[nnode.y][nnode.x]) continue;
+                if (rc.senseRobotAtLocation(nnode) == null) return nnode;
+                queue.add(nnode);
+                visited[nnode.y][nnode.x] = true;
+            }
+
+        }
+        return null;
     }
 
     public void searchSurroundingsContinued() throws GameActionException {}
