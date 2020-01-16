@@ -26,6 +26,13 @@ public class DesignSchoolController extends Controller {
     public void run() throws GameActionException {
         switch (currentState) {
             case DESTROY_ENEMY: execDestroyEnemy(); break;
+            case DEFAULT: execRandomBuild(); break;
+        }
+    }
+
+    public void execRandomBuild() throws GameActionException {
+        for (Direction direction : Direction.allDirections()) {
+            tryBuild(RobotType.LANDSCAPER, direction);
         }
     }
 

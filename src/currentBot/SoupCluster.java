@@ -9,19 +9,26 @@ public class SoupCluster {
      */
 
     public int x1, x2, y1, y2;
+    public int X, Y; // soup center
+    public MapLocation center;
     public int width;
     public int height;
     public int size;
     public MapLocation refinery;
+//    public boolean flooded;
     public SoupCluster(int x1, int y1, int x2, int y2, int size, MapLocation refinery) {
         this.x1 = x1;
         this.y1 = y1;
         this.x2 = x2;
         this.y2 = y2;
+        this.X = (Math.abs(x2 - x1)) / 2;
+        this.Y = (Math.abs(y2 - y1)) / 2;
+        this.center = new MapLocation(X, Y);
         width = x2 - x1 + 1;
         height = y2 - y1 + 1;
         this.size = size;
         this.refinery = refinery;
+//        this.flooded = flooded;
     }
 
     public MapLocation closest(MapLocation pos) {
@@ -39,6 +46,10 @@ public class SoupCluster {
     }
     public boolean inside(SoupCluster other) {
         return (other.x1 <= this.x1 && this.x2 <= other.x2 && other.y1 <= this.y1 && this.y2 <= other.y2);
+    }
+
+    public boolean insideThis(MapLocation loc) {
+        return (this.x1 <= loc.x && loc.x <= this.x2 && this.y1 <= loc.y && loc.y <= this.y2);
     }
 
     public void update(SoupCluster other) {
@@ -68,4 +79,9 @@ public class SoupCluster {
         return String.format("[(%d, %d), (%d, %d)]", x1,y1,x2,y2);
     }
 
+    public static final int CLUSTER_NEAR = 3;
+    public boolean nearCluster(MapLocation location) {
+        int x = location.x, y = location.y;
+        return Math.abs(x - x1) <= CLUSTER_NEAR || Math.abs(x - x2) <= CLUSTER_NEAR ||Math.abs(y - y1) <= CLUSTER_NEAR ||Math.abs(y - y2) <= CLUSTER_NEAR;
+    }
 }
