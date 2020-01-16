@@ -28,6 +28,8 @@ public class MinerController extends Controller {
         EXPLORE  // Uses DFS to find soup locations (DFS > BFS)
     }
 
+    Integer[][] dumped;
+
     CommunicationHandler communicationHandler;
 
     final int BIAS_TYPES = 16;
@@ -110,6 +112,7 @@ public class MinerController extends Controller {
             System.out.println("YES");
             currentState = State.BUILDER;
             buildType = RobotType.FULFILLMENT_CENTER;
+//            buildType = RobotType.DESIGN_SCHOOL;
         }
 
         soupCount = new Integer[rc.getMapHeight()][rc.getMapWidth()];

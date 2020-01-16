@@ -379,6 +379,56 @@ public abstract class Controller {
          */
     }
 
+    public MapLocation getNearestWaterTile2() throws GameActionException {
+        for (int dx = -4; dx <= 4; ++dx) {
+            for (int dy = -4; dy <= 4; ++dy) {
+                MapLocation sensePos = new MapLocation(
+                        rc.getLocation().x + dx,
+                        rc.getLocation().y + dy);
+
+                if (!rc.canSenseLocation(sensePos)) continue;
+
+                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+
+                // If we have already visited this tile it must have a shorter distance then
+                // what we are looking at now
+                if (containsWater[sensePos.y][sensePos.x]) {
+                    System.out.println("found water");
+                    return sensePos;
+                }
+            }
+        }
+        return null;
+
+        /*
+        // Find nearest water tile, without using any datastructures
+        // (like a queue or visited set in normal BFS) (bad when it comes to exploring)
+        int cx = rc.getLocation().x;
+        int cy = rc.getLocation().y;
+        if (containsWater[cy][cx]) return rc.getLocation();
+
+        for (int offset = 1; ; ++offset) {
+            // Trace out a square around current position
+            for (int i = 0; i < offset + 1; ++i) {
+                MapLocation c1 = new MapLocation(cx - offset + i, cy + offset);
+                MapLocation c2 = new MapLocation(cx + offset, cy - offset + i);
+                MapLocation c3 = new MapLocation(cx + offset - i, cy - offset);
+                MapLocation c4 = new MapLocation(cx - offset, cy + offset - i);
+                for (MapLocation pos : new MapLocation[] {c1, c2, c3, c4}) {
+                    System.out.println("in here");
+                    while (shouldExplore.test(pos)) {
+                        rc.setIndicatorLine(rc.getLocation(), pos, 0,0, 255);
+                            tryMove(movementSolver.directionToGoal(pos));
+
+                    }
+                    if (shouldReturn.test(pos)) return pos;
+                }
+            }
+        }
+
+         */
+    }
+
     public MapLocation getNearestBuildTile() throws GameActionException {
         boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
         queue.clear();

@@ -57,7 +57,6 @@ public class HQController extends Controller {
         for (RobotInfo enemy : enemies) {
             if (rc.canShootUnit(enemy.getID())) {
                 rc.shootUnit(enemy.getID());
-                System.out.println("successful kill");
             }
         }
 

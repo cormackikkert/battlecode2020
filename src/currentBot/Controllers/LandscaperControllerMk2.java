@@ -60,6 +60,7 @@ public class LandscaperControllerMk2 extends Controller {
     Integer[][] soupCount = null;
     Integer[][] elevationHeight = null;
     Integer[][] buildMap = null; // Stores what buildings have been built and where
+    boolean[][] dumped;
 
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
 
@@ -104,6 +105,7 @@ public class LandscaperControllerMk2 extends Controller {
         searchedForSoupCluster = new boolean[rc.getMapHeight()][rc.getMapWidth()];
         buildMap = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+        dumped = new boolean[rc.getMapHeight()][rc.getMapWidth()];
 
         compressedHeight = rc.getMapHeight() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapHeight() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
@@ -371,7 +373,15 @@ public class LandscaperControllerMk2 extends Controller {
     }
 
     static final int WATER_DEPTH_BOTHER = 10; // the maximum water depth landscapers bother to remove water
+    boolean dig = true;
     public void execRemoveWater() throws GameActionException {
+        if (dig) {
+            if (rc.canDigDirt(Direction.CENTER)) {
+                rc.digDirt(Direction.CENTER);
+            }
+        }
+        dig = ! dig;
+
         // get current soup cluster to go to
         if (currentSoupCluster == null) {
             if (soupClusters.size() > 0) {
@@ -415,14 +425,19 @@ public class LandscaperControllerMk2 extends Controller {
     }
 
     public void execGreedyFill(Direction depositHere) throws GameActionException {
+        MapLocation location = rc.getLocation();
         if (rc.getDirtCarrying() == 0) {
             for (Direction dir : Direction.allDirections()) {
-                if (rc.canDigDirt(dir) && !dir.equals(depositHere)) {
-                    rc.digDirt(dir); break;
+                MapLocation digHere = location.add(dir);
+                if (rc.canDigDirt(dir) && !dir.equals(depositHere) && !dumped[digHere.x][digHere.y]) {
+                    rc.digDirt(dir);
+                    break;
                 }
             }
         } else if (rc.canDepositDirt(depositHere)){
             rc.depositDirt(depositHere);
+            location = location.add(depositHere);
+            dumped[location.x][location.y] = true;
         }
     }
 
