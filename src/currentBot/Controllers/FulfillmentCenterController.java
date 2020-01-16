@@ -25,6 +25,8 @@ public class FulfillmentCenterController extends Controller {
     int counter = 0;
     Direction latestDirSpawn;
 
+    int ex = 0;
+
     public FulfillmentCenterController(RobotController rc) {
         getInfo(rc);
     }
@@ -32,8 +34,9 @@ public class FulfillmentCenterController extends Controller {
     public void run() throws GameActionException {
         if (sent >= PRODUCTION_CAP) return;
 
-        if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) {
+        if (rc.getTeamSoup() > Math.min(ex, 500) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) {
             buildDrone();
+            ex += 100;
         }
     }
 

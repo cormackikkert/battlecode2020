@@ -101,18 +101,24 @@ public class MinerController extends Controller {
         // Check if a fulfillment center hasn't been built already
         boolean foundHQ = false;
         boolean builtFC = false;
+        boolean builtDS = false;
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.getType() == RobotType.HQ) {foundHQ = true; allyHQ = robotInfo.location;}
             if (robotInfo.getType() == RobotType.FULFILLMENT_CENTER) {builtFC = true;}
+            if (robotInfo.getType() == RobotType.DESIGN_SCHOOL) {builtDS = true;}
         }
 
 
         System.out.println("Should I build?");
         if (!builtFC && foundHQ &&
-                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
+                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)) {
             System.out.println("YES");
             currentState = State.BUILDER;
             buildType = RobotType.FULFILLMENT_CENTER;
+        } else if (!builtDS && foundHQ &&
+            rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)) {
+            currentState = State.BUILDER;
+            buildType = RobotType.DESIGN_SCHOOL;
         }
 
         soupCount = new Integer[rc.getMapHeight()][rc.getMapWidth()];
