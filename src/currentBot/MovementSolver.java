@@ -129,7 +129,7 @@ public class MovementSolver {
     boolean isObstacle(Direction dir, MapLocation to) throws GameActionException {
         //point is obstacle if there is a building, is not on map (checked by canMove)
         // if it is flooded, next to a drone or is previous point
-        
+
         // pretty crap implementation to avoid drones since gets stuck if many drones around
 //        boolean alreadyInDroneRange = false;
 //        controller.scanRobots();
@@ -183,6 +183,13 @@ public class MovementSolver {
 //                    enemy.getType() == RobotType.DELIVERY_DRONE && to.isWithinDistanceSquared(enemy.getLocation(), 2)|| TODO : figure out optimal way to deal with opposing drones
                     (enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
 //                System.out.println("dangerous! within range "+to.distanceSquaredTo(enemy.getLocation()));
+                return true;
+            }
+        }
+
+        // FIXME : make more general by storing other net gun locations
+        if (controller.enemyHQ != null) {
+            if (to.isWithinDistanceSquared(controller.enemyHQ, NET_GUN_RANGE)) {
                 return true;
             }
         }
