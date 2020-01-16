@@ -50,7 +50,8 @@ public abstract class Controller {
     MapBlock[][] mapBlocks;
     boolean[][] seenBlocks; // Subdivides grid into areas and this stores which areas have been seen
 
-    int lastRound = 1;
+    int lrmb = 1;
+    int lrsb = 1;
 
     public RingQueue<MapLocation> queue;
 
@@ -462,9 +463,25 @@ public abstract class Controller {
 
     public void searchSurroundingsContinued() throws GameActionException {}
 
+
+    void updateSeenBlocks() throws GameActionException {
+        for (int i = lrsb; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCKS) {
+                    MapLocation[] blocks = communicationHandler.getMapBlocks(mess);
+                    for (MapLocation pos : blocks) {
+                        seenBlocks[pos.y][pos.x] = true;
+                    }
+                }
+            }
+        }
+        lrsb = rc.getRoundNum();
+    }
+
     void updateMapBlocks() throws GameActionException {
         // For other version of miner
-        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
+        for (int i = lrmb; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
                 if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCK) {
@@ -482,7 +499,7 @@ public abstract class Controller {
                 }
             }
         }
-        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+        lrmb = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 
 

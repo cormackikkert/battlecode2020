@@ -138,7 +138,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         decode(message);
 
         MapLocation[] blocks = new MapLocation[12];
-        for (int row = 1; row < 12; ++row) {
+        for (int row = 1; row < 7; ++row) {
             for (int i = 0; i < 2; ++i) {
                 int y = message[row] % (1 << 8); message[row] >>= 8;
                 int x = message[row] % (1 << 8); message[row] >>= 8;
