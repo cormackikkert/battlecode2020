@@ -105,23 +105,11 @@ public abstract class Controller {
 
     public boolean tryMove(Direction dir) throws GameActionException {
         // System.out.println("I am trying to move " + dir + "; " + rc.isReady() + " " + rc.getCooldownTurns() + " " + rc.canMove(dir));
-        if (rc.isReady() && rc.canMove(dir)) {
+        while (!rc.isReady()) Clock.yield();
+        if (rc.canMove(dir)) {
             rc.move(dir);
             return true;
         } else return false;
-    }
-
-    void goToLocationToSense(MapLocation goal) throws GameActionException {
-        while (!rc.canSenseLocation(goal)) {
-            if (tryMove(movementSolver.directionToGoal(goal))) Clock.yield();
-        }
-    }
-
-    void goToLocationToDeposit(MapLocation goal) throws GameActionException {
-        while (rc.getLocation().distanceSquaredTo(goal) > 1
-                || !rc.canDepositDirt(rc.getLocation().directionTo(goal))) {
-            if (tryMove(movementSolver.directionToGoal(goal))) Clock.yield();
-        }
     }
 
     void tryBlockchain() throws GameActionException {
