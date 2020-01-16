@@ -3,6 +3,7 @@ package currentBot.Controllers;
 import battlecode.common.*;
 import currentBot.*;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Stack;
 
@@ -76,6 +77,10 @@ public class MinerController extends Controller {
     int born;
     int lastRound = 1;
 
+    int compressedWidth;
+    int compressedHeight;
+    int BLOCK_SIZE = PlayerConstants.GRID_BLOCK_SIZE;
+
     Symmetry searchSymmetry = null; // Symmetry that explore bot sticks too
 
     public MinerController(RobotController rc) {
@@ -99,8 +104,10 @@ public class MinerController extends Controller {
         }
 
 
+        System.out.println("Should I build?");
         if (!builtFC && foundHQ &&
                 rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
+            System.out.println("YES");
             currentState = State.BUILDER;
             buildType = RobotType.FULFILLMENT_CENTER;
         }
@@ -111,6 +118,11 @@ public class MinerController extends Controller {
         searchedForSoupCluster = new boolean[rc.getMapHeight()][rc.getMapWidth()];
         buildMap = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+
+        compressedHeight = rc.getMapHeight() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapHeight() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
+        compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
+
+        seenBlocks = new boolean[compressedHeight][compressedWidth];
 
         if (born == 2) {
             searchSymmetry = Symmetry.VERTICAL;
@@ -134,7 +146,6 @@ public class MinerController extends Controller {
 
 
     public void run() throws GameActionException {
-        System.out.println("I am a " + currentState.toString() + " - " + soupClusters.size());
         if (this.currentSoupCluster != null) this.currentSoupCluster.draw(this.rc);
 
 
@@ -330,7 +341,7 @@ public class MinerController extends Controller {
             If soup cluster is finished, tell everyone else and go to another one
          */
         updateClusters();
-        searchSurroundingsContinued();
+        searchSurroundingsSoup();
 
         // If you can no longer carry any soup deposit it
         if (rc.getSoupCarrying() + GameConstants.SOUP_MINING_RATE > RobotType.MINER.soupLimit) {
@@ -480,6 +491,11 @@ public class MinerController extends Controller {
                 }
                 behind += soupCluster.size;
             }
+
+            if (currentSoupCluster == null) {
+                // Explore time
+                System.out.println("YASSS");
+            }
         }
 
         movementSolver.restart();
@@ -495,6 +511,7 @@ public class MinerController extends Controller {
              */
 //            System.out.println("Heading to soup cluster at " + currentSoupCluster.toStringPos());
             tryMove(movementSolver.directionToGoal(currentSoupCluster.closest(rc.getLocation())));
+            searchSurroundingsSoup();
             Clock.yield();
         }
 //        System.out.println("Arrived");
@@ -624,7 +641,6 @@ public class MinerController extends Controller {
     }
 
     public void execBuilder() throws GameActionException {
-//        System.out.println("Builder stuff");
         if (buildLoc == null) {
             buildLoc = getNearestBuildTile();
         }
@@ -633,6 +649,15 @@ public class MinerController extends Controller {
             tryMove(movementSolver.directionToGoal(buildLoc));
         } else {
             if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
+                System.out.println("Checking for others");
+                if (PlayerConstants.shouldntDuplicate(this.buildType)) {
+                    for (RobotInfo robot : rc.senseNearbyRobots()) {
+                        if (robot.team == rc.getTeam() && robot.type == this.buildType) {
+                            currentState = State.SEARCHURGENT;
+                            return;
+                        }
+                    }
+                }
                 if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc))) {
                     currentState = State.SEARCHURGENT;
                 }
@@ -718,11 +743,25 @@ public class MinerController extends Controller {
 
     public void execExplore() throws GameActionException {
         Stack<MapLocation> stack = new Stack<>();
+        LinkedList<MapLocation> visitedBlocks = new LinkedList<>();
+
         stack.push(rc.getLocation());
         searchSurroundingsSoup();
 
         while (!stack.isEmpty()) {
             MapLocation node = stack.pop();
+
+            // Broadcast what areas have been searched
+            if (!seenBlocks[node.y / BLOCK_SIZE][node.x / BLOCK_SIZE]) {
+                visitedBlocks.add(new MapLocation(node.x / BLOCK_SIZE, node.y / BLOCK_SIZE));
+                seenBlocks[node.y / BLOCK_SIZE][node.x / BLOCK_SIZE] = true;
+
+                if (visitedBlocks.size() == 12) {
+                    communicationHandler.sendMapBlocks(visitedBlocks.toArray(new MapLocation[0]));
+                    System.out.println("Sending " + visitedBlocks.size());
+                    visitedBlocks = new LinkedList<>();
+                }
+            }
 
             if (visited[node.y][node.x]) continue;
             visited[node.y][node.x] = true;
@@ -731,12 +770,14 @@ public class MinerController extends Controller {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
 
-                while (elevationHeight[nnode.y][nnode.x] == null) {
+                for (int i = 0; i < 10 && elevationHeight[nnode.y][nnode.x] == null; ++i) {
                     tryMove(movementSolver.directionToGoal(nnode));
                     searchSurroundingsSoup();
 
                     Clock.yield();
                 }
+
+                if (elevationHeight[nnode.y][nnode.x] == null) continue;
 
                 if (containsWater[nnode.y][nnode.x]) continue;
 
@@ -753,6 +794,9 @@ public class MinerController extends Controller {
                     stack.push(nnode);
                 }
             }
+        }
+        if (visitedBlocks.size() > 0) {
+            communicationHandler.sendMapBlocks(visitedBlocks.toArray(new MapLocation[0]));
         }
         currentState = State.SEARCHURGENT;
     }

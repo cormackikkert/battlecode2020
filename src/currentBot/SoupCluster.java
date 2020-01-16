@@ -57,7 +57,6 @@ public class SoupCluster {
         return x1 <= pos.x && pos.x <= x2 && y1 <= pos.y && pos.y <= y2;
     }
     public void draw(RobotController rc) {
-        System.out.println("DRAWING " + x1 + " " + x2 + " " + y1 + " " + y2);
         rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x1, y2), 255, 255, 0);
         rc.setIndicatorLine(new MapLocation(x2, y1), new MapLocation(x2, y2), 255, 255, 0);
         rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x2, y1), 255, 255, 0);

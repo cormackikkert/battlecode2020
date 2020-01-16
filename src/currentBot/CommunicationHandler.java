@@ -12,19 +12,21 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         ENEMY,
         CLUSTER,
         MAPBLOCK,
+        MAPBLOCKS, // Blocks the miners have searched
         ALLYHQ,
         ENEMYHQ,
+        REQUEST_BUILD,
         SCOUTDIRECTION,
         FAILHORIZONTAL, // for detecting enemy hq
         FAILVERTICAL
     }
+
     public CommunicationHandler(RobotController rc) {
         // TODO: make this not garbage (Though surely no-one actually tries to decode this)
         this.rc = rc;
         this.team = rc.getTeam();
         teamSecret = (this.team == Team.A) ? 1129504 : 29103849;
     }
-
 
     /*
         XORs stuff as it is reversible
@@ -43,8 +45,6 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     void decode(int[] arr) {
         encode(arr);
     }
-
-
 
     public CommunicationType identify(int[] message) {
         if (message[0] % (1 << 25) == teamSecret && message.length == 7) {
@@ -112,6 +112,40 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public MapBlock getMapBlock(int[] message) {
         decode(message);
         return new MapBlock(new MapLocation(message[1], message[2]), message[3], message[4], message[5] == 1);
+    }
+
+    public boolean sendMapBlocks(MapLocation[] blocks) throws GameActionException {
+        int[] message = bluePrint(CommunicationType.MAPBLOCKS);
+        int i = 0;
+        for (int row = 1; row <= 6; ++row) {
+            message[row] <<= 8;
+            message[row] |= blocks[i].x;
+            message[row] <<= 8;
+            message[row] |= blocks[i].y;
+            i = (i + 1) % blocks.length;
+        }
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
+            return true;
+        }
+        return false;
+    }
+
+    public MapLocation[] getMapBlocks(int[] message) {
+        decode(message);
+
+        MapLocation[] blocks = new MapLocation[12];
+        for (int row = 1; row < 12; ++row) {
+            for (int i = 0; i < 2; ++i) {
+                int y = message[row] % (1 << 8); message[row] >>= 8;
+                int x = message[row] % (1 << 8); message[row] >>= 8;
+                blocks[2*(row-1)+i] = new MapLocation(x, y);
+            }
+        }
+        return blocks;
     }
 
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {

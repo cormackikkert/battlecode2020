@@ -48,6 +48,8 @@ public abstract class Controller {
     boolean[][] visited;
 
     MapBlock[][] mapBlocks;
+    boolean[][] seenBlocks; // Subdivides grid into areas and this stores which areas have been seen
+
     int lastRound = 1;
 
     public RingQueue<MapLocation> queue;
@@ -412,6 +414,7 @@ public abstract class Controller {
                                 // If we have already visited this tile it must have a shorter distance then
                                 // what we are looking at now
                                 if (!containsWater[sensePos.y][sensePos.x] &&
+                                        (getDistanceSquared(sensePos, allyHQ) > 2) &&
                                         (rc.senseRobotAtLocation(sensePos) == null) &&
                                         visited[sensePos.y][sensePos.x]) {
                                     return sensePos;
@@ -421,7 +424,8 @@ public abstract class Controller {
                     }
                 }
                 if (containsWater[nnode.y][nnode.x]) continue;
-                if (rc.senseRobotAtLocation(nnode) == null) return nnode;
+                if (rc.senseRobotAtLocation(nnode) == null &&
+                    getDistanceSquared(nnode, allyHQ) > 2) return nnode;
                 queue.add(nnode);
                 visited[nnode.y][nnode.x] = true;
             }
@@ -459,6 +463,7 @@ public abstract class Controller {
     public void searchSurroundingsContinued() throws GameActionException {}
 
     void updateMapBlocks() throws GameActionException {
+        // For other version of miner
         for (int i = lastRound; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();

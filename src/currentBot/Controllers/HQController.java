@@ -51,7 +51,7 @@ public class HQController extends Controller {
 
     public void run() throws GameActionException {
         /*
-            Prioritise shooting over creating miners?
+            Prioritise shooting over creating miners? yes
          */
         scanRobots();
         for (RobotInfo enemy : enemies) {
@@ -79,10 +79,14 @@ public class HQController extends Controller {
 
         updateClusters();
 
-        if (totalMiners < totalSoup / PlayerConstants.SOUP_PER_MINER + 4) {
+        if (totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
+                (totalMiners < totalSoup / PlayerConstants.SOUP_PER_MINER + 4 &&
+                        rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.MINER))) {
+
             for (Direction dir : directions) {
                 if (tryBuild(RobotType.MINER, dir)) {totalMiners++; break;}
             }
         }
+
     }
 }
