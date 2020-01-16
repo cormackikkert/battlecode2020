@@ -10,6 +10,7 @@ public class PlayerConstants {
     static final int SOUP_PER_MINER = 800; // how much new soup needs to be found before spawning another miner
     static final int MOVES_BY_MINER = 10; // How many moves a miner makes to explore an unexplored tile in its territory (before giving up)
     static final int INSTA_BUILD_MINERS = 4; // How many miners to build as fast as possible
+
     // Drone constants
     static final boolean ADJACENT_DEFEND = true;
     static final int DEFENSE_RADIUS = 35; // radius from hq to defend if NOT adjacent defence
@@ -19,6 +20,7 @@ public class PlayerConstants {
     static final int DEFEND_NUMBER = 7;
 
     static final int GRID_BLOCK_SIZE = 7;
+    static final public int SEARCH_DIAMETER = 7;
 
     static int buildSoupRequirements(RobotType buildType) {
         switch (buildType) {
@@ -33,6 +35,8 @@ public class PlayerConstants {
             case MINER:
                 // extra soup, to allow miner to build a fulfillment center right after spawning
                 return RobotType.FULFILLMENT_CENTER.cost + RobotType.MINER.cost;
+            case DELIVERY_DRONE:
+                return RobotType.DELIVERY_DRONE.cost + RobotType.REFINERY.cost;
             default:
                 return 0; // Shouldn't get here anyway
         }

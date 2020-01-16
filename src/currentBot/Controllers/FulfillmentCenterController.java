@@ -32,7 +32,9 @@ public class FulfillmentCenterController extends Controller {
     public void run() throws GameActionException {
         if (sent >= PRODUCTION_CAP) return;
 
-        buildDrone();
+        if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) {
+            buildDrone();
+        }
     }
 
     public void buildDrone() throws GameActionException {

@@ -1,11 +1,9 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
-import currentBot.CommunicationHandler;
-import currentBot.RingQueue;
-import currentBot.SimpleRandom;
-import currentBot.SoupCluster;
+import currentBot.*;
 
+import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.Stack;
@@ -30,6 +28,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     State currentState = null;
 
+    Deque<HitchHike> reqs = new LinkedList<>();
+
     MapLocation nearestWaterTile;
     LinkedList<SoupCluster> soupClusters = new LinkedList<>();
 
@@ -46,7 +46,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
 
     int lastRound = 1;
+    int lastRoundReqs = 1;
     boolean hasExplored = false;
+
+    HitchHike currentReq = null;
 
     public DeliveryDroneControllerMk2(RobotController rc) {
         // Do heavy computation stuff here as 10 rounds are spent being built
@@ -90,8 +93,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
+        updateReqs();
+        if (currentReq != null) {
+            execTaxi();
+            return;
+        }
+
         assignRole();
         hqInfo(); // includes scanning robots
+
+        // if (currentState == State.ATTACK) currentState = State.DEFEND;
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -103,8 +114,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
         } else {
             execKill();
         }
-
-
     }
 
     public void assignRole() throws GameActionException {
@@ -276,6 +285,40 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
         lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+    }
+
+    void updateReqs() throws GameActionException {
+        for (int i = lastRoundReqs; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_REQUEST) {
+                    HitchHike req = communicationHandler.getHitchHikeRequest(mess);
+                    req.roundNum = i;
+                    reqs.add(req);
+                }
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_ACK) {
+                    HitchHike ack = communicationHandler.getHitchHikeAck(mess);
+                    if (currentReq != null) {
+                        // Check to see if another drone has ACK'ed
+                        if (currentReq.pos == ack.pos && currentReq.goal == ack.goal && !currentReq.confirmed) {
+                            currentReq = null;
+                        } else {
+                            currentReq.confirmed = true;
+                        }
+                    }
+                }
+            }
+        }
+        if (currentReq == null) {
+            for (HitchHike req : reqs) {
+                if (rc.getRoundNum() - req.roundNum + 1 == getChebyshevDistance(rc.getLocation(), req.goal)) {
+                    currentReq = req;
+                    currentReq.droneID = rc.getID();
+                    communicationHandler.sendHitchHikeAck(req);
+                }
+            }
+        }
+        lastRoundReqs = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 
     public SoupCluster determineCluster(MapLocation pos) throws GameActionException {
@@ -483,6 +526,36 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
         if (visitedBlocks.size() > 0) {
             communicationHandler.sendMapBlocks(visitedBlocks.toArray(new MapLocation[0]));
+        }
+    }
+
+    public void execTaxi() throws GameActionException {
+        if (rc.isCurrentlyHoldingUnit()) {
+            if (!isAdjacentTo(currentReq.goal)) {
+                tryMove(movementSolver.directionToGoal(currentReq.goal));
+            } else {
+                if (rc.canDropUnit(rc.getLocation().directionTo(currentReq.goal))) {
+                    rc.dropUnit(rc.getLocation().directionTo(currentReq.goal));
+                } else {
+                    for (Direction dir : Direction.allDirections()) {
+                        if (rc.canDropUnit(dir)) {
+                            rc.dropUnit(dir);
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            // System.out.println("gonna pick up " + currentReq.pos);
+            if (!isAdjacentTo(currentReq.pos)) {
+                tryMove(movementSolver.directionToGoal(currentReq.pos));
+            } else {
+                RobotInfo robot = rc.senseRobotAtLocation(currentReq.pos);
+                if (robot != null && rc.canPickUpUnit(robot.ID)) {
+                    rc.pickUpUnit(robot.ID);
+                }
+            }
+
         }
     }
 }

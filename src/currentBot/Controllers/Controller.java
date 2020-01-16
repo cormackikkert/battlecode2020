@@ -153,6 +153,10 @@ public abstract class Controller {
         return directions[(int) (Math.random() * directions.length)];
     }
 
+    int getChebyshevDistance(MapLocation p1, MapLocation p2) {
+        return Math.max(Math.abs(p1.x - p2.x), Math.abs(p1.y - p2.y));
+    }
+
     int getDistanceSquared(MapLocation p1, MapLocation p2) {
         return (p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y);
     }

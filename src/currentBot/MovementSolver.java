@@ -1,6 +1,7 @@
 package currentBot;
 import battlecode.common.*;
 import currentBot.Controllers.Controller;
+import currentBot.Controllers.PlayerConstants;
 
 /*
     A class that handles movement
@@ -269,4 +270,6 @@ public class MovementSolver {
     public boolean isOrdinal(Direction dir) {
         return !isCardinal(dir);
     }
+
+
 }
