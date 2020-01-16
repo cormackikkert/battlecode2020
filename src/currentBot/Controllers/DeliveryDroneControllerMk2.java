@@ -451,6 +451,21 @@ public class DeliveryDroneControllerMk2 extends Controller {
         return null;
     }
 
+    public void killCow() throws GameActionException {
+        while (true) {
+            RobotInfo[] cows = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), NEUTRAL);
+            if (cows.length == 0) return;
+            System.out.println("FOUND COW");
+            for (RobotInfo cow : cows) {
+                while (!tryPickUpUnit(cow)) {
+                    tryMove(movementSolver.directionToGoal(rc.getLocation(), cow.getLocation()));
+                    Clock.yield();
+                }
+                while (rc.isCurrentlyHoldingUnit()) execKill();
+            }
+        }
+
+    }
     public void execExplore() throws GameActionException {
         updateSeenBlocks();
         updateClusters();
@@ -462,6 +477,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         while (!stack.isEmpty()) {
             MapLocation node = stack.pop();
+
+            // Kill annoying cows
+            killCow();
+
 
             if (visited[node.y][node.x]) {
                 updateMapBlocks();
@@ -487,7 +506,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             for (int i = 0; i < 2 * Math.max(rc.getMapHeight(), rc.getMapWidth()) &&
                     (soupCount[node.y][node.x] == null || visited[rc.getLocation().y][rc.getLocation().x]); ) {
 
-                System.out.println("WTF");
+                killCow();
 
                 rc.setIndicatorDot(node, 255, 0, 0);
                 if (tryMove(movementSolver.directionToGoal(node))) {
@@ -495,12 +514,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     ++i;
                     Clock.yield();
                 }
-
-                System.out.println("Pathing");
-
-
             }
-            System.out.println("Finished");
 
             // Broadcast what areas have been searched
             if (!seenBlocks[node.y / BLOCK_SIZE][node.x / BLOCK_SIZE]) {
