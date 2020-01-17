@@ -98,7 +98,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         assignRole();
         hqInfo(); // includes scanning robots
-//        System.out.println("role is " + currentState);
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -134,12 +133,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        if (currentState != State.DEFEND) {
+        if (rc.getID() % 3 == 0) {
             updateReqs();
             if (currentReq != null) {
                 currentState = State.TAXI;
             }
         }
+        System.out.println("role is " + currentState);
     }
 
     public void execDefendPatrol() throws GameActionException {
@@ -205,10 +205,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
             if (movementSolver.nearEdge()) {
                 favourableDirection = favourableDirection.opposite();
             }
-            tryMove(movementSolver.directionGo(favourableDirection));
+            spawnBaseDirFrom = favourableDirection;
+            movementSolver.windowsRoam();
             System.out.println("moving away from home hq");
         } else {
-            tryMove(randomDirection());
+            switchToWanderMode();
         }
     }
 

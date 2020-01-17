@@ -253,7 +253,7 @@ public abstract class Controller {
 
     public void tryFindHomeHQLoc() {
         if (allyHQ != null) return;
-        System.out.println("trying to find ally HQ out of " + allies.length + " options");
+//        System.out.println("trying to find ally HQ out of " + allies.length + " options");
         for (RobotInfo ally : allies) {
             System.out.println("found home HQ location");
             if (ally.getType() == RobotType.HQ && ally.getTeam() == ALLY) {
@@ -265,7 +265,7 @@ public abstract class Controller {
 
     public void tryFindEnemyHQLoc() throws GameActionException {
         if (enemyHQ != null) return;
-        System.out.println("trying to find enemy HQ out of " + enemies.length + " options");
+//        System.out.println("trying to find enemy HQ out of " + enemies.length + " options");
         for (RobotInfo enemy : enemies) {
             if (enemy.getType() == RobotType.HQ && enemy.getTeam() == ENEMY) {
                 System.out.println("found enemy HQ location");
