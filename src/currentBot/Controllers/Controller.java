@@ -61,6 +61,12 @@ public abstract class Controller {
         ROTATIONAL
     }
 
+    // ghost hq if enemy hq unknown
+    public boolean ghostH = true;
+    public boolean ghostV = true;
+    public boolean ghostR = true;
+    public int ghostsKilled = 0;
+
     Direction[] directions = {
             Direction.NORTH,
             Direction.NORTHEAST,
@@ -81,7 +87,7 @@ public abstract class Controller {
         ALLY = rc.getTeam();
         ENEMY = rc.getTeam().opponent();
         this.rc = rc;
-        this.communicationHandler = new CommunicationHandler(rc);
+        this.communicationHandler = new CommunicationHandler(rc, this);
         this.movementSolver = rc.getType() == RobotType.DELIVERY_DRONE ? new MovementSolver(rc, this) : new MovementSolver(rc);
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
