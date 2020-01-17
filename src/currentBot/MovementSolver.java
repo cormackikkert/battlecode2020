@@ -1,6 +1,7 @@
 package currentBot;
 import battlecode.common.*;
 import currentBot.Controllers.Controller;
+import currentBot.Controllers.DeliveryDroneControllerMk2;
 import currentBot.Controllers.PlayerConstants;
 
 /*
@@ -117,6 +118,12 @@ public class MovementSolver {
             dir = controller.enemyHQ.directionTo(from);
         }
 
+        if (rc.getLocation().add(dir).equals(twoback)) {
+            ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
+        }
+
+        twoback = previous;
+        previous = from;
         return dir;
     }
 
@@ -182,11 +189,75 @@ public class MovementSolver {
         if (enemies == null) enemies = rc.senseNearbyRobots();
         for (RobotInfo enemy : enemies) {
             if (enemy.getTeam() != rc.getTeam().opponent()) continue;
-            if (
-//                    enemy.getType() == RobotType.DELIVERY_DRONE && to.isWithinDistanceSquared(enemy.getLocation(), 2)|| TODO : figure out optimal way to deal with opposing drones
-                    (enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
-//                System.out.println("dangerous! within range "+to.distanceSquaredTo(enemy.getLocation()));
+            if ((enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
+                controller.communicationHandler.sendEnemyHQLoc(enemy.getLocation());
                 return true;
+            }
+        }
+
+        if (controller.enemyHQ == null) {
+            if (controller.allyHQ != null) {
+                int x = controller.allyHQ.x;
+                int y = controller.allyHQ.y;
+
+                MapLocation loc;
+
+                if (controller.ghostH) { // Horizontal symmetry
+                    loc = new MapLocation(rc.getMapWidth()-x-1, y);
+                    if (rc.canSenseLocation(loc)) {
+                        if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                            ((DeliveryDroneControllerMk2) controller).ghostH = false;
+                            controller.communicationHandler.sendFailHorizontal();
+                            System.out.println("no ghosts here");
+                        } else {
+                            if (controller.enemyHQ == null) {
+                                controller.enemyHQ = loc;
+                                controller.communicationHandler.sendEnemyHQLoc(loc);
+                            }
+                        }
+                    }
+                    if (to.isWithinDistanceSquared(loc, NET_GUN_RANGE)) {
+                        return true; // because uncertain if hq is here or not since cannot sense
+                    }
+                }
+
+                if (controller.ghostV) { // Vertical symmetry
+                    loc = new MapLocation(x, rc.getMapHeight()-y-1);
+                    if (rc.canSenseLocation(loc)) {
+                        if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                            ((DeliveryDroneControllerMk2) controller).ghostV = false;
+                            controller.communicationHandler.sendFailVertical();
+                            System.out.println("no ghosts here");
+                        } else {
+                            if (controller.enemyHQ == null) {
+                                controller.enemyHQ = loc;
+                                controller.communicationHandler.sendEnemyHQLoc(loc);
+                            }
+                        }
+                    }
+                    if (to.isWithinDistanceSquared(loc, NET_GUN_RANGE)) {
+                        return true; // because uncertain if hq is here or not since cannot sense
+                    }
+                }
+
+                if (controller.ghostR) { // Rotational symmetry
+                    loc = new MapLocation(rc.getMapWidth()-x-1, rc.getMapHeight()-y-1);
+                    if (rc.canSenseLocation(loc)) {
+                        if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                            ((DeliveryDroneControllerMk2) controller).ghostR = false;
+                            controller.communicationHandler.sendFailRotational();
+                            System.out.println("no ghosts here");
+                        } else {
+                            if (controller.enemyHQ == null) {
+                                controller.enemyHQ = loc;
+                                controller.communicationHandler.sendEnemyHQLoc(loc);
+                            }
+                        }
+                    }
+                    if (to.isWithinDistanceSquared(loc, NET_GUN_RANGE)) {
+                        return true; // because uncertain if hq is here or not since cannot sense
+                    }
+                }
             }
         }
 

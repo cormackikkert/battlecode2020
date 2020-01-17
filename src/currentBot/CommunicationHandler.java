@@ -1,11 +1,13 @@
 package currentBot;
 
 import battlecode.common.*;
+import currentBot.Controllers.Controller;
 
 public class CommunicationHandler { // TODO : conserve bytecode by storing turn of last received message
-    public static final int SCOUT_MESSAGE_COST = 5;
+    public static final int MESSAGE_COST = 1;
     Team team;
     RobotController rc;
+    Controller controller;
     int teamSecret;
 
     public enum CommunicationType {
@@ -19,6 +21,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         SCOUTDIRECTION,
         FAILHORIZONTAL, // for detecting enemy hq
         FAILVERTICAL,
+        FAILROTATIONAL,
         HITCHHIKE_REQUEST,
         HITCHHIKE_ACK
     }
@@ -26,6 +29,14 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public CommunicationHandler(RobotController rc) {
         // TODO: make this not garbage (Though surely no-one actually tries to decode this)
         this.rc = rc;
+        this.team = rc.getTeam();
+        teamSecret = (this.team == Team.A) ? 1129504 : 1029304;
+    }
+
+    public CommunicationHandler(RobotController rc, Controller controller) {
+        // TODO: make this not garbage (Though surely no-one actually tries to decode this)
+        this.rc = rc;
+        this.controller = controller;
         this.team = rc.getTeam();
         teamSecret = (this.team == Team.A) ? 1129504 : 1029304;
     }
@@ -288,8 +299,8 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         message[2] = teamSecret ^ loc.x;
         message[3] = teamSecret ^ loc.y;
 
-        if (rc.canSubmitTransaction(message, SCOUT_MESSAGE_COST)) {
-            rc.submitTransaction(message, SCOUT_MESSAGE_COST);
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("scout direction sent ");
             return true;
         }
@@ -314,10 +325,11 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     public boolean sendFailVertical() throws GameActionException {
         int[] message = new int[7];
-        message[0] = teamSecret ^ rc.getRoundNum();
-        message[1] = teamSecret ^ CommunicationType.FAILVERTICAL.ordinal();
-        if (rc.canSubmitTransaction(message, SCOUT_MESSAGE_COST)) {
-            rc.submitTransaction(message, SCOUT_MESSAGE_COST);
+        message[0] = rc.getRoundNum();
+        message[1] = CommunicationType.FAILVERTICAL.ordinal();
+        encode(message);
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found vert");
             return true;
         }
@@ -326,13 +338,74 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     public boolean sendFailHorizontal() throws GameActionException {
         int[] message = new int[7];
-        message[0] = teamSecret ^ rc.getRoundNum();
-        message[1] = teamSecret ^ CommunicationType.FAILHORIZONTAL.ordinal();
-        if (rc.canSubmitTransaction(message, SCOUT_MESSAGE_COST)) {
-            rc.submitTransaction(message, SCOUT_MESSAGE_COST);
+        message[0] = rc.getRoundNum();
+        message[1] = CommunicationType.FAILHORIZONTAL.ordinal();
+        encode(message);
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found hori");
             return true;
         }
         return false;
+    }
+
+    public boolean sendFailRotational() throws GameActionException {
+        int[] message = new int[7];
+        message[0] = rc.getRoundNum();
+        message[1] = CommunicationType.FAILROTATIONAL.ordinal();
+        encode(message);
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+            System.out.println("send message for fail found hori");
+            return true;
+        }
+        return false;
+    }
+
+    int turnF = 1;
+    public void solveEnemyHQLocWithGhosts() throws GameActionException { // ONLY HQ SHOULD BE DOING THIS
+        if (controller.ghostsKilled == 2) return; //already know enemy hq
+
+        for (int i = turnF; i < rc.getRoundNum(); i++) {
+            turnF++;
+            Transaction[] transactions = rc.getBlock(i);
+            for (Transaction transaction : transactions) {
+                int[] message= transaction.getMessage();
+                decode(message);
+
+                if (message[1] == CommunicationType.FAILHORIZONTAL.ordinal()) {
+                    controller.ghostH = false;
+                    controller.ghostsKilled++;
+                }
+
+                if (message[1] == CommunicationType.FAILVERTICAL.ordinal()) {
+                    controller.ghostV = false;
+                    controller.ghostsKilled++;
+                }
+
+                if (message[1] == CommunicationType.FAILROTATIONAL.ordinal()) {
+                    controller.ghostR = false;
+                    controller.ghostsKilled++;
+                }
+            }
+        }
+
+        int x = controller.allyHQ.x;
+        int y = controller.allyHQ.y;
+
+        if (controller.ghostsKilled == 2) {
+            MapLocation enemyHQ = null;
+            if (controller.ghostH) {
+                enemyHQ = new MapLocation(rc.getMapWidth()-x, y);
+            } else if (controller.ghostV) {
+                enemyHQ = new MapLocation(x, rc.getMapHeight()-y);
+            } else { // rotational
+                enemyHQ = new MapLocation(rc.getMapWidth()-x, rc.getMapHeight()-y);
+            }
+
+            System.out.println("found hq without even going near it");
+            sendEnemyHQLoc(enemyHQ);
+            controller.enemyHQ = enemyHQ;
+        }
     }
 }

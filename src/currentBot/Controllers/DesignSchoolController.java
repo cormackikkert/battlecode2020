@@ -24,7 +24,7 @@ public class DesignSchoolController extends Controller {
     }
 
     public void run() throws GameActionException {
-        if (rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && builtLandscapers < 4) {
+        if (rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && builtLandscapers < 5) {
             for (Direction dir : Direction.allDirections()) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {++builtLandscapers; break;}
             }
