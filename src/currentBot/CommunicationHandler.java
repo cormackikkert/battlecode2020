@@ -27,7 +27,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         // TODO: make this not garbage (Though surely no-one actually tries to decode this)
         this.rc = rc;
         this.team = rc.getTeam();
-        teamSecret = (this.team == Team.A) ? 1129504 : 29103849;
+        teamSecret = (this.team == Team.A) ? 1129504 : 1029304;
     }
 
     /*
@@ -56,6 +56,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     }
 
     public boolean sendCluster(SoupCluster cluster) throws GameActionException {
+        System.out.println("Sending soup cluster info: " + rc.getID());
         int[] message = bluePrint(CommunicationType.CLUSTER);
 
         for (int val : new int[] {cluster.x1, cluster.y1, cluster.x2, cluster.y2}) {
@@ -65,10 +66,10 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
         message[2] = cluster.size;
 
-        for (int val : new int[] {cluster.refinery.x, cluster.refinery.y}) {
-            message[3] <<= 8;
-            message[3] += val;
-        }
+        message[3] = cluster.crudeSoup;
+
+        message[4] = cluster.containsWaterSoup ? 1 : 0;
+
         //System.out.println("BEFORE: " + message[2]);
         encode(message);
         //System.out.println("AFTER: " + message[2]);
@@ -88,10 +89,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int y1 = message[1] % (1 << 8); message[1] >>= 8;
         int x1 = message[1] % (1 << 8); message[1] >>= 8;
 
-        int ry = message[3] % (1 << 8); message[3] >>= 8;
-        int rx = message[3] % (1 << 8); message[3] >>= 8;
-
-        return new SoupCluster(x1, y1, x2, y2, message[2], new MapLocation(rx, ry));
+        return new SoupCluster(x1, y1, x2, y2, message[2], message[3], message[4] == 1);
     }
 
     public boolean sendMapBlock(MapBlock mapBlock) throws GameActionException {
@@ -108,6 +106,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
             rc.submitTransaction(message, 1);
             return true;
         }
+        System.out.println("Failed");
         return false;
     }
 

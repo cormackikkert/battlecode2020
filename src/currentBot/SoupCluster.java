@@ -12,8 +12,10 @@ public class SoupCluster {
     public int width;
     public int height;
     public int size;
-    public MapLocation refinery;
-    public SoupCluster(int x1, int y1, int x2, int y2, int size, MapLocation refinery) {
+    public int crudeSoup;
+    public boolean containsWaterSoup;
+
+    public SoupCluster(int x1, int y1, int x2, int y2, int size, int crudeSoup, boolean containsWaterSoup) {
         this.x1 = x1;
         this.y1 = y1;
         this.x2 = x2;
@@ -21,7 +23,8 @@ public class SoupCluster {
         width = x2 - x1 + 1;
         height = y2 - y1 + 1;
         this.size = size;
-        this.refinery = refinery;
+        this.crudeSoup = crudeSoup;
+        this.containsWaterSoup = containsWaterSoup;
     }
 
     public MapLocation closest(MapLocation pos) {
@@ -50,7 +53,6 @@ public class SoupCluster {
         width = x2 - x1 + 1;
         height = y2 - y1 + 1;
         this.size = other.size;
-        this.refinery = other.refinery;
     }
 
     public boolean contains(MapLocation pos) {
@@ -61,7 +63,6 @@ public class SoupCluster {
         rc.setIndicatorLine(new MapLocation(x2, y1), new MapLocation(x2, y2), 255, 255, 0);
         rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x2, y1), 255, 255, 0);
         rc.setIndicatorLine(new MapLocation(x1, y2), new MapLocation(x2, y2), 255, 255, 0);
-        rc.setIndicatorDot(this.refinery, 255, 255, 0);
     }
 
     public String toStringPos() {

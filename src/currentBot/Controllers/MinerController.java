@@ -71,6 +71,7 @@ public class MinerController extends Controller {
 
     SoupCluster currentSoupCluster; // Soup cluster the miner goes to
     MapLocation currentSoupSquare; // Soup square the miner mines
+    MapLocation currentRefineryPos;
 
     LinkedList<SoupCluster> soupClusters = new LinkedList<>();
 
@@ -86,9 +87,11 @@ public class MinerController extends Controller {
 
     RingQueue<MapLocation> reachQueue = new RingQueue<>(PlayerConstants.SEARCH_DIAMETER * PlayerConstants.SEARCH_DIAMETER);
 
+    MapLocation last;
+
     public MinerController(RobotController rc) {
         this.rc = rc;
-        System.out.println("Soup is at " + rc.getTeamSoup());
+//        System.out.println("Soup is at " + rc.getTeamSoup());
         int round = rc.getRoundNum();
         this.born = round;
         this.movementSolver = new MovementSolver(this.rc, this);
@@ -111,15 +114,15 @@ public class MinerController extends Controller {
 
         System.out.println("Should I build?");
         if (!builtFC && foundHQ &&
-                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)) {
+                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
             System.out.println("YES");
             currentState = State.BUILDER;
             buildType = RobotType.FULFILLMENT_CENTER;
-        } else if (!builtDS && foundHQ &&
+        } /*else if (!builtDS && foundHQ &&
             rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)) {
             currentState = State.BUILDER;
             buildType = RobotType.DESIGN_SCHOOL;
-        }
+        }*/
 
         soupCount = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         containsWater = new Boolean[rc.getMapHeight()][rc.getMapWidth()];
@@ -132,6 +135,9 @@ public class MinerController extends Controller {
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
 
         seenBlocks = new boolean[compressedHeight][compressedWidth];
+        // searchSurroundingsContinued();
+        last = rc.getLocation();
+        currentRefineryPos = allyHQ;
 
         if (born == 2) {
             searchSymmetry = Symmetry.VERTICAL;
@@ -160,6 +166,8 @@ public class MinerController extends Controller {
 
         updateClusters();
 
+        System.out.println("I am a " + currentState + " " + soupClusters.size());
+
         switch (currentState) {
             case SEARCH: execSearch();             break;
             case MINE: execMine();                 break;
@@ -185,7 +193,7 @@ public class MinerController extends Controller {
                 MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
                 if (!rc.canSenseLocation(sensePos)) continue;
 
-                if (elevationHeight[sensePos.y][sensePos.x] != null) continue;
+                if (soupCount[sensePos.y][sensePos.x] != null) continue;
 
                 // Check robot
                 RobotInfo robot = rc.senseRobotAtLocation(sensePos);
@@ -202,7 +210,6 @@ public class MinerController extends Controller {
                 containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
 
                 // Check soup
-                if (containsWater[sensePos.y][sensePos.x]) continue; // Ignore flooded soup (for now)
                 if (!rc.canSenseLocation(sensePos)) continue;
                 int crudeAmount = rc.senseSoup(sensePos);
 
@@ -235,9 +242,46 @@ public class MinerController extends Controller {
         /*
             Like searchSurroundings, but doesnt try to determine which cluster a soup position is from
          */
+        //boolean xup = (last.x <= rc.getLocation().x);
+        //boolean yup = (last.y <= rc.getLocation().y);
 
-        for (int dx = -6; dx <= 6; ++dx) {
-            for (int dy = -6; dy <= 6; ++dy) {
+        for (int dx = -3; dx <= 3; ++dx) {
+            for (int dy = -3; dy <= 3; ++dy) {
+                MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
+                if (!rc.canSenseLocation(sensePos)) continue;
+                if (!rc.onTheMap(sensePos)) continue;
+
+                // if (soupCount[sensePos.y][sensePos.x] != null) continue;
+
+                // Check elevation
+                elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
+
+                // Check water
+                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+
+                /*
+                // Check robot
+                RobotInfo robot = rc.senseRobotAtLocation(sensePos);
+                if (robot != null && (robot.type == RobotType.REFINERY)) {
+//                    System.out.println("Found refinery " + sensePos + " " + robot.type.ordinal());
+                    buildMap[sensePos.y][sensePos.x] = robot.type.ordinal();
+//                    System.out.println(buildMap[sensePos.y][sensePos.x]);
+                }
+
+                 */
+
+                soupCount[sensePos.y][sensePos.x] = rc.senseSoup(sensePos);
+            }
+        }
+    }
+
+    public void searchSurroundingsContinuedSmall() throws GameActionException {
+        /*
+            Like searchSurroundings, but doesnt try to determine which cluster a soup position is from
+         */
+
+        for (int dx = -4; dx <= 4; ++dx) {
+            for (int dy = -4; dy <= 4; ++dy) {
                 MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
                 if (!rc.canSenseLocation(sensePos)) continue;
                 if (!onTheMap(sensePos)) continue;
@@ -349,94 +393,51 @@ public class MinerController extends Controller {
 
             If soup cluster is finished, tell everyone else and go to another one
          */
+        System.out.println("Doing mining stuff");
+
         updateClusters();
         searchSurroundingsContinued();
 
         // If you can no longer carry any soup deposit it
         if (rc.getSoupCarrying() + GameConstants.SOUP_MINING_RATE > RobotType.MINER.soupLimit) {
             currentState = State.DEPOSIT;
+            execDeposit();
             return;
         }
-        if (currentSoupSquare == null || !currentSoupCluster.contains(currentSoupSquare)) {
-            System.out.println("looking for soup square");
+
+        if (currentSoupSquare == null) {
+            int closest = 100;
             currentSoupSquare = null;
-
-
-            // Find closest square that doesn't have no soup guaranteed (it may not know)
-            // runs in same time as BFS worst case but I have a feeling this is faster (queue overhead)
-            findSoupSquare :
-            {
-                int bestDistance = 65 * 65;
-                for (int x = currentSoupCluster.x1; x <= currentSoupCluster.x2; ++x) {
-                    for (int y = currentSoupCluster.y1; y <= currentSoupCluster.y2; ++y) {
-                        if (soupCount[y][x] != null && soupCount[y][x] == 0) continue;
-                        if (containsWater[y][x] == null) {
-                            // Try to reach water
-                            for (int i = 0; i < PlayerConstants.MOVES_BY_MINER && containsWater[y][x] == null; ) {
-                                i += (rc.isReady()) ? 1 : 0;
-                                tryMove(movementSolver.directionToGoal(new MapLocation(x, y)));
-                                searchSurroundingsContinued();
-                            }
-                        }
-                        if (containsWater[y][x]) continue;
-                        if (usedDrone) {
-                            currentSoupSquare = new MapLocation(x, y);
-                            break findSoupSquare;
-                        }
-                        int dist = getDistanceSquared(rc.getLocation(), new MapLocation(x, y));
-                        if (dist < bestDistance) {
-                            currentSoupSquare = new MapLocation(x, y);
-                            bestDistance = dist;
-                        }
-                    }
+            for (MapLocation square : rc.senseNearbySoup()) {
+                int dist = getChebyshevDistance(rc.getLocation(), square);
+                if (dist < closest) {
+                    closest = dist;
+                    currentSoupSquare = square;
                 }
             }
-        }
-        System.out.println("found soup square");
 
-        if (currentSoupSquare == null || currentSoupCluster.size == 0) {
-            currentState = State.SEARCHURGENT;
+            if (currentSoupSquare == null) {
+                currentState = State.SEARCHURGENT;
 
-            // Communicate that the soup cluster is finished
-            currentSoupCluster.size = 0;
+                // Communicate that the soup cluster is finished
+                currentSoupCluster.size = 0;
 //            System.out.println("This cluster is finished");
-            communicationHandler.sendCluster(currentSoupCluster);
+                // communicationHandler.sendCluster(currentSoupCluster);
 
-            // Reset variables
-            currentSoupCluster = null;
-            currentSoupSquare = null;
-
-            return;
-        }
-
-        movementSolver.restart();
-        while (getDistanceSquared(rc.getLocation(), currentSoupSquare) > 1) {
-//            System.out.println("I am a miner going to soup I have found " + currentSoupSquare.toString() + " " + currentSoupCluster.toStringPos());
-            if (tryMove(movementSolver.directionToGoal(currentSoupSquare))) Clock.yield();
-        }
-
-        if (rc.senseSoup(currentSoupSquare) > 0) {
-            if (!rc.isReady()) Clock.yield();
-
-            while (rc.canMineSoup(rc.getLocation().directionTo(currentSoupSquare))) {
-//                System.out.println("I am mining soup");
-                rc.mineSoup(rc.getLocation().directionTo(currentSoupSquare));
-
-                // Might as well do computation now as we have already made our turn
-                int start = rc.getRoundNum();
-
-                for (int dx = -6; dx <= 6; ++dx) {
-                    for (int dy = -6; dy <= 6; ++dy) {
-                        MapLocation tile = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
-                        if (!rc.canSenseLocation(tile)) continue;
-                        try {
-                            soupCount[tile.y][tile.x] = rc.senseSoup(tile);
-                        } catch (Exception e) {
-//                            System.out.println("WtF " + tile + " " + rc.getLocation() + " " + start + " " + rc.getRoundNum());
-                        }
-                    }
-                }
+                // Reset variables
+                currentSoupCluster = null;
+                currentSoupSquare = null;
             }
+        }
+
+        if (!isAdjacentTo(currentSoupSquare)) {
+            if (!canReach(currentSoupSquare)) {
+                currentSoupSquare = null;
+            }
+            else tryMove(movementSolver.directionToGoal(currentSoupSquare));
+        } else if (rc.senseSoup(currentSoupSquare) > 0) {
+            if (rc.canMineSoup(rc.getLocation().directionTo(currentSoupSquare)))
+                rc.mineSoup(rc.getLocation().directionTo(currentSoupSquare));
         } else {
             soupCount[currentSoupSquare.y][currentSoupSquare.x] = 0;
             currentSoupSquare = null;
@@ -446,39 +447,42 @@ public class MinerController extends Controller {
     public void execDeposit() throws GameActionException {
         searchSurroundingsContinued();
 
-        if (currentSoupCluster.refinery.equals(this.allyHQ)) {
-            if (usedDrone || (rc.getTeamSoup() > PlayerConstants.REFINERY_BUILD_THRESHOLD &&
-                currentSoupCluster.size > PlayerConstants.REFINERY_BUILD_CLUSTER_SIZE &&
-                currentSoupCluster.contains(rc.getLocation()))) {
-                // build refinery
+        if (currentRefineryPos == null ||
+            getChebyshevDistance(rc.getLocation(), currentRefineryPos) > PlayerConstants.DISTANCE_FROM_REFINERY ||
+            !canReach(currentRefineryPos)) {
 
-                MapLocation refineryPos = null;
+            currentRefineryPos = null;
 
-                // While loop as there may be robots in the way
-                while (refineryPos == null) {
+            // Look for new refinery
+            for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
+                if (robot.type == RobotType.REFINERY) {
+                    currentRefineryPos = robot.location;
+                    break;
+                }
+            }
+
+            if (currentRefineryPos == null) {
+                // Build a new refinery
+                while (currentRefineryPos == null) {
 //                    System.out.println("I am looking for a place to build a refinery");
                     for (Direction dir : Direction.allDirections()) {
                         if (tryBuild(RobotType.REFINERY, dir)) {
-                            refineryPos = rc.getLocation().add(dir);
+                            currentRefineryPos = rc.getLocation().add(dir);
                             break;
                         }
                     }
                     Clock.yield();
                 }
-
-                // Communicate the fact that a refinery has been built
-                currentSoupCluster.refinery = refineryPos;
-                communicationHandler.sendCluster(currentSoupCluster);
             }
         }
 
-        if (getDistanceSquared(rc.getLocation(), currentSoupCluster.refinery) <= 1) {
-            if (rc.canDepositSoup(rc.getLocation().directionTo(currentSoupCluster.refinery))) {
-                rc.depositSoup(rc.getLocation().directionTo(currentSoupCluster.refinery), rc.getSoupCarrying());
+        if (getDistanceSquared(rc.getLocation(), currentRefineryPos) <= 1) {
+            if (rc.canDepositSoup(rc.getLocation().directionTo(currentRefineryPos))) {
+                rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
                 currentState = State.SEARCHURGENT;
             }
         } else {
-            tryMove(movementSolver.directionToGoal(currentSoupCluster.refinery));
+            tryMove(movementSolver.directionToGoal(currentRefineryPos));
         }
     }
 
@@ -496,8 +500,6 @@ public class MinerController extends Controller {
             }
 
             if (totalSoupSquares == 0) {
-                currentState = State.SEARCH;
-                execSearch();
                 return;
             }
 
@@ -513,13 +515,15 @@ public class MinerController extends Controller {
 
             if (currentSoupCluster == null) {
                 // Explore time
-                System.out.println("YASSS");
+                // System.out.println("YASSS");
             }
         }
 
+        // System.out.println(currentSoupCluster + " " + currentSoupSquare);
+
         movementSolver.restart();
 
-        while (!isAdjacentTo(currentSoupCluster.closest(rc.getLocation()))) {
+        if (!isAdjacentTo(currentSoupCluster.closest(rc.getLocation()))) {
             /*
                 Now as we have dedicated searches we only focus on getting to the soup cluster
 
@@ -531,15 +535,21 @@ public class MinerController extends Controller {
              */
 //            System.out.println("Heading to soup cluster at " + currentSoupCluster.toStringPos());
             tryMove(movementSolver.directionToGoal(currentSoupCluster.closest(rc.getLocation())));
-            searchSurroundingsSoup();
-            System.out.println("can I make it? " + canReach(currentSoupCluster.closest(rc.getLocation())));
+            searchSurroundingsContinued();
+//            System.out.println("can I make it? ");
             if (!canReach(currentSoupCluster.closest(rc.getLocation()))) {
                 rc.setIndicatorDot(rc.getLocation(), 255, 0, 0);
                 getHitchHike(rc.getLocation(), currentSoupCluster.closest(rc.getLocation()));
                 usedDrone = true;
+            } else {
+//                System.out.println("true");
             }
+
+        } else {
+            currentState = State.MINE;
+            execMine();
         }
-        currentState = State.MINE;
+
     }
 
     public SoupCluster determineCluster(MapLocation pos) throws GameActionException {
@@ -548,6 +558,9 @@ public class MinerController extends Controller {
          */
 
 //        System.out.println("Searching for cluster at " + pos.toString());
+//        System.out.println("Determining cluster");
+        searchSurroundingsContinued();
+
         if (searchedForSoupCluster[pos.y][pos.x]) return null;
 
         RingQueue<MapLocation> queue = new RingQueue<>(this.rc.getMapHeight() * this.rc.getMapWidth());
@@ -556,6 +569,7 @@ public class MinerController extends Controller {
 
         int crudeSoup = 0;
         int size = 0;
+        boolean containsWaterSoup = false;
 
         int x1 = pos.x;
         int x2 = pos.x;
@@ -567,9 +581,6 @@ public class MinerController extends Controller {
 
         while (!queue.isEmpty() && (x2 - x1) * (y2 - y1) <= 50) {
             MapLocation current = queue.poll();
-            if (buildMap[current.y][current.x] != null && buildMap[current.y][current.x] == RobotType.REFINERY.ordinal()) {
-                refineryPos = current;
-            }
 
             visited[current.y][current.x] = true;
 
@@ -582,6 +593,7 @@ public class MinerController extends Controller {
             // Determine if we already know about this cluster
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
+            ++size;
 
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
@@ -592,25 +604,26 @@ public class MinerController extends Controller {
 
                 while (!rc.isReady()) Clock.yield();
 
-                int usedMoves = 0; // remove infinite loops
+                boolean isPossible = true;
                 while (soupCount[neighbour.y][neighbour.x] == null){
-                    if (usedMoves > 10) {
-                        usedMoves = -1; // lazy flag
+                    if (!canReach(neighbour)) {
+                        isPossible = false;
                         break;
                     }
                     if (tryMove(movementSolver.directionToGoal(neighbour))) {
-                        ++usedMoves;
                         searchSurroundingsContinued();
 
                         // Only do nothing if you need to make another move
-                        if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
+                        // if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
                     }
                 }
-                if (usedMoves < 0) continue;
+                if (!isPossible) continue;
+
                 if (Math.abs(elevationHeight[neighbour.y][neighbour.x] - elevationHeight[current.y][current.x]) > 3) continue;
 
                 crudeSoup += (soupCount[neighbour.y][neighbour.x] == null) ? 0 : soupCount[neighbour.y][neighbour.x];
-
+                containsWaterSoup |= (containsWater[neighbour.y][neighbour.x] != null &&
+                        containsWater[neighbour.y][neighbour.x]);
 
                 if (soupCount[neighbour.y][neighbour.x] > 0 || (buildMap[neighbour.y][neighbour.x] != null && buildMap[neighbour.y][neighbour.x] == RobotType.REFINERY.ordinal())) {
                     queue.add(neighbour);
@@ -619,8 +632,9 @@ public class MinerController extends Controller {
             }
         }
 
+//        System.out.println("Found: " + size);
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, crudeSoup, (refineryPos == null) ? allyHQ : refineryPos);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, containsWaterSoup);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 
@@ -631,6 +645,8 @@ public class MinerController extends Controller {
             if (found.inside(soupCluster)) hasBeenBroadCasted = true;
         }
 
+//        System.out.println("Finished: ");
+        found.draw(this.rc);
         if (hasBeenBroadCasted) return null;
         return found;
     }
@@ -675,7 +691,7 @@ public class MinerController extends Controller {
             tryMove(movementSolver.directionToGoal(buildLoc));
         } else {
             if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
-                System.out.println("Checking for others");
+//                System.out.println("Checking for others");
                 if (PlayerConstants.shouldntDuplicate(this.buildType)) {
                     for (RobotInfo robot : rc.senseNearbyRobots()) {
                         if (robot.team == rc.getTeam() && robot.type == this.buildType) {
@@ -776,6 +792,7 @@ public class MinerController extends Controller {
 
         while (!stack.isEmpty()) {
             MapLocation node = stack.pop();
+            updateClusters();
 
             // Broadcast what areas have been searched
             if (!seenBlocks[node.y / BLOCK_SIZE][node.x / BLOCK_SIZE]) {
@@ -784,7 +801,7 @@ public class MinerController extends Controller {
 
                 if (visitedBlocks.size() == 12) {
                     communicationHandler.sendMapBlocks(visitedBlocks.toArray(new MapLocation[0]));
-                    System.out.println("Sending " + visitedBlocks.size());
+//                    System.out.println("Sending " + visitedBlocks.size());
                     visitedBlocks = new LinkedList<>();
                 }
             }
@@ -796,14 +813,16 @@ public class MinerController extends Controller {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
 
-                for (int i = 0; i < 10 && elevationHeight[nnode.y][nnode.x] == null; ++i) {
+                for (int i = 0; i < 10 && soupCount[nnode.y][nnode.x] == null; ++i) {
                     tryMove(movementSolver.directionToGoal(nnode));
                     searchSurroundingsSoup();
 
                     Clock.yield();
+                    updateClusters();
+
                 }
 
-                if (elevationHeight[nnode.y][nnode.x] == null) continue;
+                if (soupCount[nnode.y][nnode.x] == null) continue;
 
                 if (containsWater[nnode.y][nnode.x]) continue;
 
@@ -882,7 +901,7 @@ public class MinerController extends Controller {
         }
     }
 
-    public boolean canReach(MapLocation pos) {
+    public boolean canReach(MapLocation pos) throws GameActionException {
         int diam = PlayerConstants.SEARCH_DIAMETER;
 
         // Just checks to see if there is a path to any block in that direction just using
@@ -893,28 +912,34 @@ public class MinerController extends Controller {
         reachQueue.add(rc.getLocation());
         visited[diam/2 + 1][diam/2 + 1] = true;
 
-        int targetDistance = getChebyshevDistance(rc.getLocation(), pos);
+        int targetDistance = rc.getLocation().distanceSquaredTo(pos);
 
         while (!reachQueue.isEmpty()) {
             MapLocation node = reachQueue.poll();
 
-            if (getChebyshevDistance(pos, node) < targetDistance) return true;
+            if (pos.distanceSquaredTo(node) < targetDistance) return true;
 
             for (Direction dir : Direction.allDirections()) {
                 MapLocation nnode = node.add(dir);
-                if (!onTheMap(nnode)) continue;
+                if (!rc.onTheMap(nnode)) continue;
 
                 int dx = nnode.x - (rc.getLocation().x - diam/2);
                 int dy = nnode.y - (rc.getLocation().y - diam/2);
                 if (dx < 0 || dx >= diam || dy < 0 || dy >= diam) continue;
 
                 if (visited[dy][dx]) continue;
-                if (containsWater[nnode.y][nnode.x] == null) continue;
-                if (containsWater[nnode.y][nnode.x]) continue;
-                if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
+                if (containsWater[nnode.y][nnode.x] == null) {
+                    // if we haven't searched the square assume we can get there
+                    visited[dy][dx] = true;
+                    reachQueue.add(nnode);
+                } else {
+                    if (containsWater[nnode.y][nnode.x]) continue;
+                    if (elevationHeight[nnode.y][nnode.x] == null) continue;
+                    if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
+                    visited[dy][dx] = true;
+                    reachQueue.add(nnode);
+                }
 
-                visited[dy][dx] = true;
-                reachQueue.add(nnode);
             }
         }
         return false;

@@ -17,6 +17,7 @@ public class HQController extends Controller {
     int compressedWidth;
     int compressedHeight;
     int BLOCK_SIZE = PlayerConstants.GRID_BLOCK_SIZE;
+    int cap = 100000;
 
     public HQController(RobotController rc) {
         this.allyHQ = rc.getLocation();
@@ -34,7 +35,8 @@ public class HQController extends Controller {
                 int[] mess = tx.getMessage();
                 if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.CLUSTER) {
                     SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
-
+                    System.out.println(broadcastedSoupCluster.x1 + " " + broadcastedSoupCluster.y1 + " " +
+                            broadcastedSoupCluster.x2 + broadcastedSoupCluster.y2);
                     boolean seenBefore = false;
                     for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
                         if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) {
@@ -72,6 +74,7 @@ public class HQController extends Controller {
         updateSeenBlocks();
         updateClusters();
 
+        if (rc.getRoundNum() == 100) cap = totalSoup;
         for (int y = 0; y < compressedHeight; ++y) {
             for (int x = 0; x < compressedWidth; ++x) {
                 if (!seenBlocks[y][x]) continue;
@@ -82,7 +85,7 @@ public class HQController extends Controller {
                 rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x1 + BLOCK_SIZE - 1, y1), 255, 0, 0);
                 rc.setIndicatorLine(new MapLocation(x1 + BLOCK_SIZE - 1, y1 + BLOCK_SIZE - 1), new MapLocation(x1, y1 + BLOCK_SIZE - 1), 255, 0, 0);
                 rc.setIndicatorLine(new MapLocation(x1 + BLOCK_SIZE - 1, y1 + BLOCK_SIZE - 1), new MapLocation(x1 + BLOCK_SIZE - 1, y1), 255, 0, 0);
-*/
+                */
             }
         }
 
@@ -96,6 +99,7 @@ public class HQController extends Controller {
             rc.buildRobot(RobotType.MINER, (HQPos.x > WSize / 2) ? Direction.WEST : Direction.EAST);
             Clock.yield();
             rc.buildRobot(RobotType.MINER, (HQPos.y > HSize / 2) ? Direction.SOUTH : Direction.NORTH);
+            totalMiners += 2;
         }
 
         if (!locationSent) {
@@ -103,9 +107,10 @@ public class HQController extends Controller {
         }
 
         updateClusters();
+        System.out.println(totalSoup);
 
         if (totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
-                (totalMiners < totalSoup / PlayerConstants.SOUP_PER_MINER + 4 &&
+                (totalMiners < Math.min(cap, totalSoup / PlayerConstants.AREA_PER_MINER) &&
                         rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.MINER))) {
 
             for (Direction dir : directions) {

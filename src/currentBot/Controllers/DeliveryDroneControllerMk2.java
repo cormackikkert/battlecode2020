@@ -52,6 +52,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
     HitchHike currentReq = null;
 
     public DeliveryDroneControllerMk2(RobotController rc) {
+        this.random.setSeed(rc.getID());
+
         // Do heavy computation stuff here as 10 rounds are spent being built
         containsWater = new Boolean[rc.getMapHeight()][rc.getMapWidth()];
         queue = new RingQueue<>(rc.getMapHeight() * rc.getMapWidth());
@@ -146,11 +148,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
          */
 
         // trying to pick up enemies
+
+        // todo: remove
+        /*
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (tryPickUpUnit(enemy)) return;
             }
         }
+
+         */
 
         // camp around home
         if (ADJACENT_DEFEND ?
@@ -177,12 +184,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
          */
 
         // trying to pick up enemies
+
+        /*
         RobotInfo[] enemies = rc.senseNearbyRobots(-1, ENEMY);
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (tryPickUpUnit(enemy)) return;
             }
         }
+
+         */
 
         // camp outside enemy hq
         if (enemyHQ != null) {
@@ -207,12 +218,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execWanderPatrol() throws GameActionException {
+        /*
         for (RobotInfo enemy : enemies) {
             if (tryPickUpUnit(enemy)) {
                 return;
             }
         }
-
+        */
         movementSolver.windowsRoam();
     }
 
@@ -311,7 +323,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
         if (currentReq == null) {
             for (HitchHike req : reqs) {
-                if (rc.getRoundNum() - req.roundNum + 1 == getChebyshevDistance(rc.getLocation(), req.goal)) {
+                if (rc.getRoundNum() - req.roundNum - 1 == getChebyshevDistance(rc.getLocation(), req.goal)) {
+                    System.out.println("I'll pick you up");
                     currentReq = req;
                     currentReq.droneID = rc.getID();
                     communicationHandler.sendHitchHikeAck(req);
@@ -334,6 +347,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         int crudeSoup = 0;
         int size = 0;
+        boolean containsWaterSoup = false;
 
         int x1 = pos.x;
         int x2 = pos.x;
@@ -362,6 +376,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
 
+            ++size;
+
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
                 if (!onTheMap(neighbour)) continue;
@@ -388,6 +404,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (usedMoves < 0) continue;
 
                 crudeSoup += (soupCount[neighbour.y][neighbour.x] == null) ? 0 : soupCount[neighbour.y][neighbour.x];
+                containsWaterSoup |= (containsWater[neighbour.y][neighbour.x] != null &&
+                        containsWater[neighbour.y][neighbour.x]);
+
 
                 if (Math.abs(elevationHeight[neighbour.y][neighbour.x] - elevationHeight[current.y][current.x]) > 3) continue;
 
@@ -397,7 +416,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 }
             }
         }
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, crudeSoup, (refineryPos == null) ? allyHQ : refineryPos);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, containsWaterSoup);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 
@@ -436,7 +455,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 soupCount[sensePos.y][sensePos.x] = crudeAmount;
 
                 if (rc.canSenseLocation(sensePos) &&
-                        !searchedForSoupCluster[sensePos.y][sensePos.x]) {
+                        !searchedForSoupCluster[sensePos.y][sensePos.x] && crudeAmount > 0) {
                     SoupCluster foundSoupCluster = determineCluster(sensePos);
 
                     if (foundSoupCluster == null) break;
@@ -464,8 +483,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 while (rc.isCurrentlyHoldingUnit()) execKill();
             }
         }
-
     }
+
     public void execExplore() throws GameActionException {
         updateSeenBlocks();
         updateClusters();
@@ -534,7 +553,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             for (Direction dir : Direction.allDirections()) {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
-
+                if ((nnode.y + nnode.x) % 2 == 0) continue;
                 stack.push(nnode);
             }
         }
