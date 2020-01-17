@@ -19,14 +19,15 @@ import static currentBot.Controllers.PlayerConstants.*;
  */
 public class DeliveryDroneControllerMk2 extends Controller {
 
-    enum State {
+    public enum State {
         DEFEND,
         ATTACK,
         WANDER,
-        EXPLORE // Search for soup clustsers in places the miner couldn't reach
+        EXPLORE, // Search for soup clustsers in places the miner couldn't reach
+        TAXI
     }
 
-    State currentState = null;
+    public State currentState = null;
 
     Deque<HitchHike> reqs = new LinkedList<>();
 
@@ -90,14 +91,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void run() throws GameActionException {
+        System.out.println("role is " + currentState);
         if (!rc.isReady()) {
             searchSurroundingsContinued();
-            return;
-        }
-
-        updateReqs();
-        if (currentReq != null) {
-            execTaxi();
             return;
         }
 
@@ -108,10 +104,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
-                case ATTACK:  execAttackPatrol();            break;
-                case DEFEND:  execDefendPatrol();            break;
-                case WANDER:  execWanderPatrol();            break;
+                case ATTACK:  execAttackPatrol();           break;
+                case DEFEND:  execDefendPatrol();           break;
+                case WANDER:  execWanderPatrol();           break;
                 case EXPLORE: execExplore();                break;
+                case TAXI: execTaxi();                      break;
             }
         } else {
             execKill();
@@ -130,13 +127,19 @@ public class DeliveryDroneControllerMk2 extends Controller {
         } else {
 //            switchToDefenceMode();
             switchToWanderMode();
-        }
 
-        // Half drones explore
-        // slowly turn back into other modes
-        if (rc.getID() % 2 == 0 && !hasExplored) {
-            currentState = State.EXPLORE;
-            hasExplored = true;
+            updateReqs();
+            if (currentReq != null) {
+                execTaxi();
+                return;
+            }
+
+            // Half drones explore
+            // slowly turn back into other modes
+            if (rc.getID() % 2 == 0 && !hasExplored) {
+                currentState = State.EXPLORE;
+                hasExplored = true;
+            }
         }
     }
 
@@ -218,13 +221,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execWanderPatrol() throws GameActionException {
-        /*
+        scanRobots();
         for (RobotInfo enemy : enemies) {
             if (tryPickUpUnit(enemy)) {
                 return;
             }
         }
-        */
         movementSolver.windowsRoam();
     }
 
@@ -473,6 +475,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public void killCow() throws GameActionException {
         while (true) {
+            assignRole();
+            if (currentState != State.EXPLORE) break;
             RobotInfo[] cows = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), NEUTRAL);
             if (cows.length == 0) return;
             System.out.println("FOUND COW");
@@ -496,6 +500,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
         LinkedList<MapLocation> visitedBlocks = new LinkedList<>();
 
         while (!stack.isEmpty()) {
+            assignRole();
+            if (currentState != State.EXPLORE) break;
+
             MapLocation node = stack.pop();
 
             // Kill annoying cows

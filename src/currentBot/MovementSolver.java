@@ -118,6 +118,12 @@ public class MovementSolver {
             dir = controller.enemyHQ.directionTo(from);
         }
 
+        if (rc.getLocation().add(dir).equals(twoback)) {
+            ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
+        }
+
+        twoback = previous;
+        previous = from;
         return dir;
     }
 
