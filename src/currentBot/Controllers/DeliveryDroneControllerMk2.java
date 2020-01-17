@@ -243,7 +243,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
     public void execKill() throws GameActionException {
         if (nearestWaterTile == null) {
             System.out.println("Looking for water tile");
-            nearestWaterTile = getNearestWaterTile();
+            movementSolver.windowsRoam();
+            nearestWaterTile = getNearestWaterTile2();
         }
 
         if (!isAdjacentTo(nearestWaterTile)) {
