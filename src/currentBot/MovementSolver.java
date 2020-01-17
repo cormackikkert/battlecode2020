@@ -205,14 +205,16 @@ public class MovementSolver {
                 if (controller.ghostH) { // Horizontal symmetry
                     loc = new MapLocation(rc.getMapWidth()-x-1, y);
                     if (rc.canSenseLocation(loc)) {
-                        if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
-                            ((DeliveryDroneControllerMk2) controller).ghostH = false;
-                            controller.communicationHandler.sendFailHorizontal();
-                            System.out.println("no ghosts here");
-                        } else {
-                            if (controller.enemyHQ == null) {
-                                controller.enemyHQ = loc;
-                                controller.communicationHandler.sendEnemyHQLoc(loc);
+                        if (rc.senseRobotAtLocation(loc) != null) {
+                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                                ((DeliveryDroneControllerMk2) controller).ghostH = false;
+                                controller.communicationHandler.sendFailHorizontal();
+                                System.out.println("no ghosts here");
+                            } else {
+                                if (controller.enemyHQ == null) {
+                                    controller.enemyHQ = loc;
+                                    controller.communicationHandler.sendEnemyHQLoc(loc);
+                                }
                             }
                         }
                     }
@@ -224,14 +226,16 @@ public class MovementSolver {
                 if (controller.ghostV) { // Vertical symmetry
                     loc = new MapLocation(x, rc.getMapHeight()-y-1);
                     if (rc.canSenseLocation(loc)) {
-                        if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
-                            ((DeliveryDroneControllerMk2) controller).ghostV = false;
-                            controller.communicationHandler.sendFailVertical();
-                            System.out.println("no ghosts here");
-                        } else {
-                            if (controller.enemyHQ == null) {
-                                controller.enemyHQ = loc;
-                                controller.communicationHandler.sendEnemyHQLoc(loc);
+                        if (rc.senseRobotAtLocation(loc) != null) {
+                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                                ((DeliveryDroneControllerMk2) controller).ghostV = false;
+                                controller.communicationHandler.sendFailVertical();
+                                System.out.println("no ghosts here");
+                            } else {
+                                if (controller.enemyHQ == null) {
+                                    controller.enemyHQ = loc;
+                                    controller.communicationHandler.sendEnemyHQLoc(loc);
+                                }
                             }
                         }
                     }
@@ -243,14 +247,16 @@ public class MovementSolver {
                 if (controller.ghostR) { // Rotational symmetry
                     loc = new MapLocation(rc.getMapWidth()-x-1, rc.getMapHeight()-y-1);
                     if (rc.canSenseLocation(loc)) {
-                        if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
-                            ((DeliveryDroneControllerMk2) controller).ghostR = false;
-                            controller.communicationHandler.sendFailRotational();
-                            System.out.println("no ghosts here");
-                        } else {
-                            if (controller.enemyHQ == null) {
-                                controller.enemyHQ = loc;
-                                controller.communicationHandler.sendEnemyHQLoc(loc);
+                        if (rc.senseRobotAtLocation(loc) != null) {
+                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                                ((DeliveryDroneControllerMk2) controller).ghostR = false;
+                                controller.communicationHandler.sendFailRotational();
+                                System.out.println("no ghosts here");
+                            } else {
+                                if (controller.enemyHQ == null) {
+                                    controller.enemyHQ = loc;
+                                    controller.communicationHandler.sendEnemyHQLoc(loc);
+                                }
                             }
                         }
                     }
