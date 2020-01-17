@@ -103,7 +103,7 @@ public class LandscaperController extends Controller {
                     j = turnCW ? (i+1)%8 : (i-1+8)%8;
                 }
                 newPos = allyHQ.add(directions[j]);
-                if (rc.onTheMap(newPos)) return loc.directionTo(allyHQ.add(directions[j]));
+                if (rc.onTheMap(newPos)) return loc.directionTo(newPos);
                 else break;
             }
         }
