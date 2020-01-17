@@ -166,6 +166,11 @@ public class MinerController extends Controller {
 
         updateClusters();
 
+        if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
+            isAdjacentToWater(rc.getLocation())) {
+            avoidWater();
+        }
+        
         System.out.println("I am a " + currentState + " " + soupClusters.size());
 
 

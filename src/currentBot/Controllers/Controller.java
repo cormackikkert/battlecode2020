@@ -544,6 +544,21 @@ public abstract class Controller {
         lrmb = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 
+    void avoidWater() throws GameActionException {
+        for (Direction dir : Direction.allDirections()) {
+            if (!isAdjacentToWater(rc.getLocation().add(dir)) && tryMove(dir)) {
+                System.out.println("YEEHAW");
+                return;
+            }
+        }
+    }
+
+    boolean isAdjacentToWater(MapLocation pos) throws GameActionException {
+        for (Direction dir : Direction.allDirections()) {
+            if (rc.canSenseLocation(pos.add(dir)) && rc.senseFlooding(pos.add(dir))) return true;
+        }
+        return false;
+    }
 
     abstract public void run() throws GameActionException;
 }
