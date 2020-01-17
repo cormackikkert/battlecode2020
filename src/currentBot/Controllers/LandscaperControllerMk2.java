@@ -63,6 +63,7 @@ public class LandscaperControllerMk2 extends Controller {
     boolean[][] dumped;
 
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
+    RingQueue<MapLocation> reachQueue = new RingQueue<>(PlayerConstants.SEARCH_DIAMETER * PlayerConstants.SEARCH_DIAMETER);
 
     SoupCluster currentSoupCluster; // Soup cluster the miner goes to
     MapLocation currentSoupSquare; // Soup square the miner mines
@@ -238,6 +239,9 @@ public class LandscaperControllerMk2 extends Controller {
          */
 
 //        System.out.println("Searching for cluster at " + pos.toString());
+//        System.out.println("Determining cluster");
+        searchSurroundingsContinued();
+
         if (searchedForSoupCluster[pos.y][pos.x]) return null;
 
         RingQueue<MapLocation> queue = new RingQueue<>(this.rc.getMapHeight() * this.rc.getMapWidth());
@@ -246,6 +250,7 @@ public class LandscaperControllerMk2 extends Controller {
 
         int crudeSoup = 0;
         int size = 0;
+        boolean containsWaterSoup = false;
 
         int x1 = pos.x;
         int x2 = pos.x;
@@ -257,9 +262,6 @@ public class LandscaperControllerMk2 extends Controller {
 
         while (!queue.isEmpty() && (x2 - x1) * (y2 - y1) <= 50) {
             MapLocation current = queue.poll();
-            if (buildMap[current.y][current.x] != null && buildMap[current.y][current.x] == RobotType.REFINERY.ordinal()) {
-                refineryPos = current;
-            }
 
             visited[current.y][current.x] = true;
 
@@ -272,6 +274,7 @@ public class LandscaperControllerMk2 extends Controller {
             // Determine if we already know about this cluster
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
+            ++size;
 
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
@@ -282,23 +285,26 @@ public class LandscaperControllerMk2 extends Controller {
 
                 while (!rc.isReady()) Clock.yield();
 
-                int usedMoves = 0; // remove infinite loops
+                boolean isPossible = true;
                 while (soupCount[neighbour.y][neighbour.x] == null){
-                    if (usedMoves > 10) {
-                        usedMoves = -1; // lazy flag
+                    if (!canReach(neighbour)) {
+                        isPossible = false;
                         break;
                     }
                     if (tryMove(movementSolver.directionToGoal(neighbour))) {
-                        ++usedMoves;
                         searchSurroundingsContinued();
 
                         // Only do nothing if you need to make another move
-                        if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
+                        // if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
                     }
                 }
-                if (usedMoves < 0) continue;
+                if (!isPossible) continue;
+
+                if (Math.abs(elevationHeight[neighbour.y][neighbour.x] - elevationHeight[current.y][current.x]) > 3) continue;
 
                 crudeSoup += (soupCount[neighbour.y][neighbour.x] == null) ? 0 : soupCount[neighbour.y][neighbour.x];
+                containsWaterSoup |= (containsWater[neighbour.y][neighbour.x] != null &&
+                        containsWater[neighbour.y][neighbour.x]);
 
                 if (soupCount[neighbour.y][neighbour.x] > 0 || (buildMap[neighbour.y][neighbour.x] != null && buildMap[neighbour.y][neighbour.x] == RobotType.REFINERY.ordinal())) {
                     queue.add(neighbour);
@@ -307,8 +313,9 @@ public class LandscaperControllerMk2 extends Controller {
             }
         }
 
+//        System.out.println("Found: " + size);
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, crudeSoup, (refineryPos == null) ? allyHQ : refineryPos);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, containsWaterSoup);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 
@@ -319,6 +326,8 @@ public class LandscaperControllerMk2 extends Controller {
             if (found.inside(soupCluster)) hasBeenBroadCasted = true;
         }
 
+//        System.out.println("Finished: ");
+        found.draw(this.rc);
         if (hasBeenBroadCasted) return null;
         return found;
     }
@@ -564,5 +573,49 @@ public class LandscaperControllerMk2 extends Controller {
 
     public static boolean inRange(int a, int lo, int hi) {
         return (lo <= a && a < hi);
+    }
+
+    public boolean canReach(MapLocation pos) throws GameActionException {
+        int diam = PlayerConstants.SEARCH_DIAMETER;
+
+        // Just checks to see if there is a path to any block in that direction just using
+        reachQueue.clear();
+
+        boolean[][] visited = new boolean[diam][diam];
+
+        reachQueue.add(rc.getLocation());
+        visited[diam/2 + 1][diam/2 + 1] = true;
+
+        int targetDistance = rc.getLocation().distanceSquaredTo(pos);
+
+        while (!reachQueue.isEmpty()) {
+            MapLocation node = reachQueue.poll();
+
+            if (pos.distanceSquaredTo(node) < targetDistance) return true;
+
+            for (Direction dir : Direction.allDirections()) {
+                MapLocation nnode = node.add(dir);
+                if (!rc.onTheMap(nnode)) continue;
+
+                int dx = nnode.x - (rc.getLocation().x - diam/2);
+                int dy = nnode.y - (rc.getLocation().y - diam/2);
+                if (dx < 0 || dx >= diam || dy < 0 || dy >= diam) continue;
+
+                if (visited[dy][dx]) continue;
+                if (containsWater[nnode.y][nnode.x] == null) {
+                    // if we haven't searched the square assume we can get there
+                    visited[dy][dx] = true;
+                    reachQueue.add(nnode);
+                } else {
+                    if (containsWater[nnode.y][nnode.x]) continue;
+                    if (elevationHeight[nnode.y][nnode.x] == null) continue;
+                    if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
+                    visited[dy][dx] = true;
+                    reachQueue.add(nnode);
+                }
+
+            }
+        }
+        return false;
     }
 }
