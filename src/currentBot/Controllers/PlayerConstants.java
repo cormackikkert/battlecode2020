@@ -13,8 +13,8 @@ public class PlayerConstants {
     static final int DISTANCE_FROM_REFINERY = 10;
 
     // Drone constants
-    static final boolean ADJACENT_DEFEND = true;
-    static final int DEFENSE_RADIUS = 35; // radius from hq to defend if NOT adjacent defence
+    static final boolean ADJACENT_DEFEND = false;
+    static final int DEFENSE_RADIUS = 15; // radius from hq to defend if NOT adjacent defence, so can still detect enemies near hq
     static final int NET_GUN_RADIUS = 15;
     static final int CAMPING_RADIUS = 25; // for camping just outside net gun range
     static final int SWITCH_TO_ATTACK = 600; // turn for switching to attack mode

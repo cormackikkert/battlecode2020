@@ -232,7 +232,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
-            System.out.println("enemy location sent ");
+            System.out.println("enemy location sent "+loc);
             return true;
         }
         return false;
@@ -271,7 +271,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                 int[] message = t.getMessage();
                 if ((CommunicationType.ENEMYHQ.ordinal() ^ teamSecret) == message[1]) {
                     out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
-                    System.out.println("received enemy location");
+                    System.out.println("received enemy location "+out);
                     break outer;
                 }
             }
@@ -394,7 +394,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int y = controller.allyHQ.y;
 
         if (controller.ghostsKilled == 2) {
-            MapLocation enemyHQ = null;
+            MapLocation enemyHQ;
             if (controller.ghostH) {
                 enemyHQ = new MapLocation(rc.getMapWidth()-x, y);
             } else if (controller.ghostV) {

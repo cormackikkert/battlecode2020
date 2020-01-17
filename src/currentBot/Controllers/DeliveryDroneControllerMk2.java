@@ -91,7 +91,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void run() throws GameActionException {
-        System.out.println("role is " + currentState);
         if (!rc.isReady()) {
             searchSurroundingsContinued();
             return;
@@ -99,8 +98,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         assignRole();
         hqInfo(); // includes scanning robots
-
-        // if (currentState == State.ATTACK) currentState = State.DEFEND;
+//        System.out.println("role is " + currentState);
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -122,23 +120,24 @@ public class DeliveryDroneControllerMk2 extends Controller {
          */
 
 
-        if (rc.getRoundNum() >= SWITCH_TO_ATTACK) {
+        if (rc.getRoundNum() >= SWITCH_TO_ATTACK && rc.getID() % 2 == 0) {
             switchToAttackMode();
         } else {
-//            switchToDefenceMode();
-            switchToWanderMode();
+            switchToDefenceMode();
+//            switchToWanderMode();
 
-            updateReqs();
-            if (currentReq != null) {
-                execTaxi();
-                return;
-            }
-
-            // Half drones explore
+            // some drones explore
             // slowly turn back into other modes
-            if (rc.getID() % 2 == 0 && !hasExplored) {
+            if (rc.getID() % 3 == 0 && !hasExplored) {
                 currentState = State.EXPLORE;
                 hasExplored = true;
+            }
+        }
+
+        if (currentState != State.DEFEND) {
+            updateReqs();
+            if (currentReq != null) {
+                currentState = State.TAXI;
             }
         }
     }
@@ -152,15 +151,15 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         // trying to pick up enemies
 
-        // todo: remove
-        /*
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (tryPickUpUnit(enemy)) return;
+                if (allyHQ != null && enemy.getLocation().isWithinDistanceSquared(allyHQ, 2)) {
+                    tryMove(movementSolver.directionToGoal(enemy.getLocation()));
+                }
             }
         }
 
-         */
 
         // camp around home
         if (ADJACENT_DEFEND ?
@@ -169,9 +168,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             System.out.println("stand still to defend");
         } else {
             if (allyHQ != null) {
-                if (!tryMove(rc.getLocation().directionTo(allyHQ))) {
-                    tryMove(randomDirection());
-                }
+                tryMove(rc.getLocation().directionTo(allyHQ));
             } else {
                 tryMove(randomDirection()); // should never get here since should find hq
             }
@@ -187,16 +184,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
          */
 
         // trying to pick up enemies
-
-        /*
-        RobotInfo[] enemies = rc.senseNearbyRobots(-1, ENEMY);
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (tryPickUpUnit(enemy)) return;
             }
         }
-
-         */
 
         // camp outside enemy hq
         if (enemyHQ != null) {
@@ -243,6 +235,18 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execKill() throws GameActionException {
+        MapLocation loc = rc.getLocation();
+        MapLocation kill;
+        for (Direction direction : Direction.allDirections()) {
+            kill = loc.add(direction);
+            if (rc.canSenseLocation(kill) && rc.senseFlooding(kill)) {
+                if (rc.canDropUnit(direction)) {
+                    rc.dropUnit(direction);
+                    return;
+                }
+            }
+        }
+
         if (nearestWaterTile == null) {
             System.out.println("Looking for water tile");
             movementSolver.windowsRoam();

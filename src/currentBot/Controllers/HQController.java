@@ -109,6 +109,10 @@ public class HQController extends Controller {
             if (communicationHandler.sendAllyHQLoc(allyHQ)) locationSent = true;
         }
 
+        if (enemyHQ == null) {
+            communicationHandler.receiveEnemyHQLoc();
+        }
+
         updateClusters();
         System.out.println(totalSoup);
 
