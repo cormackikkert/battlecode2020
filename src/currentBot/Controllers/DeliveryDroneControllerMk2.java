@@ -247,16 +247,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
             System.out.println("Looking for water tile");
             movementSolver.windowsRoam();
             nearestWaterTile = getNearestWaterTile2();
-        }
-
-        if (!isAdjacentTo(nearestWaterTile)) {
-            System.out.println("Moving to water tile");
-            tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
         } else {
-            System.out.println("dropping in water tile");
-            if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
-                rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
-                nearestWaterTile = null; // look for different water tile next time
+            if (!isAdjacentTo(nearestWaterTile)) {
+                System.out.println("Moving to water tile");
+                tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
+            } else {
+                System.out.println("dropping in water tile");
+                if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
+                    rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
+                    nearestWaterTile = null; // look for different water tile next time
+                }
             }
         }
     }
