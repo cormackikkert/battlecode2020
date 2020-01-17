@@ -24,15 +24,10 @@ public class DesignSchoolController extends Controller {
     }
 
     public void run() throws GameActionException {
-        switch (currentState) {
-            case DESTROY_ENEMY: execDestroyEnemy(); break;
-            case DEFAULT: execRandomBuild(); break;
-        }
-    }
-
-    public void execRandomBuild() throws GameActionException {
-        for (Direction direction : Direction.allDirections()) {
-            tryBuild(RobotType.LANDSCAPER, direction);
+        if (rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && builtLandscapers < 4) {
+            for (Direction dir : Direction.allDirections()) {
+                if (tryBuild(RobotType.LANDSCAPER, dir)) {++builtLandscapers; break;}
+            }
         }
     }
 

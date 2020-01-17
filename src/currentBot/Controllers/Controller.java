@@ -50,7 +50,8 @@ public abstract class Controller {
     MapBlock[][] mapBlocks;
     boolean[][] seenBlocks; // Subdivides grid into areas and this stores which areas have been seen
 
-    int lastRound = 1;
+    int lrmb = 1;
+    int lrsb = 1;
 
     public RingQueue<MapLocation> queue;
 
@@ -104,23 +105,11 @@ public abstract class Controller {
 
     public boolean tryMove(Direction dir) throws GameActionException {
         // System.out.println("I am trying to move " + dir + "; " + rc.isReady() + " " + rc.getCooldownTurns() + " " + rc.canMove(dir));
-        if (rc.isReady() && rc.canMove(dir)) {
+        while (!rc.isReady()) Clock.yield();
+        if (rc.canMove(dir)) {
             rc.move(dir);
             return true;
         } else return false;
-    }
-
-    void goToLocationToSense(MapLocation goal) throws GameActionException {
-        while (!rc.canSenseLocation(goal)) {
-            if (tryMove(movementSolver.directionToGoal(goal))) Clock.yield();
-        }
-    }
-
-    void goToLocationToDeposit(MapLocation goal) throws GameActionException {
-        while (rc.getLocation().distanceSquaredTo(goal) > 1
-                || !rc.canDepositDirt(rc.getLocation().directionTo(goal))) {
-            if (tryMove(movementSolver.directionToGoal(goal))) Clock.yield();
-        }
     }
 
     void tryBlockchain() throws GameActionException {
@@ -150,6 +139,10 @@ public abstract class Controller {
 
     Direction randomDirection() {
         return directions[(int) (Math.random() * directions.length)];
+    }
+
+    int getChebyshevDistance(MapLocation p1, MapLocation p2) {
+        return Math.max(Math.abs(p1.x - p2.x), Math.abs(p1.y - p2.y));
     }
 
     int getDistanceSquared(MapLocation p1, MapLocation p2) {
@@ -512,9 +505,25 @@ public abstract class Controller {
 
     public void searchSurroundingsContinued() throws GameActionException {}
 
+
+    void updateSeenBlocks() throws GameActionException {
+        for (int i = lrsb; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCKS) {
+                    MapLocation[] blocks = communicationHandler.getMapBlocks(mess);
+                    for (MapLocation pos : blocks) {
+                        seenBlocks[pos.y][pos.x] = true;
+                    }
+                }
+            }
+        }
+        lrsb = rc.getRoundNum();
+    }
+
     void updateMapBlocks() throws GameActionException {
         // For other version of miner
-        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
+        for (int i = lrmb; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
                 if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCK) {
@@ -532,7 +541,7 @@ public abstract class Controller {
                 }
             }
         }
-        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+        lrmb = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 
 

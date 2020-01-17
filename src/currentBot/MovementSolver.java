@@ -1,6 +1,7 @@
 package currentBot;
 import battlecode.common.*;
 import currentBot.Controllers.Controller;
+import currentBot.Controllers.PlayerConstants;
 
 /*
     A class that handles movement
@@ -32,6 +33,7 @@ public class MovementSolver {
     }
 
     public Direction directionToGoal(MapLocation goal) throws GameActionException {
+        rc.setIndicatorLine(rc.getLocation(), goal, 255, 0, 0);
         return rc.getType() == RobotType.DELIVERY_DRONE ?
                 droneDirectionToGoal(rc.getLocation(), goal) :
                 directionToGoal(rc.getLocation(), goal);
@@ -177,6 +179,7 @@ public class MovementSolver {
     }
 
     boolean isDroneObstacleAvoidGun(Direction dir, MapLocation to, RobotInfo[] enemies) throws GameActionException {
+        if (enemies == null) enemies = rc.senseNearbyRobots();
         for (RobotInfo enemy : enemies) {
             if (enemy.getTeam() != rc.getTeam().opponent()) continue;
             if (
@@ -267,4 +270,6 @@ public class MovementSolver {
     public boolean isOrdinal(Direction dir) {
         return !isCardinal(dir);
     }
+
+
 }

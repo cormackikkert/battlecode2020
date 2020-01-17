@@ -18,7 +18,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         REQUEST_BUILD,
         SCOUTDIRECTION,
         FAILHORIZONTAL, // for detecting enemy hq
-        FAILVERTICAL
+        FAILVERTICAL,
+        HITCHHIKE_REQUEST,
+        HITCHHIKE_ACK
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -134,11 +136,58 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return false;
     }
 
+    public boolean sendHitchHikeRequest(HitchHike req) throws GameActionException {
+        int[] message = bluePrint(CommunicationType.HITCHHIKE_REQUEST);
+        System.out.println("Sending: " + req.pos + " " + req.goal);
+        message[1] = req.pos.x;
+        message[2] = req.pos.y;
+        message[3] = req.goal.x;
+        message[4] = req.goal.y;
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
+            return true;
+        }
+        return false;
+    }
+
+    public HitchHike getHitchHikeRequest(int[] message) throws GameActionException {
+        decode(message);
+        return new HitchHike(new MapLocation(message[1], message[2]),
+                new MapLocation(message[3], message[4]));
+    }
+    public boolean sendHitchHikeAck(HitchHike req) throws GameActionException {
+        int[] message = bluePrint(CommunicationType.HITCHHIKE_ACK);
+
+        message[1] = req.pos.x;
+        message[2] = req.pos.y;
+        message[3] = req.goal.x;
+        message[4] = req.goal.y;
+        message[5] = req.droneID;
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
+            return true;
+        }
+        return false;
+    }
+
+    public HitchHike getHitchHikeAck(int[] message) throws GameActionException {
+        decode(message);
+        return new HitchHike(new MapLocation(message[1], message[2]),
+                new MapLocation(message[3], message[4]),
+                message[5]);
+    }
+
     public MapLocation[] getMapBlocks(int[] message) {
         decode(message);
 
         MapLocation[] blocks = new MapLocation[12];
-        for (int row = 1; row < 12; ++row) {
+        for (int row = 1; row < 7; ++row) {
             for (int i = 0; i < 2; ++i) {
                 int y = message[row] % (1 << 8); message[row] >>= 8;
                 int x = message[row] % (1 << 8); message[row] >>= 8;

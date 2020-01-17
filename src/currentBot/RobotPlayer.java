@@ -30,7 +30,7 @@ public class RobotPlayer {
             case VAPORATOR:          myController = new VaporatorController(rc);            break;
             case DESIGN_SCHOOL:      myController = new DesignSchoolController(rc);         break;
             case FULFILLMENT_CENTER: myController = new FulfillmentCenterController(rc);    break;
-            case LANDSCAPER:         myController = new LandscaperControllerMk2(rc);        break;
+            case LANDSCAPER:         myController = new LandscaperController(rc);           break;
             case DELIVERY_DRONE:     myController = new DeliveryDroneControllerMk2(rc);     break;
             case NET_GUN:            myController = new NetGunController(rc);               break;
 
