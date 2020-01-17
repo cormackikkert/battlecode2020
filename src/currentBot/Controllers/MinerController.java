@@ -168,6 +168,13 @@ public class MinerController extends Controller {
 
         System.out.println("I am a " + currentState + " " + soupClusters.size());
 
+
+        if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
+        rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
+            currentState = State.BUILDER;
+            buildType = RobotType.VAPORATOR;
+        }
+
         switch (currentState) {
             case SEARCH: execSearch();             break;
             case MINE: execMine();                 break;

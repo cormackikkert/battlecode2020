@@ -28,7 +28,7 @@ public class PlayerConstants {
             case DESIGN_SCHOOL:
                 return RobotType.DESIGN_SCHOOL.cost + 70;
             case VAPORATOR:
-                return RobotType.VAPORATOR.cost;
+                return RobotType.VAPORATOR.cost + 100;
             case NET_GUN:
                 return RobotType.NET_GUN.cost;
             case FULFILLMENT_CENTER:
