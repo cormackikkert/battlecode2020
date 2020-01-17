@@ -6,6 +6,7 @@ import currentBot.MovementSolver;
 import currentBot.SoupCluster;
 
 import java.security.AllPermission;
+import java.util.Map;
 
 public class LandscaperController extends Controller {
     MovementSolver movementSolver;
@@ -37,7 +38,7 @@ public class LandscaperController extends Controller {
     }
 
     public void run() throws GameActionException {
-        System.out.println("I am a " + currentState.toString());
+        // System.out.println("I am a " + currentState.toString());
         switch (currentState) {
             case PROTECTHQ:     execProtectHQ();    break;
             //case PROTECTSOUP:   execProtectSoup();  break;
@@ -54,7 +55,7 @@ public class LandscaperController extends Controller {
         // robot is currently on HQ wall
         MapLocation curr = rc.getLocation();
         Direction nextDir = nextDirection(curr);
-        System.out.println("New direction is " + nextDir.toString());
+        // System.out.println("New direction is " + nextDir.toString());
 
         if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(nextDir))) > 3) {
             if (level(nextDir)) {  // need to level dirt
@@ -62,10 +63,8 @@ public class LandscaperController extends Controller {
             }
             return;
         }
-        System.out.println("Done levelling now digging");
         while (rc.getDirtCarrying() == 0) {
-            System.out.println("Trying to dig");
-            tryDigRandom(); Clock.yield();
+            tryDigRandom();
         }
         while (!rc.canDepositDirt(nextDir)) Clock.yield();
         rc.depositDirt(nextDir);
@@ -103,22 +102,30 @@ public class LandscaperController extends Controller {
                     turnCW = !turnCW;
                     j = turnCW ? (i+1)%8 : (i-1+8)%8;
                 }
-                return loc.directionTo(allyHQ.add(directions[j]));
+                newPos = allyHQ.add(directions[j]);
+                if (rc.onTheMap(newPos)) return loc.directionTo(newPos);
+                else break;
             }
         }
         return Direction.CENTER;
     }
 
     // TODO: implement for attack/defend
-    Direction getDigDirection(Direction avoidDir) {
+    Direction getDigDirection(Direction avoidDir) throws GameActionException {
         MapLocation curr = rc.getLocation();
+        Direction buryDir = null;
         for (Direction dir : Direction.allDirections()) {
+            if (rc.onTheMap(curr.add(dir)) && rc.isLocationOccupied(curr.add(dir))) {
+                RobotInfo robot = rc.senseRobotAtLocation(curr.add(dir));
+                if (robot.getTeam().isPlayer()) {
+                    buryDir = dir; continue; }
+            }
             if (dir != avoidDir && rc.canDigDirt(dir)) {
                 if (allyHQ == null || curr.add(dir).distanceSquaredTo(allyHQ) > 2)
                     return dir;
             }
         }
-        return null;
+        return buryDir;  // if no option but to bury an ally
     }
 
     boolean tryDigRandom() throws GameActionException {
@@ -137,21 +144,30 @@ public class LandscaperController extends Controller {
     }
 
     // used for landscaper to climb up to HQ wall
+    MapLocation lastTried;
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
         while (rc.getLocation().distanceSquaredTo(goal) > 2) {
             Direction dir = dirToGoal(goal);
+            System.out.println("Received direction " + dir.toString());
             MapLocation curr = rc.getLocation();
+            if (curr.add(dir).equals(lastTried)) {
+                do { dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+                    System.out.println("Checking dir " + dir.toString());
+                } while (isLandscaperObstacle(curr, curr.add(dir)));
+                System.out.println("New dir " + dir.toString());
+            }
             if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(dir))) > 3) {
                 if (!level(dir)) {  // need to level dirt
-                    break;
+                    // if could not level, try another path
+                    previous = curr.add(dir);
+                    goToLocationToDeposit(goal);
                 }
             }
             tryMove(dir);
-            System.out.println("Done moving, now at " + rc.getLocation().toString());
+            lastTried = curr.add(dir);
         }
     }
-
     // levels the dirt in given direction compared to current loc
     boolean level(Direction dir) throws GameActionException {
         MapLocation curr = rc.getLocation();
@@ -161,13 +177,13 @@ public class LandscaperController extends Controller {
         int elevation = rc.senseElevation(pos);
         int currElevation = rc.senseElevation(curr);
         if (currElevation < elevation) {  // currently in a hole
-            while (rc.senseElevation(curr) < elevation-3) {
+            while (rc.senseElevation(curr) < rc.senseElevation(pos)) {
                 if (rc.getDirtCarrying() == 0) tryDigRandom();
                 if (rc.canDepositDirt(Direction.CENTER)) rc.depositDirt(Direction.CENTER);
                 Clock.yield();
             }
         } else {  // need to go to lower ground
-            while (currElevation > rc.senseElevation(pos)+3) {
+            while (currElevation > rc.senseElevation(pos)) {
                 if (rc.getDirtCarrying() == 0) tryDigRandom();
                 if (rc.canDepositDirt(dir)) rc.depositDirt(dir);
                 numMoves++; if (numMoves > digHeight) return false;
@@ -192,6 +208,7 @@ public class LandscaperController extends Controller {
 
         // while obstacle ahead, keep rotating
         while (isLandscaperObstacle(from, from.add(dir))) {
+            System.out.println(dir.toString() + " is an obstacle, rotated " + changes);
             if (!onTheMap(rc.getLocation().add(dir))) {
                 rotateCW = !rotateCW; previous = null;
                 ++changes;
@@ -208,13 +225,14 @@ public class LandscaperController extends Controller {
     // elevation is not an obstacle
     boolean isLandscaperObstacle(MapLocation from, MapLocation to) throws GameActionException {
         // obstacle if is occupied by building, not on map, or previous point
+        if (!rc.onTheMap(to)) return true;
         if (rc.isLocationOccupied(to)) {
             RobotType robot = rc.senseRobotAtLocation(to).type;
             if (robot.isBuilding()) return true;
         }
         if (Math.abs(rc.senseElevation(from)-rc.senseElevation(to)) > digHeight)
             return true;
-        return !rc.onTheMap(to) || to == previous;
+        return rc.senseFlooding(to) || to.equals(previous);
     }
 
 
