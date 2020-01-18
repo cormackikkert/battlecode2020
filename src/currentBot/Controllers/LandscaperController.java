@@ -90,6 +90,37 @@ public class LandscaperController extends Controller {
         }
     }
 
+    public void execProtectHQ() throws GameActionException {
+        if (allyHQ == null)
+            allyHQ = communicationHandler.receiveAllyHQLoc();
+        if (rc.getLocation().distanceSquaredTo(allyHQ) > 2) {
+            goToLocationToDeposit(allyHQ);
+            return;
+        }
+        // robot is currently on HQ wall
+        MapLocation curr = rc.getLocation();
+        Direction nextDir = nextDirection(curr);
+        // System.out.println("New direction is " + nextDir.toString());
+        if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
+                rc.digDirt(rc.getLocation().directionTo(allyHQ));
+                return;
+        }
+
+        if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(nextDir))) > 3) {
+            if (level(nextDir)) {  // need to level dirt
+                tryMove(nextDir);
+            }
+            return;
+        }
+        while (rc.getDirtCarrying() == 0) {
+            tryDigRandom();
+        }
+        while (!rc.canDepositDirt(nextDir)) Clock.yield();
+        rc.depositDirt(nextDir);
+        tryMove(nextDir);
+    }
+
+    /*
     boolean startedWalling = false;
     public void execProtectHQ() throws GameActionException {
         if (allyHQ == null)
@@ -152,7 +183,7 @@ public class LandscaperController extends Controller {
             rc.depositDirt(Direction.CENTER);
         }
     }
-
+    */
     public void execKillUnits() throws GameActionException {
         // Prioritize killing in this order
         MapLocation adjacentPos = null;
@@ -301,10 +332,10 @@ public class LandscaperController extends Controller {
     // used for landscaper to climb up to HQ wall
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
-        while (rc.getLocation().distanceSquaredTo(goal) > 5) {
+        if (rc.getLocation().distanceSquaredTo(goal) > 5) {
             tryMove(movementSolver.directionToGoal(goal));
         }
-        while (rc.getLocation().distanceSquaredTo(goal) > 2) {
+        else if (rc.getLocation().distanceSquaredTo(goal) > 2) {
             Direction dir = dirToGoal(goal);
             System.out.println("Received direction " + dir.toString());
             MapLocation curr = rc.getLocation();
@@ -312,7 +343,7 @@ public class LandscaperController extends Controller {
                 if (!level(dir)) {  // need to level dirt
                     // if could not level, try another path
                     previous.add(curr.add(dir));
-                    continue;
+                    return;
                 }
             }
             tryMove(dir);
