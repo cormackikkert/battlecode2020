@@ -31,6 +31,14 @@ public class PlayerConstants {
     static final int GRID_BLOCK_SIZE = 7;
     static final public int SEARCH_DIAMETER = 7;
 
+
+    // Landscaper constants
+    static final int DEFEND = 8;
+    static final int HELP = 3; // like for clearing water at soup locations
+
+
+
+
     static int buildSoupRequirements(RobotType buildType) {
         switch (buildType) {
             case DESIGN_SCHOOL:

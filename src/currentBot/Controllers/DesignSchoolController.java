@@ -2,9 +2,9 @@ package currentBot.Controllers;
 
 import battlecode.common.*;
 
+import static currentBot.Controllers.PlayerConstants.*;
+
 public class DesignSchoolController extends Controller {
-    static final int DEFEND = 8;
-    static final int HELP = 6; // like for clearing water at soup locations
 
     public enum State {
         DESTROY_ENEMY, // State used to spawn landscapers near enemy HQ
@@ -38,7 +38,7 @@ public class DesignSchoolController extends Controller {
                     } else {
                         communicationHandler.landscapeHelp(id);
                     }
-                    
+
 //                    // for building wall later
 //                    if (builtLandscapers < HELP) {
 //                        communicationHandler.landscapeHelp(id);
