@@ -502,12 +502,43 @@ public class LandscaperController extends Controller {
         lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 
+
+    static final int HIGHER = 5;
     public void execRemoveWater() throws GameActionException {
         if (currentSoupCluster == null) {
             movementSolver.windowsRoam();
         } else {
 
         MapLocation location = rc.getLocation();
+
+        boolean allWaterAround = rc.senseElevation(location) < HIGHER;
+        for (Direction dir : cardinal) {
+            if (!rc.senseFlooding(location.add(dir))) {
+                allWaterAround = false;
+            }
+        }
+
+        if (allWaterAround) {
+            while (rc.senseElevation(location) < HIGHER) {
+                if (rc.getDirtCarrying() == 0) {
+                    for (Direction dir : Direction.allDirections()) {
+                        MapLocation digHere = location.add(dir);
+                        if (rc.canDigDirt(dir)
+                                && (digHere.x + digHere.y) % 2 == 1) {
+                            rc.digDirt(dir);
+                            System.out.println("dig for center dig");
+                        }
+                    }
+                } else {
+                    if (rc.canDepositDirt(Direction.CENTER)) {
+                        rc.depositDirt(Direction.CENTER);
+                        System.out.println("dump center dump");
+                    }
+                }
+            }
+        }
+
+
 
         boolean near = false;
         for (Direction dir : Direction.allDirections()) {
@@ -551,11 +582,11 @@ public class LandscaperController extends Controller {
                 }
             }
         } else {
+            System.out.println("next");
             tryMove(movementSolver.directionToGoal(currentSoupCluster.center));
         }
 
-
-            boolean empty = true;
+        boolean empty = true;
         for (Direction direction : ordinal) {
             if (rc.senseFlooding(location.add(direction))) {
                 empty = false;
@@ -563,6 +594,26 @@ public class LandscaperController extends Controller {
             }
         }
         if (empty) {
+//            while (upup < 8) {
+//                if (rc.getDirtCarrying() == 0) {
+//                    for (Direction dir : Direction.allDirections()) {
+//                        MapLocation digHere = location.add(dir);
+//                        if (rc.canDigDirt(dir)
+////                            && !dumped[digHere.x][digHere.y]
+//                                && (digHere.x + digHere.y) % 2 == 1) {
+//                            rc.digDirt(dir);
+//                            System.out.println("dig for center dig");
+//                        }
+//                    }
+//                } else {
+//                    if (rc.canDepositDirt(Direction.CENTER)) {
+//                        rc.depositDirt(Direction.CENTER);
+//                        System.out.println("dump center dump");
+//                    }
+//                    upup++; // avoid stack overflow
+//                }
+//            }
+//            upup = 0;
             tryMove(movementSolver.directionToGoal(currentSoupCluster.center));
         }
 
