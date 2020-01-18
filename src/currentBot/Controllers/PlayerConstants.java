@@ -7,7 +7,7 @@ public class PlayerConstants {
     static final int REFINERY_BUILD_THRESHOLD = 200 + 150; // (+150 for rush) Soup required before building a refinery
     static final int REFINERY_BUILD_CLUSTER_SIZE = 10; // How many soup squares to justify building a refinery
     static final int RUSH_THRESHOLD = 150; // How much soup before initiating a rush
-    static final int AREA_PER_MINER = 2; // how much new soup needs to be found before spawning another miner
+    static final int AREA_PER_MINER = 4; // how much new soup needs to be found before spawning another miner
     static final int MOVES_BY_MINER = 10; // How many moves a miner makes to explore an unexplored tile in its territory (before giving up)
     static final int INSTA_BUILD_MINERS = 4; // How many miners to build as fast as possible
     static final int DISTANCE_FROM_REFINERY = 10;
@@ -36,18 +36,28 @@ public class PlayerConstants {
             case DESIGN_SCHOOL:
                 return RobotType.DESIGN_SCHOOL.cost + 70;
             case VAPORATOR:
-                return RobotType.VAPORATOR.cost;
+                return RobotType.VAPORATOR.cost + 150;
             case NET_GUN:
                 return RobotType.NET_GUN.cost;
             case FULFILLMENT_CENTER:
                 return RobotType.FULFILLMENT_CENTER.cost + 70;
             case MINER:
                 // extra soup, to allow miner to build a fulfillment center right after spawning
-                return 70 + RobotType.FULFILLMENT_CENTER.cost + RobotType.MINER.cost;
+                return 700 + RobotType.FULFILLMENT_CENTER.cost + RobotType.MINER.cost;
             case DELIVERY_DRONE:
                 return RobotType.DELIVERY_DRONE.cost;
             default:
                 return 0; // Shouldn't get here anyway
+        }
+    }
+
+    static int minerSoupRequirements(int builtMiners, int round) {
+        if (builtMiners < PlayerConstants.INSTA_BUILD_MINERS) {
+            return RobotType.MINER.cost;
+        } else if (round <= 150) {
+            return 290; // 2 miners + fulfillment center
+        } else {
+            return 600;
         }
     }
 

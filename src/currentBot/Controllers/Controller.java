@@ -11,6 +11,7 @@ import currentBot.MapBlock;
 import currentBot.MovementSolver;
 import currentBot.RingQueue;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -88,7 +89,7 @@ public abstract class Controller {
         ENEMY = rc.getTeam().opponent();
         this.rc = rc;
         this.communicationHandler = new CommunicationHandler(rc, this);
-        this.movementSolver = rc.getType() == RobotType.DELIVERY_DRONE ? new MovementSolver(rc, this) : new MovementSolver(rc);
+        this.movementSolver = new MovementSolver(rc, this);
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
         getSpawnBase();
@@ -137,7 +138,7 @@ public abstract class Controller {
     public boolean tryShoot(RobotInfo robotInfo) throws GameActionException {
         if (rc.canShootUnit(robotInfo.getID())) {
             rc.shootUnit(robotInfo.getID());
-            System.out.println("shot down enemy");
+//            System.out.println("shot down enemy");
             return true;
         }
         return false;
@@ -228,7 +229,7 @@ public abstract class Controller {
                 e.printStackTrace();
             }
             if (robotAt != null && robotAt.getTeam().equals(rc.getTeam()) && robotAt.getType().equals(spawnType)) {
-                System.out.println("found spawn base");
+//                System.out.println("found spawn base");
                 spawnBase = loc.add(dir);
                 spawnBaseDirTo = dir;
                 spawnBaseDirFrom = dir.opposite();
@@ -444,6 +445,7 @@ public abstract class Controller {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode)) continue;
                 if (visited[nnode.y][nnode.x]) continue;
+                if ((nnode.x + nnode.y) % 2 == 1) continue;
                 while (containsWater[nnode.y][nnode.x] == null) {
                     if (!rc.isReady()) Clock.yield();
                     if (tryMove(movementSolver.directionToGoal(nnode))) {
@@ -514,6 +516,7 @@ public abstract class Controller {
 
 
     void updateSeenBlocks() throws GameActionException {
+        int BLOCK_SIZE = PlayerConstants.GRID_BLOCK_SIZE;
         for (int i = lrsb; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
@@ -521,6 +524,14 @@ public abstract class Controller {
                     MapLocation[] blocks = communicationHandler.getMapBlocks(mess);
                     for (MapLocation pos : blocks) {
                         seenBlocks[pos.y][pos.x] = true;
+
+                        if (visited != null) {
+                            for (int x = pos.x * BLOCK_SIZE; x < Math.min(rc.getMapWidth(), (pos.x + 1) * BLOCK_SIZE); ++x) {
+                                for (int y = pos.y * BLOCK_SIZE; y < Math.min(rc.getMapHeight(), (pos.y + 1) * BLOCK_SIZE); ++y) {
+                                    visited[y][x] = true;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -533,15 +544,15 @@ public abstract class Controller {
         for (int i = lrmb; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
-                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCK) {
-                    MapBlock mb = communicationHandler.getMapBlock(mess);
-                    mapBlocks[mb.pos.y][mb.pos.x] = mb;
-
-                    if (visited != null) {
-                        int BS = PlayerConstants.GRID_BLOCK_SIZE;
-                        for (int x = BS * mb.pos.x; x < Math.min(BS * (mb.pos.x + 1), rc.getMapWidth()); ++x) {
-                            for (int y = BS * mb.pos.y; y < Math.min(BS * (mb.pos.y + 1), rc.getMapHeight()); ++y) {
-                                visited[y][x] = true;
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCKS) {
+                    MapLocation[] mbs = communicationHandler.getMapBlocks(mess);
+                    for (MapLocation pos : mbs) {
+                        if (visited != null) {
+                            int BS = PlayerConstants.GRID_BLOCK_SIZE;
+                            for (int x = BS * pos.x; x < Math.min(BS * (pos.x + 1), rc.getMapWidth()); ++x) {
+                                for (int y = BS * pos.y; y < Math.min(BS * (pos.y + 1), rc.getMapHeight()); ++y) {
+                                    visited[y][x] = true;
+                                }
                             }
                         }
                     }
@@ -551,6 +562,21 @@ public abstract class Controller {
         lrmb = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 
+    void avoidWater() throws GameActionException {
+        for (Direction dir : Direction.allDirections()) {
+            if (!isAdjacentToWater(rc.getLocation().add(dir)) && tryMove(dir)) {
+//                System.out.println("YEEHAW");
+                return;
+            }
+        }
+    }
+
+    boolean isAdjacentToWater(MapLocation pos) throws GameActionException {
+        for (Direction dir : Direction.allDirections()) {
+            if (rc.canSenseLocation(pos.add(dir)) && rc.senseFlooding(pos.add(dir))) return true;
+        }
+        return false;
+    }
 
     public void solveGhostHq() throws GameActionException {
         if (enemyHQ == null) {

@@ -2,6 +2,9 @@ package currentBot;
 
 import battlecode.common.*;
 import currentBot.Controllers.Controller;
+import currentBot.Controllers.LandscaperController;
+
+import static currentBot.CommunicationHandler.CommunicationType.*;
 
 public class CommunicationHandler { // TODO : conserve bytecode by storing turn of last received message
     public static final int MESSAGE_COST = 1;
@@ -13,7 +16,6 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public enum CommunicationType {
         ENEMY,
         CLUSTER,
-        MAPBLOCK,
         MAPBLOCKS, // Blocks the miners have searched
         ALLYHQ,
         ENEMYHQ,
@@ -23,7 +25,8 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         FAILVERTICAL,
         FAILROTATIONAL,
         HITCHHIKE_REQUEST,
-        HITCHHIKE_ACK
+        HITCHHIKE_ACK,
+        CLEAR_FLOOD
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -101,29 +104,6 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int x1 = message[1] % (1 << 8); message[1] >>= 8;
 
         return new SoupCluster(x1, y1, x2, y2, message[2], message[3], message[4] == 1);
-    }
-
-    public boolean sendMapBlock(MapBlock mapBlock) throws GameActionException {
-        int[] message = bluePrint(CommunicationType.MAPBLOCK);
-        message[1] = mapBlock.pos.x;
-        message[2] = mapBlock.pos.y;
-        message[3] = mapBlock.soupCount;
-        message[4] = mapBlock.enemyCount;
-        message[5] = (mapBlock.isReachable) ? 1 : 0;
-
-        encode(message);
-
-        if (rc.canSubmitTransaction(message, 1)) {
-            rc.submitTransaction(message, 1);
-            return true;
-        }
-        System.out.println("Failed");
-        return false;
-    }
-
-    public MapBlock getMapBlock(int[] message) {
-        decode(message);
-        return new MapBlock(new MapLocation(message[1], message[2]), message[3], message[4], message[5] == 1);
     }
 
     public boolean sendMapBlocks(MapLocation[] blocks) throws GameActionException {
@@ -413,6 +393,45 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
             System.out.println("found hq without even going near it");
             sendEnemyHQLoc(enemyHQ);
             controller.enemyHQ = enemyHQ;
+        }
+    }
+
+    public void askClearSoupFlood(SoupCluster cluster) throws GameActionException {
+        if (cluster == null) return;
+        int[] message = bluePrint(CLEAR_FLOOD);
+        message[1] = cluster.x1;
+        message[2] = cluster.y1;
+        message[3] = cluster.x2;
+        message[4] = cluster.y2;
+        message[6] = 69 ^ teamSecret;
+        encode(message);
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    int turnFF = 1;
+    public void receiveClearSoupFlood() throws GameActionException {
+        MapLocation out = null;
+        outer : for (int i = turnFF
+                     ; i < rc.getRoundNum(); i++) {
+            turnFF++;
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if (identify(message) == CLEAR_FLOOD) {
+                    decode(message);
+
+                    SoupCluster soupCluster = new SoupCluster(message[1], message[2], message[3], message[4]);
+
+
+                    ((LandscaperController) controller).currentSoupCluster = soupCluster;
+                    ((LandscaperController) controller).currentState = LandscaperController.State.REMOVE_WATER;
+
+                    System.out.println("unflood soup at "+soupCluster.middle.x+" "+soupCluster.middle.y);
+                    break outer;
+                }
+            }
         }
     }
 }

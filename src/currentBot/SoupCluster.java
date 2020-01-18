@@ -11,6 +11,7 @@ public class SoupCluster {
     public int x1, x2, y1, y2;
     public int X, Y; // soup center
     public MapLocation center;
+    public MapLocation middle;
     public int width;
     public int height;
     public int size;
@@ -22,14 +23,28 @@ public class SoupCluster {
         this.y1 = y1;
         this.x2 = x2;
         this.y2 = y2;
-        this.X = (Math.abs(x2 - x1)) / 2;
-        this.Y = (Math.abs(y2 - y1)) / 2;
+        this.X = (Math.abs(x2 + x1)) / 2;
+        this.Y = (Math.abs(y2 + y1)) / 2;
         this.center = new MapLocation(X, Y);
+        this.middle = new MapLocation((x1 + x2) / 2, (y1 + y2) / 2);
         width = x2 - x1 + 1;
         height = y2 - y1 + 1;
         this.size = size;
         this.crudeSoup = crudeSoup;
         this.containsWaterSoup = containsWaterSoup;
+    }
+
+    public SoupCluster(int x1, int y1, int x2, int y2) {
+        this.x1 = x1;
+        this.y1 = y1;
+        this.x2 = x2;
+        this.y2 = y2;
+        this.X = (Math.abs(x2 + x1)) / 2;
+        this.Y = (Math.abs(y2 + y1)) / 2;
+        this.center = new MapLocation(X, Y);
+        this.middle = new MapLocation((x1 + x2) / 2, (y1 + y2) / 2);
+        width = x2 - x1 + 1;
+        height = y2 - y1 + 1;
     }
 
     public MapLocation closest(MapLocation pos) {

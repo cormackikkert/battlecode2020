@@ -412,7 +412,8 @@ public class LandscaperControllerMk2 extends Controller {
                 SoupCluster soupCluster = currentSoupCluster;
                 Direction depositHere = null;
                 for (Direction direction : directions) {
-                    if (rc.senseFlooding(thisLoc.add(direction))) {
+                    MapLocation dumpHere = thisLoc.add(direction);
+                    if (rc.senseFlooding(dumpHere) && (dumpHere.x + dumpHere.y) % 2 == 0) {
                         depositHere = direction;
                         break;
                     }
@@ -438,7 +439,7 @@ public class LandscaperControllerMk2 extends Controller {
         if (rc.getDirtCarrying() == 0) {
             for (Direction dir : Direction.allDirections()) {
                 MapLocation digHere = location.add(dir);
-                if (rc.canDigDirt(dir) && !dir.equals(depositHere) && !dumped[digHere.x][digHere.y]) {
+                if (rc.canDigDirt(dir) && !dir.equals(depositHere) && !dumped[digHere.x][digHere.y] && (digHere.x + digHere.y) % 2 == 1) {
                     rc.digDirt(dir);
                     break;
                 }

@@ -1,49 +1,78 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
-import currentBot.CommunicationHandler;
-import currentBot.MovementSolver;
-import currentBot.SoupCluster;
+import com.sun.org.apache.bcel.internal.generic.LAND;
+import currentBot.*;
 
 import java.security.AllPermission;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.Map;
 
 public class LandscaperController extends Controller {
-    MovementSolver movementSolver;
-    CommunicationHandler communicationHandler;
 
-    enum State {
+    public enum State {
         PROTECTHQ,  // builds a wall of specified height around HQ
         //PROTECTSOUP,  // builds wall around a soup cluster
-        DESTROY  // piles dirt on top of enemy building
+        DESTROY,  // piles dirt on top of enemy building
+        DEFEND,
+        ATTACK,
+        ROAM,
+        REMOVE_WATER
     }
-    State currentState = State.PROTECTHQ;
-    SoupCluster currentSoupCluster; // build wall around this
-    int minHQElevation = 10;
+    public State currentState = State.REMOVE_WATER;
+    public SoupCluster currentSoupCluster; // build wall around this
     final int dirtLimit = RobotType.LANDSCAPER.dirtLimit;
     final int digHeight = 20;
+    MapLocation currentSoupSquare;
+
+    int lastRound = 1;
+
+    // Integer (instead of int) so that we can use null as unsearched
+
+    // Arrays that are filled as each miner searches the map
+    Integer[][] soupCount = null;
+    Integer[][] elevationHeight = null;
+    Integer[][] buildMap = null; // Stores what buildings have been built and where
+    boolean[][] dumped;
+
+    boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
+    RingQueue<MapLocation> reachQueue = new RingQueue<>(PlayerConstants.SEARCH_DIAMETER * PlayerConstants.SEARCH_DIAMETER);
+
+    LinkedList<SoupCluster> soupClusters = new LinkedList<>();
 
     public LandscaperController(RobotController rc) {
-        this.rc = rc;
-        this.movementSolver = new MovementSolver(rc);
-        this.communicationHandler = new CommunicationHandler(rc);
         getInfo(rc);
 
+//        int defenders = 0;
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
                 enemyHQ = robotInfo.location;
                 currentState = State.DESTROY;
             }
+//            if (robotInfo.team == rc.getTeam() && robotInfo.type == RobotType.LANDSCAPER) {
+//                defenders++;
+//            }
         }
+
+//        if (defenders > 4) {
+//            currentState = State.ROAM;
+//        }
     }
 
     public void run() throws GameActionException {
+
+        if (currentSoupCluster == null) {
+            communicationHandler.receiveClearSoupFlood();
+        }
+
         // System.out.println("I am a " + currentState.toString());
         switch (currentState) {
             case PROTECTHQ:     execProtectHQ();    break;
             //case PROTECTSOUP:   execProtectSoup();  break;
             case DESTROY:       execDestroy();      break;
+            case REMOVE_WATER: execRemoveWater(); break;
+//            case ROAM: movementSolver.windowsRoam(); break;
         }
     }
 
@@ -229,6 +258,411 @@ public class LandscaperController extends Controller {
         return new Direction[]{d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(),
         d.rotateRight().rotateRight(), d.opposite().rotateRight(), d.opposite().rotateLeft(),
         d.opposite()};
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // digging water stuff
+
+    public static boolean containsEnoughSoup(int crudeCount) {
+        // Made into a function incase we make it more intelligent later
+        // e.g look for bigger soup containment's and get to it before enemy
+        return crudeCount > 0;
+    }
+
+    public SoupCluster searchSurroundingsSoup() throws GameActionException {
+        // Check to see if you can detect any soup
+        for (int dx = -6; dx <= 6; ++dx) {
+            for (int dy = -6; dy <= 6; ++dy) {
+                MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
+                if (!rc.canSenseLocation(sensePos)) continue;
+
+                if (elevationHeight[sensePos.y][sensePos.x] != null) continue;
+
+                // Check robot
+                RobotInfo robot = rc.senseRobotAtLocation(sensePos);
+                if (robot != null && (robot.type == RobotType.REFINERY)) {
+                    buildMap[sensePos.y][sensePos.x] = robot.type.ordinal();
+                }
+
+                // Check elevation
+                if (!rc.canSenseLocation(sensePos)) continue;
+                elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
+
+                // Check water
+                if (!rc.canSenseLocation(sensePos)) continue;
+                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+
+                // Check soup
+                if (containsWater[sensePos.y][sensePos.x]) continue; // Ignore flooded soup (for now)
+                if (!rc.canSenseLocation(sensePos)) continue;
+                int crudeAmount = rc.senseSoup(sensePos);
+
+                if (soupCount[sensePos.y][sensePos.x] != null) {
+                    // Update soup value but dont search for a cluster
+                    soupCount[sensePos.y][sensePos.x] = crudeAmount;
+                    continue;
+                }
+
+                soupCount[sensePos.y][sensePos.x] = crudeAmount;
+
+                if (rc.canSenseLocation(sensePos) &&
+                        containsEnoughSoup(crudeAmount) &&
+                        !searchedForSoupCluster[sensePos.y][sensePos.x]) {
+                    SoupCluster foundSoupCluster = determineCluster(sensePos);
+
+                    if (foundSoupCluster == null) break;
+
+                    soupClusters.add(foundSoupCluster);
+
+                    communicationHandler.sendCluster(foundSoupCluster);
+                    return foundSoupCluster;
+                }
+            }
+        }
+        return null;
+    }
+
+    public void searchSurroundingsContinued() throws GameActionException {
+        /*
+            Like searchSurroundings, but doesnt try to determine which cluster a soup position is from
+         */
+
+        for (int dx = -6; dx <= 6; ++dx) {
+            for (int dy = -6; dy <= 6; ++dy) {
+                MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
+                if (!rc.canSenseLocation(sensePos)) continue;
+                if (!onTheMap(sensePos)) continue;
+
+                if (elevationHeight[sensePos.y][sensePos.x] != null) continue;
+
+                // Check elevation
+                elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
+
+                // Check water
+                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+
+                // Check robot
+                RobotInfo robot = rc.senseRobotAtLocation(sensePos);
+                if (robot != null && (robot.type == RobotType.REFINERY)) {
+//                    System.out.println("Found refinery " + sensePos + " " + robot.type.ordinal());
+                    buildMap[sensePos.y][sensePos.x] = robot.type.ordinal();
+//                    System.out.println(buildMap[sensePos.y][sensePos.x]);
+                }
+
+                // Check soup (ignore flooded tiles (for now))
+                if (containsWater[sensePos.y][sensePos.x]) {
+                    soupCount[sensePos.y][sensePos.x] = 0;
+                }
+                else soupCount[sensePos.y][sensePos.x] = rc.senseSoup(sensePos);
+            }
+        }
+    }
+
+    public SoupCluster determineCluster(MapLocation pos) throws GameActionException {
+        /*
+            Performs BFS to determine size of cluster
+         */
+
+//        System.out.println("Searching for cluster at " + pos.toString());
+//        System.out.println("Determining cluster");
+        searchSurroundingsContinued();
+
+        if (searchedForSoupCluster[pos.y][pos.x]) return null;
+
+        RingQueue<MapLocation> queue = new RingQueue<>(this.rc.getMapHeight() * this.rc.getMapWidth());
+        queue.add(pos);
+        searchedForSoupCluster[pos.y][pos.x] = true;
+
+        int crudeSoup = 0;
+        int size = 0;
+        boolean containsWaterSoup = false;
+
+        int x1 = pos.x;
+        int x2 = pos.x;
+        int y1 = pos.y;
+        int y2 = pos.y;
+
+        // Incase the enemy has already occupied this spot
+        MapLocation refineryPos = null;
+
+        while (!queue.isEmpty() && (x2 - x1) * (y2 - y1) <= 50) {
+            MapLocation current = queue.poll();
+
+            visited[current.y][current.x] = true;
+
+            x1 = Math.min(x1, current.x);
+            x2 = Math.max(x2, current.x);
+
+            y1 = Math.min(y1, current.y);
+            y2 = Math.max(y2, current.y);
+
+            // Determine if we already know about this cluster
+            // We keep searching instead of returning to mark each cell as checked
+            // so we don't do it again
+            ++size;
+
+            for (Direction delta : Direction.allDirections()) {
+                MapLocation neighbour = current.add(delta);
+                if (!inRange(neighbour.y, 0, rc.getMapHeight()) || !inRange(neighbour.x, 0, rc.getMapWidth())) continue;
+                if (searchedForSoupCluster[neighbour.y][neighbour.x]) continue;
+
+                // If you cant tell whether neighbour has soup or not move closer to it
+
+                while (!rc.isReady()) Clock.yield();
+
+                boolean isPossible = true;
+                while (soupCount[neighbour.y][neighbour.x] == null){
+                    if (!canReach(neighbour)) {
+                        isPossible = false;
+                        break;
+                    }
+                    if (tryMove(movementSolver.directionToGoal(neighbour))) {
+                        searchSurroundingsContinued();
+
+                        // Only do nothing if you need to make another move
+                        // if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
+                    }
+                }
+                if (!isPossible) continue;
+
+                if (Math.abs(elevationHeight[neighbour.y][neighbour.x] - elevationHeight[current.y][current.x]) > 3) continue;
+
+                crudeSoup += (soupCount[neighbour.y][neighbour.x] == null) ? 0 : soupCount[neighbour.y][neighbour.x];
+                containsWaterSoup |= (containsWater[neighbour.y][neighbour.x] != null &&
+                        containsWater[neighbour.y][neighbour.x]);
+
+                if (soupCount[neighbour.y][neighbour.x] > 0 || (buildMap[neighbour.y][neighbour.x] != null && buildMap[neighbour.y][neighbour.x] == RobotType.REFINERY.ordinal())) {
+                    queue.add(neighbour);
+                    searchedForSoupCluster[neighbour.y][neighbour.x] = true;
+                }
+            }
+        }
+
+//        System.out.println("Found: " + size);
+
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, containsWaterSoup);
+
+//        System.out.println("Finished finding cluster: " + found.size);
+
+        // Check to see if other miners have already found this cluster
+        boolean hasBeenBroadCasted = false;
+        updateClusters();
+        for (SoupCluster soupCluster : soupClusters) {
+            if (found.inside(soupCluster)) hasBeenBroadCasted = true;
+        }
+
+//        System.out.println("Finished: ");
+        found.draw(this.rc);
+        if (hasBeenBroadCasted) return null;
+        return found;
+    }
+
+    void updateClusters() throws GameActionException {
+        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.CLUSTER) {
+                    SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
+
+                    boolean seenBefore = false;
+                    for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
+                        if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) {
+                            alreadyFoundSoupCluster.update(broadcastedSoupCluster);
+                            seenBefore = true;
+                        }
+                    }
+
+                    if (!seenBefore) {
+                        // broadcastedSoupCluster.draw(this.rc);
+                        soupClusters.add(broadcastedSoupCluster);
+                        for (int y = broadcastedSoupCluster.y1; y <= broadcastedSoupCluster.y2; ++y) {
+                            for (int x = broadcastedSoupCluster.x1; x < broadcastedSoupCluster.x2; ++x) {
+                                searchedForSoupCluster[y][x] = true;
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+    }
+
+    public void execRemoveWater() throws GameActionException {
+        if (currentSoupCluster == null) {
+            movementSolver.windowsRoam();
+        } else {
+
+        MapLocation location = rc.getLocation();
+
+        boolean near = false;
+        for (Direction dir : Direction.allDirections()) {
+            MapLocation water = location.add(dir);
+            if (rc.canSenseLocation(water)
+                    && rc.senseFlooding(water)
+                    && (location.x + location.y) % 2 == 0
+                    && location.isWithinDistanceSquared(currentSoupCluster.center,
+                    (int) Math.pow(2 * Math.max(currentSoupCluster.height, currentSoupCluster.width), 2))) {
+                near = true;
+                break;
+            }
+        }
+
+        if (near) {
+            if (rc.getDirtCarrying() == 0) {
+                for (Direction dir : Direction.allDirections()) {
+                    MapLocation digHere = location.add(dir);
+                    if (rc.canDigDirt(dir)
+//                            && !dumped[digHere.x][digHere.y]
+                            && (digHere.x + digHere.y) % 2 == 1) {
+                        rc.digDirt(dir);
+                        System.out.println("dig dig dig");
+                        break;
+                    }
+                }
+            } else {
+                MapLocation dumpHere;
+                for (Direction dir : Direction.allDirections()) {
+                    dumpHere = location.add(dir);
+                    if (rc.canDepositDirt(dir)
+                            && (dumpHere.x + dumpHere.y) % 2 == 0
+                            && rc.canSenseLocation(dumpHere)
+                            && rc.senseFlooding(dumpHere)) {
+
+                        rc.depositDirt(dir);
+                        System.out.println("dump dump dump");
+//                        dumped[location.x][location.y] = true;
+                        break;
+                    }
+                }
+            }
+        } else {
+            tryMove(movementSolver.directionToGoal(currentSoupCluster.center));
+        }
+
+
+            boolean empty = true;
+        for (Direction direction : ordinal) {
+            if (rc.senseFlooding(location.add(direction))) {
+                empty = false;
+                break;
+            }
+        }
+        if (empty) {
+            tryMove(movementSolver.directionToGoal(currentSoupCluster.center));
+        }
+
+        // TODO decide when digging is done
+//        int flood = 0;
+//        int dry = 0;
+//        for (int dx = -6; dx <= 6; ++dx) {
+//            for (int dy = -6; dy <= 6; ++dy) {
+//                MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
+//                if (!rc.canSenseLocation(sensePos)) continue;
+//                if (!onTheMap(sensePos)) continue;
+//
+//                if (rc.senseFlooding(sensePos)) {
+//                    flood++;
+//                } else {
+//                    dry++;
+//                }
+//            }
+//        }
+//
+//        if (dry >= flood || flood - dry >= 5) {
+//            currentState = State.ATTACK;
+//        }
+        }
+    }
+
+//    public void execRemoveWaterOneSquare() throws GameActionException {
+//        if (dig) {
+//            if (rc.canDigDirt(Direction.CENTER)) {
+//                rc.digDirt(Direction.CENTER);
+//            }
+//        }
+//        dig = ! dig;
+//
+//        if (!rc.getLocation().isAdjacentTo(currentSoupSquare)) {
+//            tryMove(movementSolver.directionToGoal(currentSoupSquare));
+//        }
+//
+//        Direction depositHere;
+//        if ((currentSoupSquare.x + currentSoupSquare.y) % 2 == 0) {
+//            depositHere = rc.getLocation().directionTo(currentSoupSquare);
+//        }
+//
+//
+//
+//
+//        while (rc.senseFlooding(currentSoupSquare.add(depositHere))) {
+//            execGreedyFill(depositHere);
+//        }
+//
+//    }
+
+
+
+    public static boolean inRange(int a, int lo, int hi) {
+        return (lo <= a && a < hi);
+    }
+
+    public boolean canReach(MapLocation pos) throws GameActionException {
+        int diam = PlayerConstants.SEARCH_DIAMETER;
+
+        // Just checks to see if there is a path to any block in that direction just using
+        reachQueue.clear();
+
+        boolean[][] visited = new boolean[diam][diam];
+
+        reachQueue.add(rc.getLocation());
+        visited[diam/2 + 1][diam/2 + 1] = true;
+
+        int targetDistance = rc.getLocation().distanceSquaredTo(pos);
+
+        while (!reachQueue.isEmpty()) {
+            MapLocation node = reachQueue.poll();
+
+            if (pos.distanceSquaredTo(node) < targetDistance) return true;
+
+            for (Direction dir : Direction.allDirections()) {
+                MapLocation nnode = node.add(dir);
+                if (!rc.onTheMap(nnode)) continue;
+
+                int dx = nnode.x - (rc.getLocation().x - diam/2);
+                int dy = nnode.y - (rc.getLocation().y - diam/2);
+                if (dx < 0 || dx >= diam || dy < 0 || dy >= diam) continue;
+
+                if (visited[dy][dx]) continue;
+                if (containsWater[nnode.y][nnode.x] == null) {
+                    // if we haven't searched the square assume we can get there
+                    visited[dy][dx] = true;
+                    reachQueue.add(nnode);
+                } else {
+                    if (containsWater[nnode.y][nnode.x]) continue;
+                    if (elevationHeight[nnode.y][nnode.x] == null) continue;
+                    if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
+                    visited[dy][dx] = true;
+                    reachQueue.add(nnode);
+                }
+
+            }
+        }
+        return false;
     }
 
 }
