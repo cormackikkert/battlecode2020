@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Stack;
 
+import static currentBot.Controllers.PlayerConstants.*;
+
 public class MinerController extends Controller {
     /*
         Current Miner strategy
@@ -45,6 +47,8 @@ public class MinerController extends Controller {
     int bias; // Which bias the robot has
     MapLocation BIAS_TARGET; // which square the robot is targeting
     MapLocation searchTarget;
+
+    boolean isRush = false;
 
     State currentState = State.SEARCHURGENT;
     int velx = 0;
@@ -103,25 +107,26 @@ public class MinerController extends Controller {
         boolean foundHQ = false;
         boolean builtFC = false;
         boolean builtDS = false;
-        for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
+        for (RobotInfo robotInfo : rc.senseNearbyRobots(-1, rc.getTeam())) {
             if (robotInfo.getType() == RobotType.HQ) {foundHQ = true; allyHQ = robotInfo.location;}
             if (robotInfo.getType() == RobotType.FULFILLMENT_CENTER) {builtFC = true;}
             if (robotInfo.getType() == RobotType.DESIGN_SCHOOL) {builtDS = true;}
         }
 
-
         System.out.println("Should I build?");
         if (!builtFC && foundHQ &&
                 rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
-            System.out.println("YES");
+            System.out.println("YES build drones");
             currentState = State.BUILDER;
             buildType = RobotType.FULFILLMENT_CENTER;
             buildLoc = null;
-        } /*else if (!builtDS && foundHQ &&
-            rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)) {
+        } else if (!builtDS && foundHQ &&
+                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)
+                && rc.getRoundNum() >= START_BUILD_WALL) {
+            System.out.println("YES build landscapers");
             currentState = State.BUILDER;
             buildType = RobotType.DESIGN_SCHOOL;
-        }*/
+        }
 
         soupCount = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         containsWater = new Boolean[rc.getMapHeight()][rc.getMapWidth()];
@@ -145,6 +150,9 @@ public class MinerController extends Controller {
             searchSymmetry = Symmetry.HORIZONTAL;
             currentState = State.EXPLORE;
         }
+//        else if (born == RUSH1 || born == RUSH2 || born == RUSH3) {
+//            currentState = State.RUSHBOT;
+//        }
 
 
         try {
@@ -162,7 +170,7 @@ public class MinerController extends Controller {
     public void run() throws GameActionException {
         if (this.currentSoupCluster != null) this.currentSoupCluster.draw(this.rc);
 
-
+        solveGhostHq();
         updateClusters();
 
         if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
@@ -773,13 +781,13 @@ public class MinerController extends Controller {
 
         MapLocation candidateEnemyHQ;
         switch (born) {
-            case 2 :
+            case RUSH1 :
                 candidateEnemyHQ = new MapLocation(rc.getMapWidth() - allyHQ.x - 1, allyHQ.y);
                 break;
-            case 3:
+            case RUSH2:
                 candidateEnemyHQ = new MapLocation(allyHQ.x, rc.getMapHeight() - allyHQ.y - 1);
                 break;
-            case 11:
+            case RUSH3:
                 candidateEnemyHQ = new MapLocation(rc.getMapWidth() - allyHQ.x - 1, rc.getMapHeight() - allyHQ.y - 1);
                 break;
             default:

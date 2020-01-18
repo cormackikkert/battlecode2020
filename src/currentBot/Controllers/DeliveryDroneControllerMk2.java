@@ -24,7 +24,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         ATTACK,
         WANDER,
         EXPLORE, // Search for soup clustsers in places the miner couldn't reach
-        TAXI
+        TAXI,
+        STUCKKILL
     }
 
     public State currentState = null;
@@ -93,7 +94,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void run() throws GameActionException {
-        System.out.println("role is " + currentState);
         if (!rc.isReady()) {
             searchSurroundingsContinued();
             return;
@@ -107,6 +107,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             execTaxi();
             return;
         }
+        solveGhostHq();
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -117,7 +118,15 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 case TAXI: execTaxi();                      break;
             }
         } else {
-            execKill();
+            if (currentState == State.TAXI) {
+                execTaxi();
+            } else {
+                if (currentState == State.STUCKKILL) {
+                    execKill2 ();
+                } else {
+                    execKill();
+                }
+            }
         }
     }
 
@@ -133,23 +142,29 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        if (rc.getRoundNum() >= SWITCH_TO_ATTACK) {
-            // switchToAttackMode();
-            switchToDefenceMode();
+        // leave half to defend
+        if (rc.getRoundNum() >= SWITCH_TO_ATTACK && rc.getID() % 2 == 0) {
+            switchToAttackMode();
         } else {
-//            switchToDefenceMode();
-            // switchToWanderMode();
+            switchToDefenceMode();
+//            switchToWanderMode();
 
-
+            updateReqs();
+            if (currentReq != null) {
+                execTaxi();
+                return;
+            }
 
             // Half drones explore
             // slowly turn back into other modes
-            switchToDefenceMode();
-
-        }
-        if (rc.getID() % 2 == 0 && !hasExplored) {
-            currentState = State.EXPLORE;
-            hasExplored = true;
+            if (rc.getID() % 2 == 0) {
+                if (!hasExplored) {
+                    currentState = State.EXPLORE;
+                    hasExplored = true;
+                } else {
+                    currentState = State.WANDER;
+                }
+            }
         }
 
     }
@@ -163,30 +178,33 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         // trying to pick up enemies
 
-        // todo: remove
-        /*
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (tryPickUpUnit(enemy)) return;
+                if (allyHQ != null && enemy.getLocation().isWithinDistanceSquared(allyHQ, 2)) {
+                    tryMove(movementSolver.directionToGoal(enemy.getLocation()));
+                }
             }
         }
 
-         */
+        if (allyHQ == null) {
+            currentState = State.WANDER;
+            run();
+            return;
+        }
+
 
         // camp around home
         if (ADJACENT_DEFEND ?
                 isAdjacentTo(allyHQ) :
-                rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_RADIUS)) {
-            System.out.println("stand still to defend");
+                !rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_RADIUS)) {
+            tryMove(movementSolver.directionToGoal(allyHQ));
+            System.out.println("move to home");
+        } else if (rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_CAMP)) {
+            tryMove(movementSolver.directionFromPoint(allyHQ));
+            System.out.println("move away from home");
         } else {
-            if (allyHQ != null) {
-                if (!tryMove(rc.getLocation().directionTo(allyHQ))) {
-                    tryMove(randomDirection());
-                }
-            } else {
-                tryMove(randomDirection()); // should never get here since should find hq
-            }
-//            System.out.println("move to defend");
+            System.out.println("camp outside home");
         }
     }
 
@@ -198,16 +216,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
          */
 
         // trying to pick up enemies
-
-        /*
-        RobotInfo[] enemies = rc.senseNearbyRobots(-1, ENEMY);
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (tryPickUpUnit(enemy)) return;
             }
         }
-
-         */
 
         // camp outside enemy hq
         if (enemyHQ != null) {
@@ -224,10 +237,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
             if (movementSolver.nearEdge()) {
                 favourableDirection = favourableDirection.opposite();
             }
-            tryMove(movementSolver.directionGo(favourableDirection));
+            spawnBaseDirFrom = favourableDirection;
+            movementSolver.windowsRoam();
             System.out.println("moving away from home hq");
         } else {
-            tryMove(randomDirection());
+            switchToWanderMode();
         }
     }
 
@@ -254,22 +268,62 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execKill() throws GameActionException {
-        if (nearestWaterTile == null) {
-            System.out.println("Looking for water tile");
-            movementSolver.windowsRoam();
-            nearestWaterTile = getNearestWaterTile2();
-        } else {
-            if (!isAdjacentTo(nearestWaterTile)) {
-                System.out.println("Moving to water tile");
-                tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
-            } else {
-                System.out.println("dropping in water tile");
-                if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
-                    rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
-                    nearestWaterTile = null; // look for different water tile next time
+        MapLocation loc = rc.getLocation();
+        MapLocation kill;
+        for (Direction direction : Direction.allDirections()) {
+            kill = loc.add(direction);
+            if (rc.canSenseLocation(kill) && rc.senseFlooding(kill)) {
+                if (rc.canDropUnit(direction)) {
+                    rc.dropUnit(direction);
+                    return;
                 }
             }
         }
+
+        nearestWaterTile = getNearestWaterTile2();
+        if (nearestWaterTile == null) movementSolver.windowsRoam();
+        else if (!isAdjacentTo(nearestWaterTile)) {
+            System.out.println("Moving to water tile");
+            tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
+        } else {
+            System.out.println("dropping in water tile");
+            if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
+                rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
+                nearestWaterTile = null; // look for different water tile next time
+            }
+        }
+
+//        if (nearestWaterTile == null) {
+//            System.out.println("Looking for water tile");
+//            movementSolver.windowsRoam();
+//            nearestWaterTile = getNearestWaterTile2();
+//        } else {
+//            if (!isAdjacentTo(nearestWaterTile)) {
+//                System.out.println("Moving to water tile");
+//                tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
+//            } else {
+//                System.out.println("dropping in water tile");
+//                if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
+//                    rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
+//                    nearestWaterTile = null; // look for different water tile next time
+//                }
+//            }
+//        }
+    }
+    public void execKill2() throws GameActionException {
+        MapLocation loc = rc.getLocation();
+        MapLocation kill;
+        for (Direction direction : Direction.allDirections()) {
+            kill = loc.add(direction);
+            if (rc.canSenseLocation(kill) && rc.senseFlooding(kill)) {
+                if (rc.canDropUnit(direction)) {
+                    rc.dropUnit(direction);
+                    return;
+                }
+            }
+        }
+
+        movementSolver.windowsRoam();
     }
 
     public boolean tryPickUpUnit(RobotInfo enemy) throws GameActionException {
@@ -502,7 +556,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public void killCow() throws GameActionException {
         while (true) {
-//            assignRole();
+            assignRole();
             if (currentState != State.EXPLORE) break;
             RobotInfo[] cows = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), NEUTRAL);
             if (cows.length == 0) return;

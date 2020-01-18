@@ -6,6 +6,7 @@ import currentBot.MovementSolver;
 import currentBot.SoupCluster;
 
 import java.security.AllPermission;
+import java.util.ArrayList;
 import java.util.Map;
 
 public class LandscaperController extends Controller {
@@ -90,41 +91,46 @@ public class LandscaperController extends Controller {
         }
     }
 
-    boolean turnCW = true;
+    // returns cell with minimum elevation
     Direction nextDirection(MapLocation loc) throws GameActionException {
-        for (int i=0; i<8; ++i) {
-            Direction d = directions[i];
-            // System.out.println("Checking dir " + i + " gives " + d.toString());
-            if (loc.equals(allyHQ.add(d))) {
-                int j = turnCW ? (i+1)%8 : (i-1+8)%8;
-                MapLocation newPos = allyHQ.add(directions[j]);
-                if (!rc.onTheMap(newPos) || rc.isLocationOccupied(newPos)) {
-                    turnCW = !turnCW;
-                    j = turnCW ? (i+1)%8 : (i-1+8)%8;
+        Direction finalDir = null;
+        int elevation = Integer.MAX_VALUE;
+        for (Direction d : Direction.allDirections()) {
+            MapLocation newPos = loc.add(d);
+            int dist = allyHQ.distanceSquaredTo(newPos);
+            if (rc.onTheMap(newPos) && dist <= 2 && dist > 0) {
+                if (rc.senseElevation(newPos) < elevation) {
+                    elevation = rc.senseElevation(newPos);
+                    finalDir = d;
                 }
-                newPos = allyHQ.add(directions[j]);
-                if (rc.onTheMap(newPos)) return loc.directionTo(newPos);
-                else break;
             }
         }
-        return Direction.CENTER;
+        return finalDir;
     }
 
     // TODO: implement for attack/defend
     Direction getDigDirection(Direction avoidDir) throws GameActionException {
         MapLocation curr = rc.getLocation();
         Direction buryDir = null;
-        for (Direction dir : Direction.allDirections()) {
-            if (rc.onTheMap(curr.add(dir)) && rc.isLocationOccupied(curr.add(dir))) {
-                RobotInfo robot = rc.senseRobotAtLocation(curr.add(dir));
-                if (robot.getTeam().isPlayer()) {
-                    buryDir = dir; continue; }
-            }
+        Direction highEl = null; int el = Integer.MIN_VALUE;
+        for (Direction dir : directions) {
+            MapLocation digPos = curr.add(dir);
             if (dir != avoidDir && rc.canDigDirt(dir)) {
-                if (allyHQ == null || curr.add(dir).distanceSquaredTo(allyHQ) > 2)
+                if (rc.senseElevation(digPos) > el) {
+                    highEl = dir; el = rc.senseElevation(digPos);
+                }
+                // avoid burying an ally robot
+                if (rc.isLocationOccupied(digPos)) {
+                    RobotInfo robot = rc.senseRobotAtLocation(digPos);
+                    if (robot.getTeam().isPlayer() && digPos.distanceSquaredTo(allyHQ)>2) {
+                        buryDir = dir; continue;
+                    }
+                }
+                if (allyHQ == null || digPos.distanceSquaredTo(allyHQ) > 2)
                     return dir;
             }
         }
+        if (buryDir == null) return highEl;  // if no access to cell outside wall
         return buryDir;  // if no option but to bury an ally
     }
 
@@ -144,28 +150,25 @@ public class LandscaperController extends Controller {
     }
 
     // used for landscaper to climb up to HQ wall
-    MapLocation lastTried;
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
+        while (rc.getLocation().distanceSquaredTo(goal) > 5) {
+            tryMove(movementSolver.directionToGoal(goal));
+        }
         while (rc.getLocation().distanceSquaredTo(goal) > 2) {
             Direction dir = dirToGoal(goal);
             System.out.println("Received direction " + dir.toString());
             MapLocation curr = rc.getLocation();
-            if (curr.add(dir).equals(lastTried)) {
-                do { dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
-                    System.out.println("Checking dir " + dir.toString());
-                } while (isLandscaperObstacle(curr, curr.add(dir)));
-                System.out.println("New dir " + dir.toString());
-            }
             if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(dir))) > 3) {
                 if (!level(dir)) {  // need to level dirt
                     // if could not level, try another path
-                    previous = curr.add(dir);
-                    goToLocationToDeposit(goal);
+                    previous.add(curr.add(dir));
+                    continue;
                 }
             }
             tryMove(dir);
-            lastTried = curr.add(dir);
+            if (!tryMove(dir)) previous.add(curr.add(dir));
+            System.out.println("Tried to move");
         }
     }
     // levels the dirt in given direction compared to current loc
@@ -183,7 +186,7 @@ public class LandscaperController extends Controller {
                 Clock.yield();
             }
         } else {  // need to go to lower ground
-            while (currElevation > rc.senseElevation(pos)) {
+            while (rc.senseElevation(curr) > rc.senseElevation(pos)) {
                 if (rc.getDirtCarrying() == 0) tryDigRandom();
                 if (rc.canDepositDirt(dir)) rc.depositDirt(dir);
                 numMoves++; if (numMoves > digHeight) return false;
@@ -196,44 +199,36 @@ public class LandscaperController extends Controller {
 
     // movement solver for landscaper
     // which ignores small elevation changes (< digHeight) on path to goal
-    boolean rotateCW = true;
-    MapLocation previous;
+    ArrayList<MapLocation> previous = new ArrayList<>(8);
     Direction dirToGoal(MapLocation goal) throws GameActionException {
         if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
-
         MapLocation from = rc.getLocation();
         Direction dir = from.directionTo(goal);
 
-        int changes = 0;
-
         // while obstacle ahead, keep rotating
-        while (isLandscaperObstacle(from, from.add(dir))) {
-            System.out.println(dir.toString() + " is an obstacle, rotated " + changes);
-            if (!onTheMap(rc.getLocation().add(dir))) {
-                rotateCW = !rotateCW; previous = null;
-                ++changes;
-            }
-            dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
-            // if blocked in every direction, stop rotating
-            if (changes > 8) return Direction.CENTER;
+        Direction[] closeDirs = getClosestDirections(dir); int i = 0;
+        while (isLandscaperObstacle(from, from.add(dir)) && i<7) {
+            System.out.println(dir.toString() + " is an obstacle");
+            dir = closeDirs[i]; i++;
         }
-
-        previous = from;
-        return dir;
+        if (isLandscaperObstacle(from, from.add(dir))) return Direction.CENTER;
+        else {
+            previous.add(from);
+            return dir;
+        }
     }
 
-    // elevation is not an obstacle
     boolean isLandscaperObstacle(MapLocation from, MapLocation to) throws GameActionException {
         // obstacle if is occupied by building, not on map, or previous point
+        if (previous.size() >= 8) previous.clear();
         if (!rc.onTheMap(to)) return true;
-        if (rc.isLocationOccupied(to)) {
-            RobotType robot = rc.senseRobotAtLocation(to).type;
-            if (robot.isBuilding()) return true;
-        }
-        if (Math.abs(rc.senseElevation(from)-rc.senseElevation(to)) > digHeight)
-            return true;
-        return rc.senseFlooding(to) || to.equals(previous);
+        return rc.isLocationOccupied(to) || rc.senseFlooding(to) || previous.contains(to);
     }
 
+    Direction[] getClosestDirections(Direction d) {
+        return new Direction[]{d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(),
+        d.rotateRight().rotateRight(), d.opposite().rotateRight(), d.opposite().rotateLeft(),
+        d.opposite()};
+    }
 
 }
