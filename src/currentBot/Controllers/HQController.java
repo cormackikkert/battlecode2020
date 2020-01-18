@@ -131,7 +131,7 @@ public class HQController extends Controller {
 
         // Build miner
         if (totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
-                (!haveWallAround && rc.getRoundNum() >= START_BUILD_WALL && rc.getRoundNum() % 50 == 0) ||
+                (!haveWallAround && rc.getRoundNum() >= START_BUILD_WALL && rc.getRoundNum() % 10 == 0) ||
                 (totalMiners < Math.min(cap, totalSoup / PlayerConstants.AREA_PER_MINER) &&
                         rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum()) &&
                         rc.getRoundNum() % 10 == 0)) {
