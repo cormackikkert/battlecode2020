@@ -20,7 +20,7 @@ public class LandscaperController extends Controller {
         ROAM,
         REMOVE_WATER
     }
-    public State currentState = State.REMOVE_WATER;
+    public State currentState = State.ROAM;
     public SoupCluster currentSoupCluster; // build wall around this
     final int dirtLimit = RobotType.LANDSCAPER.dirtLimit;
     final int digHeight = 20;
@@ -73,7 +73,12 @@ public class LandscaperController extends Controller {
             case DESTROY:       execDestroy();      break;
             case REMOVE_WATER: execRemoveWater(); break;
 //            case ROAM: movementSolver.windowsRoam(); break;
+            case ROAM: execRoam(); break;
         }
+    }
+
+    public void execRoam() throws GameActionException {
+        tryMove(movementSolver.directionToGoal(new MapLocation(0,0)));
     }
 
     public void execProtectHQ() throws GameActionException {
@@ -85,7 +90,7 @@ public class LandscaperController extends Controller {
         // robot is currently on HQ wall
         MapLocation curr = rc.getLocation();
         Direction nextDir = nextDirection(curr);
-        // System.out.println("New direction is " + nextDir.toString());
+        //System.out.println("New direction is " + nextDir.toString());
 
         if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(nextDir))) > 3) {
             if (level(nextDir)) {  // need to level dirt
@@ -181,10 +186,10 @@ public class LandscaperController extends Controller {
     // used for landscaper to climb up to HQ wall
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
-        while (rc.getLocation().distanceSquaredTo(goal) > 5) {
+        if (rc.getLocation().distanceSquaredTo(goal) > 5) {
             tryMove(movementSolver.directionToGoal(goal));
         }
-        while (rc.getLocation().distanceSquaredTo(goal) > 2) {
+        else if (rc.getLocation().distanceSquaredTo(goal) > 2) {
             Direction dir = dirToGoal(goal);
             System.out.println("Received direction " + dir.toString());
             MapLocation curr = rc.getLocation();
@@ -192,7 +197,7 @@ public class LandscaperController extends Controller {
                 if (!level(dir)) {  // need to level dirt
                     // if could not level, try another path
                     previous.add(curr.add(dir));
-                    continue;
+                    return;
                 }
             }
             tryMove(dir);
