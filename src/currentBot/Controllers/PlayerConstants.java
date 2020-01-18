@@ -33,8 +33,8 @@ public class PlayerConstants {
 
 
     // Landscaper constants
-    static final int DEFEND = 8;
-    static final int HELP = 3; // like for clearing water at soup locations
+    static final int DEFEND = 12; // IN CASE DRONES KILL
+    static final int HELP = 0; // like for clearing water at soup locations
 
 
 
