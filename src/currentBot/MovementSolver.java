@@ -4,6 +4,8 @@ import currentBot.Controllers.Controller;
 import currentBot.Controllers.DeliveryDroneControllerMk2;
 import currentBot.Controllers.PlayerConstants;
 
+import java.util.ArrayList;
+
 /*
     A class that handles movement
  */
@@ -18,11 +20,18 @@ public class MovementSolver {
 
     RobotController rc;
     Controller controller;
-    boolean rotateCW = true;
+    final int recency = 7;
+    int index = 0;
+    ArrayList<MapLocation> recent = new ArrayList<>(recency);
 
     Direction[] cardinal = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
     Direction[] ordinal  = {Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST};
 
+    Direction[] getClosestDirections(Direction d) {
+        return new Direction[]{d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(),
+                d.rotateRight().rotateRight(), d.opposite().rotateRight(), d.opposite().rotateLeft(),
+                d.opposite()};
+    }
 
     public MovementSolver(RobotController rc) {
         this.rc = rc;
@@ -31,6 +40,53 @@ public class MovementSolver {
     public MovementSolver(RobotController rc, Controller controller) {
         this.rc = rc;
         this.controller = controller;
+        for (int i=0;i<recency;++i) recent.add(new MapLocation(-1,-1));
+    }
+
+    public Direction directionToGoal(MapLocation goal, boolean giveFucks) throws GameActionException {
+        if (!giveFucks) {
+            MapLocation from = rc.getLocation();
+
+            if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
+
+
+            Direction dir = from.directionTo(goal);
+
+            int changes = 0;
+            boolean failed = false;
+
+            // while obstacle ahead, keep rotating
+            while (isObstacleDrone(dir, from.add(dir))) {
+                if (!rc.onTheMap(rc.getLocation().add(dir))) {
+                    rotateCW = !rotateCW; previous = null; failed = true;
+                    changes = 0;
+                }
+                ++changes;
+                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+                // if blocked in every direction, stop rotating
+                if (changes > 8) return from.directionTo(previous);
+            }
+
+
+            rc.setIndicatorLine(from, goal, 255, 255, 255);
+
+            if (failed) {
+                // rotateCW = !rotateCW;
+                rc.setIndicatorDot(from, 255, 0, 0);
+                rc.setIndicatorLine(from, goal, 255, 0, 0);
+            }
+
+            if (rc.getLocation().add(dir).equals(twoback)) {
+                rotateCW = !rotateCW;
+            }
+
+            twoback = previous;
+            previous = from;
+            return dir;
+        } else {
+            // avoid net-guns
+            return droneDirectionToGoal(rc.getLocation(), goal);
+        }
     }
 
     public Direction directionToGoal(MapLocation goal) throws GameActionException {
@@ -52,47 +108,23 @@ public class MovementSolver {
                 directionToGoal(rc.getLocation(), rc.getLocation().add(direction));
     }
 
+    // no revisits to given number of recent tiles
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
         rc.setIndicatorLine(from, goal, 0, 0, 255);
         if (rc.getType() == RobotType.DELIVERY_DRONE) return droneDirectionToGoal(from, goal);
 
-        // TODO: account for "hallways"
-        if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
+        while (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
-
+        // while obstacle ahead, keep looking for new direction
         Direction dir = from.directionTo(goal);
-
-        int changes = 0;
-        boolean failed = false;
-
-        // while obstacle ahead, keep rotating
-        while (isObstacle(dir, from.add(dir))) {
-            if (!rc.onTheMap(rc.getLocation().add(dir))) {
-                rotateCW = !rotateCW; previous = null; failed = true;
-                changes = 0;
+        for (Direction d : getClosestDirections(dir)) {
+            if (!isObstacle(d, from.add(d))) {
+                recent.set(index, from); index = (index + 1)%recency;
+                return d;
             }
-            ++changes;
-            dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
-            // if blocked in every direction, stop rotating
-            if (changes > 8) return from.directionTo(previous);
         }
+        return Direction.CENTER;
 
-
-        rc.setIndicatorLine(from, goal, 255, 255, 255);
-
-        if (failed) {
-            // rotateCW = !rotateCW;
-            rc.setIndicatorDot(from, 255, 0, 0);
-            rc.setIndicatorLine(from, goal, 255, 0, 0);
-        }
-
-        if (rc.getLocation().add(dir).equals(twoback)) {
-            rotateCW = !rotateCW;
-        }
-
-        twoback = previous;
-        previous = from;
-        return dir;
     }
 
     public Direction droneDirectionToGoal(MapLocation goal) throws GameActionException {
@@ -163,14 +195,16 @@ public class MovementSolver {
 //            }
 //        }
 
-        return !rc.canMove(dir) ||
-                rc.senseFlooding(to) ||
-                to.equals(previous)
+        return !rc.canMove(dir) || rc.senseFlooding(to) || recent.contains(to);
 //                ||
 //                (controller.rc.getType() == RobotType.MINER &&
 //                        controller.allyHQ != null &&
 //                        to.isAdjacentTo(controller.allyHQ))
-                ;
+
+    }
+
+    boolean isObstacleDrone(Direction dir, MapLocation to) throws GameActionException {
+        return !rc.canMove(dir) || to.equals(previous);
     }
 
     public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {

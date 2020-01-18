@@ -466,6 +466,11 @@ public class MinerController extends Controller {
             if (rc.senseFlooding(currentSoupSquare)) {
                 // Landscaper case
                 communicationHandler.askClearSoupFlood(currentSoupCluster);
+                buildType = RobotType.NET_GUN;
+                currentState = State.BUILDER;
+                buildLoc = null;
+                execBuilder();
+
 
             } else if (!canReach(currentSoupSquare)) {
                 // Drone case

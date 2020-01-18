@@ -72,6 +72,7 @@ public class PlayerConstants {
     static boolean shouldntDuplicate(RobotType buildType) {
         return (buildType == RobotType.DESIGN_SCHOOL) ||
                 (buildType == RobotType.REFINERY) ||
-                (buildType == RobotType.FULFILLMENT_CENTER);
+                (buildType == RobotType.FULFILLMENT_CENTER) ||
+                (buildType == RobotType.NET_GUN);
     }
 }

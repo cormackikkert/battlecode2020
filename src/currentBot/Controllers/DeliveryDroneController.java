@@ -11,7 +11,9 @@ public class DeliveryDroneController extends Controller {
         COW,
         SCOUTER,
         DEFEND,
-        ATTACK
+        ATTACK,
+        DEFEND_LATEGAME,
+        ATTACK_LATEGAME
     }
 
     State currentState = null;
@@ -102,6 +104,7 @@ public class DeliveryDroneController extends Controller {
 
         moveToTargetAndStay();
     }
+
 
     public void execDefendKill() throws GameActionException {
         execKill();
