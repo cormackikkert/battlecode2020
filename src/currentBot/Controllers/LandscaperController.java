@@ -16,7 +16,8 @@ public class LandscaperController extends Controller {
     enum State {
         PROTECTHQ,  // builds a wall of specified height around HQ
         //PROTECTSOUP,  // builds wall around a soup cluster
-        DESTROY  // piles dirt on top of enemy building
+        DESTROY,  // piles dirt on top of enemy building
+        KILLUNITS // Kills units around HQ
     }
     State currentState = State.PROTECTHQ;
     SoupCluster currentSoupCluster; // build wall around this
@@ -33,7 +34,10 @@ public class LandscaperController extends Controller {
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
                 enemyHQ = robotInfo.location;
-                currentState = State.DESTROY;
+                if (Math.random() > 0.5)
+                    currentState = State.DESTROY;
+                else
+                    currentState = State.KILLUNITS;
             }
         }
     }
@@ -42,6 +46,7 @@ public class LandscaperController extends Controller {
         // System.out.println("I am a " + currentState.toString());
         switch (currentState) {
             case PROTECTHQ:     execProtectHQ();    break;
+            case KILLUNITS: execKillUnits();  break;
             //case PROTECTSOUP:   execProtectSoup();  break;
             case DESTROY:       execDestroy();      break;
         }
@@ -70,6 +75,67 @@ public class LandscaperController extends Controller {
         while (!rc.canDepositDirt(nextDir)) Clock.yield();
         rc.depositDirt(nextDir);
         tryMove(nextDir);
+    }
+
+    public void execKillUnits() throws GameActionException {
+        // Prioritize killing in this order
+        MapLocation adjacentPos = null;
+        MapLocation netGunPos = null;
+        MapLocation designSchoolPos = null;
+        MapLocation fulfillmentCenterPos = null;
+
+        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+            if (robot.type == RobotType.NET_GUN) netGunPos = robot.location;
+            else if (robot.type == RobotType.DESIGN_SCHOOL) designSchoolPos = robot.location;
+            else if (robot.type == RobotType.FULFILLMENT_CENTER) fulfillmentCenterPos = robot.location;
+
+            if (netGunPos != null && netGunPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
+            else if (designSchoolPos != null && designSchoolPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
+            else if (fulfillmentCenterPos != null && fulfillmentCenterPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
+        }
+
+        // Kill an adjacent one
+        if (adjacentPos != null) {
+            if (rc.getDirtCarrying() > 0 && rc.canDepositDirt(rc.getLocation().directionTo(adjacentPos))) {
+                rc.depositDirt(rc.getLocation().directionTo(adjacentPos));
+            } else {
+                for (Direction dir : Direction.allDirections()) {
+                    MapLocation pos = rc.getLocation().add(dir);
+                    RobotInfo robot = rc.senseRobotAtLocation(pos);
+                    if (robot != null &&
+                        robot.getTeam() == rc.getTeam().opponent() && (
+                                robot.type == RobotType.FULFILLMENT_CENTER ||
+                                robot.type == RobotType.DESIGN_SCHOOL ||
+                                robot.type == RobotType.NET_GUN)
+                            ) continue;
+
+                    if (rc.canDigDirt(dir)) {
+                        rc.digDirt(dir);
+                        break;
+                    }
+                }
+            }
+        } else {
+            MapLocation enemy = (netGunPos != null) ? netGunPos : ((designSchoolPos != null) ? designSchoolPos : fulfillmentCenterPos);
+            if (enemy != null) {
+                tryMove(movementSolver.directionToGoal(enemy));
+            } else {
+                if (getChebyshevDistance(rc.getLocation(), allyHQ) < 2) {
+                    tryMove(movementSolver.directionToGoal(rc.getLocation().add(rc.getLocation().directionTo(allyHQ).opposite())));
+                } else if (getChebyshevDistance(rc.getLocation(), allyHQ) > 4) {
+                    tryMove(movementSolver.directionToGoal(allyHQ));
+                } else {
+                    // Dig dirt so depositing is fast
+                    for (Direction dir : Direction.allDirections()) {
+                        if (dir == rc.getLocation().directionTo(allyHQ)) continue;
+                        if (rc.canDigDirt(dir)) {
+                            rc.digDirt(dir);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public void execDestroy() throws GameActionException {

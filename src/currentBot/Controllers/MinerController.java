@@ -183,7 +183,10 @@ public class MinerController extends Controller {
         if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
         rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
             currentState = State.BUILDER;
-            buildType = RobotType.VAPORATOR;
+            if (Math.random() > 0.7)
+                buildType = RobotType.VAPORATOR;
+            else
+                buildType = RobotType.FULFILLMENT_CENTER;
             buildLoc = null;
         }
 
@@ -864,13 +867,15 @@ public class MinerController extends Controller {
                 MapLocation nnode = node.add(dir);
                 if (!rc.onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
 
-                for (int i = 0; i < 10 && soupCount[nnode.y][nnode.x] == null; ++i) {
+                System.out.println("starting");
+                canReach(nnode);
+                System.out.println("Done");
+                while (canReach(nnode) && soupCount[nnode.y][nnode.x] == null) {
                     tryMove(movementSolver.directionToGoal(nnode));
                     searchSurroundingsSoup();
 
                     Clock.yield();
                     updateClusters();
-
                 }
 
                 if (soupCount[nnode.y][nnode.x] == null) continue;
@@ -981,6 +986,8 @@ public class MinerController extends Controller {
                 int dy = nnode.y - (rc.getLocation().y - diam/2);
                 if (dx < 0 || dx >= diam || dy < 0 || dy >= diam) continue;
 
+                if (visited[dy][dx]) continue;
+
                 RobotInfo robot = rc.senseRobotAtLocation(nnode);
                 if (robot != null && (robot.type == RobotType.REFINERY ||
                         robot.type == RobotType.HQ ||
@@ -988,7 +995,7 @@ public class MinerController extends Controller {
                         robot.type == RobotType.FULFILLMENT_CENTER ||
                         robot.type == RobotType.DESIGN_SCHOOL)) continue;
 
-                if (visited[dy][dx]) continue;
+
                 if (containsWater[nnode.y][nnode.x] == null) {
                     // if we haven't searched the square assume we can get there
                     visited[dy][dx] = true;
