@@ -21,6 +21,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public enum State {
         DEFEND,
+        DEFENDLATEGAME,
+        ATTACKLATEGAME,
         ATTACK,
         WANDER,
         EXPLORE, // Search for soup clustsers in places the miner couldn't reach
@@ -116,6 +118,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 case WANDER:  execWanderPatrol();           break;
                 case EXPLORE: execExplore();                break;
                 case TAXI: execTaxi();                      break;
+                case ATTACKLATEGAME: execAttackLateGame();  break;
+                case DEFENDLATEGAME: execDefendLateGame();  break;
             }
         } else {
             if (currentState == State.TAXI) {
@@ -141,13 +145,19 @@ public class DeliveryDroneControllerMk2 extends Controller {
             currentState = State.TAXI;
             return;
         }
-
-        // leave half to defend
-        if (rc.getRoundNum() >= SWITCH_TO_ATTACK && rc.getID() % 2 == 0) {
-            switchToAttackMode();
+        if (rc.getRoundNum() > 800) {
+            currentState = State.ATTACKLATEGAME;
+        } else if (rc.getRoundNum() > 700) {
+            currentState = State.DEFENDLATEGAME;
         } else {
-            switchToDefenceMode();
-//            switchToWanderMode();
+            currentState = State.DEFEND;
+//            switchToDefenceMode();
+//            // leave half to defend
+//            if (rc.getRoundNum() >= SWITCH_TO_ATTACK && rc.getID() % 2 == 0) {
+//                switchToAttackMode();
+//            } else {
+//                switchToDefenceMode();
+////            switchToWanderMode();
 
             updateReqs();
             if (currentReq != null) {
@@ -166,8 +176,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 }
             }
         }
-
     }
+
 
     public void execDefendPatrol() throws GameActionException {
 
@@ -253,6 +263,29 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
         movementSolver.windowsRoam();
+    }
+
+    public void execDefendLateGame() throws GameActionException {
+        // defend / attack code are awfully similar
+        for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+            if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID())) {
+                rc.pickUpUnit(enemy.getID());
+                return;
+            }
+        }
+
+        tryMove(movementSolver.directionToGoal(allyHQ));
+    }
+
+    public void execAttackLateGame() throws GameActionException {
+        for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+            if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID())) {
+                rc.pickUpUnit(enemy.getID());
+                return;
+            }
+        }
+
+        tryMove(movementSolver.directionToGoal(enemyHQ, false));
     }
 
     public void switchToAttackMode() throws GameActionException {

@@ -43,6 +43,52 @@ public class MovementSolver {
         for (int i=0;i<recency;++i) recent.add(new MapLocation(-1,-1));
     }
 
+    public Direction directionToGoal(MapLocation goal, boolean giveFucks) throws GameActionException {
+        if (!giveFucks) {
+            MapLocation from = rc.getLocation();
+
+            if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
+
+
+            Direction dir = from.directionTo(goal);
+
+            int changes = 0;
+            boolean failed = false;
+
+            // while obstacle ahead, keep rotating
+            while (isObstacleDrone(dir, from.add(dir))) {
+                if (!rc.onTheMap(rc.getLocation().add(dir))) {
+                    rotateCW = !rotateCW; previous = null; failed = true;
+                    changes = 0;
+                }
+                ++changes;
+                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+                // if blocked in every direction, stop rotating
+                if (changes > 8) return from.directionTo(previous);
+            }
+
+
+            rc.setIndicatorLine(from, goal, 255, 255, 255);
+
+            if (failed) {
+                // rotateCW = !rotateCW;
+                rc.setIndicatorDot(from, 255, 0, 0);
+                rc.setIndicatorLine(from, goal, 255, 0, 0);
+            }
+
+            if (rc.getLocation().add(dir).equals(twoback)) {
+                rotateCW = !rotateCW;
+            }
+
+            twoback = previous;
+            previous = from;
+            return dir;
+        } else {
+            // avoid net-guns
+            return droneDirectionToGoal(rc.getLocation(), goal);
+        }
+    }
+
     public Direction directionToGoal(MapLocation goal) throws GameActionException {
         rc.setIndicatorLine(rc.getLocation(), goal, 255, 0, 0);
         return rc.getType() == RobotType.DELIVERY_DRONE ?
@@ -155,6 +201,10 @@ public class MovementSolver {
 //                        controller.allyHQ != null &&
 //                        to.isAdjacentTo(controller.allyHQ))
 
+    }
+
+    boolean isObstacleDrone(Direction dir, MapLocation to) throws GameActionException {
+        return !rc.canMove(dir) || to.equals(previous);
     }
 
     public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {
