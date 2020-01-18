@@ -94,8 +94,31 @@ public class LandscaperController extends Controller {
     public void execProtectHQ() throws GameActionException {
         if (allyHQ == null)
             allyHQ = communicationHandler.receiveAllyHQLoc();
+
+        int walled = 0;
+        MapLocation sitHere = null;
+        for (Direction direction : directions) {
+            if (!rc.canSenseLocation(allyHQ.add(direction))) continue;
+            RobotInfo robotInfo = rc.senseRobotAtLocation(allyHQ.add(direction));
+            if (robotInfo == null || robotInfo.getTeam() != rc.getTeam() || robotInfo.getType() != RobotType.LANDSCAPER) {
+                sitHere = allyHQ.add(direction);
+            }
+            if (robotInfo != null && robotInfo.getTeam() == ALLY && robotInfo.getType() == RobotType.LANDSCAPER) {
+                walled++;
+            }
+        }
+
+        if (walled == 8 && !rc.getLocation().isAdjacentTo(allyHQ)) { // if already have all 8 landscapers building wall
+            currentState = State.REMOVE_WATER; // TODO : or assign another role
+            return;
+        }
+
         if (!rc.getLocation().isAdjacentTo(allyHQ)) {
-            tryMove(movementSolver.directionToGoal(allyHQ));
+            if (sitHere == null) {
+                tryMove(movementSolver.directionToGoal(allyHQ));
+            } else {
+                tryMove(movementSolver.directionToGoal(sitHere));
+            }
         }
 
         if (!startedWalling) {
