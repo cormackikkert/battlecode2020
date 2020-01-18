@@ -174,6 +174,15 @@ public class MinerController extends Controller {
         solveGhostHq();
         updateClusters();
 
+        scanRobots();
+        if (currentRefineryPos == allyHQ) {
+            for (RobotInfo ally : allies) {
+                if (ally.getType() == RobotType.REFINERY) {
+                    currentRefineryPos = ally.getLocation();
+                }
+            }
+        }
+
         if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
             isAdjacentToWater(rc.getLocation())) {
             avoidWater();

@@ -189,7 +189,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return blocks;
     }
 
+    boolean sentAlly = false;
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {
+        if (loc == null || sentAlly) return false;
         int[] message = bluePrint(CommunicationType.ALLYHQ);
 //        message[0] = teamSecret ^ rc.getRoundNum();
 //        message[1] = CommunicationType.ALLYHQ.ordinal();
@@ -200,13 +202,15 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
             System.out.println("home location sent ");
+            sentAlly = true;
             return true;
         }
         return false;
     }
 
+    boolean sentEnemy = false;
     public boolean sendEnemyHQLoc(MapLocation loc) throws GameActionException {
-        if (loc == null) return false;
+        if (loc == null || sentEnemy) return false;
         int[] message = bluePrint(CommunicationType.ENEMYHQ);
 //        message[0] = teamSecret ^ rc.getRoundNum();
 //        message[1] = teamSecret ^ CommunicationType.ENEMYHQ.ordinal();
@@ -217,6 +221,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
             System.out.println("enemy location sent "+loc);
+            sentEnemy = true;
             return true;
         }
         return false;
