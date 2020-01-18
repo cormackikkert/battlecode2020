@@ -2,6 +2,8 @@ package currentBot.Controllers;
 
 import battlecode.common.*;
 
+import static currentBot.Controllers.PlayerConstants.*;
+
 public class DesignSchoolController extends Controller {
 
     public enum State {
@@ -11,9 +13,11 @@ public class DesignSchoolController extends Controller {
 
     State currentState = State.DEFAULT;
     int builtLandscapers = 0;
+    MapLocation location;
 
     public DesignSchoolController(RobotController rc) {
-        this.rc = rc;
+        getInfo(rc);
+        this.location = rc.getLocation();
 
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
@@ -24,11 +28,30 @@ public class DesignSchoolController extends Controller {
     }
 
     public void run() throws GameActionException {
-        if (rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && builtLandscapers < 4) {
+        if (rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && builtLandscapers < DEFEND + HELP) {
             for (Direction dir : Direction.allDirections()) {
-                if (tryBuild(RobotType.LANDSCAPER, dir)) {++builtLandscapers; break;}
+                if (tryBuild(RobotType.LANDSCAPER, dir)) {
+                    int id = rc.senseRobotAtLocation(location.add(dir)).getID();
+
+                    if (builtLandscapers < DEFEND) {
+                        communicationHandler.landscapeDefend(id);
+                    } else {
+                        communicationHandler.landscapeHelp(id);
+                    }
+
+//                    // for building wall later
+//                    if (builtLandscapers < HELP) {
+//                        communicationHandler.landscapeHelp(id);
+//                    } else {
+//                        communicationHandler.landscapeDefend(id);
+//                    }
+                    ++builtLandscapers;
+                    break;
+                }
             }
         }
+
+
     }
 
     public void execDestroyEnemy() throws GameActionException {
