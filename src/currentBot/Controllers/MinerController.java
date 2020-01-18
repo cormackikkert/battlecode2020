@@ -114,14 +114,13 @@ public class MinerController extends Controller {
         }
 
         System.out.println("Should I build?");
-//        if (!builtFC && foundHQ &&
-//                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
-//            System.out.println("YES build drones");
-//            currentState = State.BUILDER;
-//            buildType = RobotType.FULFILLMENT_CENTER;
-//            buildLoc = null;
-//        } else
-            if (!builtDS && foundHQ &&
+        if (!builtFC && foundHQ &&
+                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
+            System.out.println("YES build drones");
+            currentState = State.BUILDER;
+            buildType = RobotType.FULFILLMENT_CENTER;
+            buildLoc = null;
+        } else if (!builtDS && foundHQ &&
                 rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)
                 && rc.getRoundNum() >= START_BUILD_WALL) {
             System.out.println("YES build landscapers");
