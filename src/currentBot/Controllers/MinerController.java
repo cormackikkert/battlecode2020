@@ -174,6 +174,15 @@ public class MinerController extends Controller {
         solveGhostHq();
         updateClusters();
 
+        scanRobots();
+        if (currentRefineryPos == allyHQ) {
+            for (RobotInfo ally : allies) {
+                if (ally.getType() == RobotType.REFINERY) {
+                    currentRefineryPos = ally.getLocation();
+                }
+            }
+        }
+
         if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
             isAdjacentToWater(rc.getLocation())) {
             avoidWater();
@@ -181,18 +190,15 @@ public class MinerController extends Controller {
 
 //        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
 
-//        RobotType buildThis = RobotType.VAPORATOR;
-//        switch (rc.getID() % 5) {
-//            case 0: case 1: case 2: case 3: buildThis = RobotType.VAPORATOR; break;
-////            case 3: buildThis = RobotType.FULFILLMENT_CENTER; break;
-////            case 3: case 4: default: buildThis = RobotType.DESIGN_SCHOOL; break;
-//        }
-//        if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
-//        rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(buildThis)) {
-//            currentState = State.BUILDER;
-//            buildType = buildThis;
-//            buildLoc = null;
-//        }
+        if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
+        rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
+            currentState = State.BUILDER;
+            if (Math.random() > 0.7)
+                buildType = RobotType.VAPORATOR;
+            else
+                buildType = RobotType.FULFILLMENT_CENTER;
+            buildLoc = null;
+        }
 
         switch (currentState) {
             case SEARCH: execSearch();             break;
@@ -507,6 +513,7 @@ public class MinerController extends Controller {
 //                    System.out.println("I am looking for a place to build a refinery");
                     for (Direction dir : Direction.allDirections()) {
                         if (tryBuild(RobotType.REFINERY, dir)) {
+//                            communicationHandler.transmitNewRefinery();
                             currentRefineryPos = rc.getLocation().add(dir);
                             break;
                         }
@@ -521,7 +528,7 @@ public class MinerController extends Controller {
                 rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
 
                 if (currentRefineryPos == allyHQ) {
-                    buildType = RobotType.FULFILLMENT_CENTER;
+                    buildType = (Math.random() > 0.5) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
                     currentState = State.BUILDER;
                     buildLoc = null;
                     execBuilder();
@@ -571,7 +578,7 @@ public class MinerController extends Controller {
 
         movementSolver.restart();
 
-        if (!rc.getLocation().equals(currentSoupCluster.closest(rc.getLocation()))) {
+        if (currentSoupCluster != null && !rc.getLocation().equals(currentSoupCluster.closest(rc.getLocation()))) {
             /*
                 Now as we have dedicated searches we only focus on getting to the soup cluster
 
@@ -740,14 +747,14 @@ public class MinerController extends Controller {
 
     public void execBuilder() throws GameActionException {
 
-//        if (PlayerConstants.shouldntDuplicate(this.buildType)) {
-//            for (RobotInfo robot : rc.senseNearbyRobots()) {
-//                if (robot.team == rc.getTeam() && robot.type == this.buildType) {
-//                    currentState = State.MINE;
-//                    return;
-//                }
-//            }
-//        }
+        if (PlayerConstants.shouldntDuplicate(this.buildType)) {
+            for (RobotInfo robot : rc.senseNearbyRobots()) {
+                if (robot.team == rc.getTeam() && robot.type == this.buildType) {
+                    currentState = State.MINE;
+                    return;
+                }
+            }
+        }
 
         if (buildLoc == null) {
             buildLoc = getNearestBuildTile();
@@ -875,13 +882,15 @@ public class MinerController extends Controller {
                 MapLocation nnode = node.add(dir);
                 if (!rc.onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
 
-                for (int i = 0; i < 10 && soupCount[nnode.y][nnode.x] == null; ++i) {
+                //System.out.println("starting");
+                canReach(nnode);
+                //System.out.println("Done");
+                while (canReach(nnode) && soupCount[nnode.y][nnode.x] == null) {
                     tryMove(movementSolver.directionToGoal(nnode));
                     searchSurroundingsSoup();
 
                     Clock.yield();
                     updateClusters();
-
                 }
 
                 if (soupCount[nnode.y][nnode.x] == null) continue;
@@ -992,6 +1001,8 @@ public class MinerController extends Controller {
                 int dy = nnode.y - (rc.getLocation().y - diam/2);
                 if (dx < 0 || dx >= diam || dy < 0 || dy >= diam) continue;
 
+                if (visited[dy][dx]) continue;
+
                 RobotInfo robot = rc.senseRobotAtLocation(nnode);
                 if (robot != null && (robot.type == RobotType.REFINERY ||
                         robot.type == RobotType.HQ ||
@@ -999,7 +1010,7 @@ public class MinerController extends Controller {
                         robot.type == RobotType.FULFILLMENT_CENTER ||
                         robot.type == RobotType.DESIGN_SCHOOL)) continue;
 
-                if (visited[dy][dx]) continue;
+
                 if (containsWater[nnode.y][nnode.x] == null) {
                     // if we haven't searched the square assume we can get there
                     visited[dy][dx] = true;

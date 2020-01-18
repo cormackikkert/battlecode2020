@@ -150,6 +150,11 @@ public class MovementSolver {
 //        }
 
         return !rc.canMove(dir) || rc.senseFlooding(to) || recent.contains(to);
+//                ||
+//                (controller.rc.getType() == RobotType.MINER &&
+//                        controller.allyHQ != null &&
+//                        to.isAdjacentTo(controller.allyHQ))
+
     }
 
     public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {

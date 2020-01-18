@@ -26,7 +26,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         FAILROTATIONAL,
         HITCHHIKE_REQUEST,
         HITCHHIKE_ACK,
-        CLEAR_FLOOD
+        CLEAR_FLOOD,
+        LANDSCAPE_DEFEND,
+        LANDSCAPE_HELP
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -187,7 +189,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return blocks;
     }
 
+    boolean sentAlly = false;
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {
+        if (loc == null || sentAlly) return false;
         int[] message = bluePrint(CommunicationType.ALLYHQ);
 //        message[0] = teamSecret ^ rc.getRoundNum();
 //        message[1] = CommunicationType.ALLYHQ.ordinal();
@@ -198,13 +202,15 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
             System.out.println("home location sent ");
+            sentAlly = true;
             return true;
         }
         return false;
     }
 
+    boolean sentEnemy = false;
     public boolean sendEnemyHQLoc(MapLocation loc) throws GameActionException {
-        if (loc == null) return false;
+        if (loc == null || sentEnemy) return false;
         int[] message = bluePrint(CommunicationType.ENEMYHQ);
 //        message[0] = teamSecret ^ rc.getRoundNum();
 //        message[1] = teamSecret ^ CommunicationType.ENEMYHQ.ordinal();
@@ -215,6 +221,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
             System.out.println("enemy location sent "+loc);
+            sentEnemy = true;
             return true;
         }
         return false;
@@ -431,6 +438,61 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                     System.out.println("unflood soup at "+soupCluster.middle.x+" "+soupCluster.middle.y);
                     break outer;
                 }
+            }
+        }
+    }
+
+    public void landscapeDefend(int id) throws GameActionException {
+        int[] message = bluePrint(LANDSCAPE_DEFEND);
+
+        message[1] = id;
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+            System.out.println("created defend landscaper");
+        }
+    }
+
+    public void landscapeHelp(int id) throws GameActionException {
+        int[] message = bluePrint(LANDSCAPE_HELP);
+
+        message[1] = id;
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+            System.out.println("created helper landscaper");
+        }
+    }
+
+
+    int turnLD = 1;
+    public void receiveLandscapeRole() throws GameActionException {
+        outer : for (int i = turnLD
+                     ; i < rc.getRoundNum(); i++) {
+            turnLD++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == LANDSCAPE_DEFEND) {
+                    decode(message);
+                    if (message[1] == controller.rc.getID()) {
+                        ((LandscaperController) controller).currentState = LandscaperController.State.PROTECTHQ;
+                        System.out.println("wall time");
+                        break outer;
+                    }
+                }
+
+                if (identify(message) == LANDSCAPE_HELP) {
+                    decode(message);
+                    if (message[1] == controller.rc.getID()) {
+                        ((LandscaperController) controller).currentState = LandscaperController.State.REMOVE_WATER;
+                        System.out.println("help remove water");
+                        break outer;
+                    }
+                }
+
             }
         }
     }

@@ -545,7 +545,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     if (foundSoupCluster == null) break;
 
                     soupClusters.add(foundSoupCluster);
-
+//                    currentState = State.DEFEND;
                     communicationHandler.sendCluster(foundSoupCluster);
                     return foundSoupCluster;
                 }

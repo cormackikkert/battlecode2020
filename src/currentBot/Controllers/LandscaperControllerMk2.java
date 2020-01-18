@@ -188,6 +188,7 @@ public class LandscaperControllerMk2 extends Controller {
                     soupClusters.add(foundSoupCluster);
 
                     communicationHandler.sendCluster(foundSoupCluster);
+
                     return foundSoupCluster;
                 }
             }

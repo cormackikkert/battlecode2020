@@ -18,9 +18,10 @@ public class LandscaperController extends Controller {
         DEFEND,
         ATTACK,
         ROAM,
-        REMOVE_WATER
+        REMOVE_WATER,
+        KILLUNITS // Kills units around HQ
     }
-    public State currentState = State.ROAM;
+    public State currentState = State.REMOVE_WATER;
     public SoupCluster currentSoupCluster; // build wall around this
     final int dirtLimit = RobotType.LANDSCAPER.dirtLimit;
     final int digHeight = 20;
@@ -43,12 +44,20 @@ public class LandscaperController extends Controller {
 
     public LandscaperController(RobotController rc) {
         getInfo(rc);
+        try {
+            communicationHandler.receiveLandscapeRole();
+        } catch (GameActionException e) {
+            e.printStackTrace();
+        }
 
 //        int defenders = 0;
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
                 enemyHQ = robotInfo.location;
-                currentState = State.DESTROY;
+                if (Math.random() > 0.5)
+                    currentState = State.DESTROY;
+                else
+                    currentState = State.KILLUNITS;
             }
 //            if (robotInfo.team == rc.getTeam() && robotInfo.type == RobotType.LANDSCAPER) {
 //                defenders++;
@@ -62,9 +71,10 @@ public class LandscaperController extends Controller {
 
     public void run() throws GameActionException {
 
-        if (currentSoupCluster == null) {
+        if (currentSoupCluster == null && currentState == State.REMOVE_WATER) {
             communicationHandler.receiveClearSoupFlood();
         }
+
 
         // System.out.println("I am a " + currentState.toString());
         switch (currentState) {
@@ -73,37 +83,108 @@ public class LandscaperController extends Controller {
             case DESTROY:       execDestroy();      break;
             case REMOVE_WATER: execRemoveWater(); break;
 //            case ROAM: movementSolver.windowsRoam(); break;
-            case ROAM: execRoam(); break;
         }
     }
 
-    public void execRoam() throws GameActionException {
-        tryMove(movementSolver.directionToGoal(new MapLocation(0,0)));
-    }
-
+    boolean startedWalling = false;
     public void execProtectHQ() throws GameActionException {
         if (allyHQ == null)
             allyHQ = communicationHandler.receiveAllyHQLoc();
-        if (rc.getLocation().distanceSquaredTo(allyHQ) > 2) {
-            goToLocationToDeposit(allyHQ);
+        if (!rc.getLocation().isAdjacentTo(allyHQ)) {
+            tryMove(movementSolver.directionToGoal(allyHQ));
         }
-        // robot is currently on HQ wall
-        MapLocation curr = rc.getLocation();
-        Direction nextDir = nextDirection(curr);
-        //System.out.println("New direction is " + nextDir.toString());
 
-        if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(nextDir))) > 3) {
-            if (level(nextDir)) {  // need to level dirt
-                tryMove(nextDir);
+        if (!startedWalling) {
+            boolean goodToWall = true;
+            for (Direction direction : directions) {
+                RobotInfo robotInfo = rc.senseRobotAtLocation(allyHQ.add(direction));
+                if (robotInfo == null || robotInfo.getTeam() != rc.getTeam() || robotInfo.getType() != RobotType.LANDSCAPER) {
+                    goodToWall = false;
+                    break;
+                }
             }
-            return;
+            if (goodToWall) {
+                startedWalling = true;
+                bigBigWall();
+            }
+        } else {
+            bigBigWall();
         }
-        while (rc.getDirtCarrying() == 0) {
-            tryDigRandom();
+    }
+
+    public void bigBigWall() throws GameActionException {
+        if (rc.getDirtCarrying() == 0) {
+            for (Direction direction : directions) {
+                MapLocation digHere = rc.getLocation().add(direction);
+                if (!digHere.isAdjacentTo(allyHQ) && !digHere.equals(allyHQ) && rc.canDigDirt(direction)) {
+                    rc.digDirt(direction);
+                    break;
+                }
+            }
+        } else {
+            rc.depositDirt(Direction.CENTER);
         }
-        while (!rc.canDepositDirt(nextDir)) Clock.yield();
-        rc.depositDirt(nextDir);
-        tryMove(nextDir);
+    }
+
+    public void execKillUnits() throws GameActionException {
+        // Prioritize killing in this order
+        MapLocation adjacentPos = null;
+        MapLocation netGunPos = null;
+        MapLocation designSchoolPos = null;
+        MapLocation fulfillmentCenterPos = null;
+
+        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+            if (robot.type == RobotType.NET_GUN) netGunPos = robot.location;
+            else if (robot.type == RobotType.DESIGN_SCHOOL) designSchoolPos = robot.location;
+            else if (robot.type == RobotType.FULFILLMENT_CENTER) fulfillmentCenterPos = robot.location;
+
+            if (netGunPos != null && netGunPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
+            else if (designSchoolPos != null && designSchoolPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
+            else if (fulfillmentCenterPos != null && fulfillmentCenterPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
+        }
+
+        // Kill an adjacent one
+        if (adjacentPos != null) {
+            if (rc.getDirtCarrying() > 0 && rc.canDepositDirt(rc.getLocation().directionTo(adjacentPos))) {
+                rc.depositDirt(rc.getLocation().directionTo(adjacentPos));
+            } else {
+                for (Direction dir : Direction.allDirections()) {
+                    MapLocation pos = rc.getLocation().add(dir);
+                    RobotInfo robot = rc.senseRobotAtLocation(pos);
+                    if (robot != null &&
+                        robot.getTeam() == rc.getTeam().opponent() && (
+                                robot.type == RobotType.FULFILLMENT_CENTER ||
+                                robot.type == RobotType.DESIGN_SCHOOL ||
+                                robot.type == RobotType.NET_GUN)
+                            ) continue;
+
+                    if (rc.canDigDirt(dir)) {
+                        rc.digDirt(dir);
+                        break;
+                    }
+                }
+            }
+        } else {
+            MapLocation enemy = (netGunPos != null) ? netGunPos : ((designSchoolPos != null) ? designSchoolPos : fulfillmentCenterPos);
+            if (enemy != null) {
+                tryMove(movementSolver.directionToGoal(enemy));
+            } else {
+                if (getChebyshevDistance(rc.getLocation(), allyHQ) < 2) {
+                    tryMove(movementSolver.directionToGoal(rc.getLocation().add(rc.getLocation().directionTo(allyHQ).opposite())));
+                } else if (getChebyshevDistance(rc.getLocation(), allyHQ) > 4) {
+                    tryMove(movementSolver.directionToGoal(allyHQ));
+                } else {
+                    // Dig dirt so depositing is fast
+                    for (Direction dir : Direction.allDirections()) {
+                        if (dir == rc.getLocation().directionTo(allyHQ)) continue;
+                        if (rc.canDigDirt(dir)) {
+                            rc.digDirt(dir);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public void execDestroy() throws GameActionException {
@@ -186,10 +267,10 @@ public class LandscaperController extends Controller {
     // used for landscaper to climb up to HQ wall
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
-        if (rc.getLocation().distanceSquaredTo(goal) > 5) {
+        while (rc.getLocation().distanceSquaredTo(goal) > 5) {
             tryMove(movementSolver.directionToGoal(goal));
         }
-        else if (rc.getLocation().distanceSquaredTo(goal) > 2) {
+        while (rc.getLocation().distanceSquaredTo(goal) > 2) {
             Direction dir = dirToGoal(goal);
             System.out.println("Received direction " + dir.toString());
             MapLocation curr = rc.getLocation();
@@ -197,7 +278,7 @@ public class LandscaperController extends Controller {
                 if (!level(dir)) {  // need to level dirt
                     // if could not level, try another path
                     previous.add(curr.add(dir));
-                    return;
+                    continue;
                 }
             }
             tryMove(dir);
@@ -507,12 +588,43 @@ public class LandscaperController extends Controller {
         lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 
+
+    static final int HIGHER = 5;
     public void execRemoveWater() throws GameActionException {
         if (currentSoupCluster == null) {
             movementSolver.windowsRoam();
         } else {
 
         MapLocation location = rc.getLocation();
+
+        boolean allWaterAround = rc.senseElevation(location) < HIGHER;
+        for (Direction dir : cardinal) {
+            if (!rc.senseFlooding(location.add(dir))) {
+                allWaterAround = false;
+            }
+        }
+
+        if (allWaterAround) {
+            while (rc.senseElevation(location) < HIGHER) {
+                if (rc.getDirtCarrying() == 0) {
+                    for (Direction dir : Direction.allDirections()) {
+                        MapLocation digHere = location.add(dir);
+                        if (rc.canDigDirt(dir)
+                                && (digHere.x + digHere.y) % 2 == 1) {
+                            rc.digDirt(dir);
+                            System.out.println("dig for center dig");
+                        }
+                    }
+                } else {
+                    if (rc.canDepositDirt(Direction.CENTER)) {
+                        rc.depositDirt(Direction.CENTER);
+                        System.out.println("dump center dump");
+                    }
+                }
+            }
+        }
+
+
 
         boolean near = false;
         for (Direction dir : Direction.allDirections()) {
@@ -556,11 +668,11 @@ public class LandscaperController extends Controller {
                 }
             }
         } else {
+            System.out.println("next");
             tryMove(movementSolver.directionToGoal(currentSoupCluster.center));
         }
 
-
-            boolean empty = true;
+        boolean empty = true;
         for (Direction direction : ordinal) {
             if (rc.senseFlooding(location.add(direction))) {
                 empty = false;
@@ -568,6 +680,26 @@ public class LandscaperController extends Controller {
             }
         }
         if (empty) {
+//            while (upup < 8) {
+//                if (rc.getDirtCarrying() == 0) {
+//                    for (Direction dir : Direction.allDirections()) {
+//                        MapLocation digHere = location.add(dir);
+//                        if (rc.canDigDirt(dir)
+////                            && !dumped[digHere.x][digHere.y]
+//                                && (digHere.x + digHere.y) % 2 == 1) {
+//                            rc.digDirt(dir);
+//                            System.out.println("dig for center dig");
+//                        }
+//                    }
+//                } else {
+//                    if (rc.canDepositDirt(Direction.CENTER)) {
+//                        rc.depositDirt(Direction.CENTER);
+//                        System.out.println("dump center dump");
+//                    }
+//                    upup++; // avoid stack overflow
+//                }
+//            }
+//            upup = 0;
             tryMove(movementSolver.directionToGoal(currentSoupCluster.center));
         }
 
