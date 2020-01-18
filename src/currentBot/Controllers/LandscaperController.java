@@ -160,22 +160,24 @@ public class LandscaperController extends Controller {
         MapLocation designSchoolPos = null;
         MapLocation fulfillmentCenterPos = null;
 
+        boolean foundEnemy = false;
         for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
             if (robot.type == RobotType.NET_GUN) netGunPos = robot.location;
             else if (robot.type == RobotType.DESIGN_SCHOOL) designSchoolPos = robot.location;
             else if (robot.type == RobotType.FULFILLMENT_CENTER) fulfillmentCenterPos = robot.location;
 
             if (netGunPos != null && isAdjacentTo(netGunPos)) adjacentPos = netGunPos;
-            else if (designSchoolPos != null && isAdjacentTo(designSchoolPos)) adjacentPos = netGunPos;
-            else if (fulfillmentCenterPos != null && isAdjacentTo(fulfillmentCenterPos)) adjacentPos = netGunPos;
-
+            else if (designSchoolPos != null && isAdjacentTo(designSchoolPos)) adjacentPos = designSchoolPos;
+            else if (fulfillmentCenterPos != null && isAdjacentTo(fulfillmentCenterPos)) adjacentPos = fulfillmentCenterPos;
+            foundEnemy = true;
         }
 
-
-
+        if (!foundEnemy) {
+            currentState = State.PROTECTHQ;
+            execProtectHQ();
+        }
         // Kill an adjacent one
         if (adjacentPos != null) {
-            System.out.println("adjacent enemy");
             if (rc.getDirtCarrying() > 0 && rc.canDepositDirt(rc.getLocation().directionTo(adjacentPos))) {
                 rc.depositDirt(rc.getLocation().directionTo(adjacentPos));
             } else {
