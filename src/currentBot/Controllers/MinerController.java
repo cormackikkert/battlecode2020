@@ -114,13 +114,14 @@ public class MinerController extends Controller {
         }
 
         System.out.println("Should I build?");
-        if (!builtFC && foundHQ &&
-                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
-            System.out.println("YES build drones");
-            currentState = State.BUILDER;
-            buildType = RobotType.FULFILLMENT_CENTER;
-            buildLoc = null;
-        } else if (!builtDS && foundHQ &&
+//        if (!builtFC && foundHQ &&
+//                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) {
+//            System.out.println("YES build drones");
+//            currentState = State.BUILDER;
+//            buildType = RobotType.FULFILLMENT_CENTER;
+//            buildLoc = null;
+//        } else
+            if (!builtDS && foundHQ &&
                 rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)
                 && rc.getRoundNum() >= START_BUILD_WALL) {
             System.out.println("YES build landscapers");
@@ -455,6 +456,8 @@ public class MinerController extends Controller {
 
             if (rc.senseFlooding(currentSoupSquare)) {
                 // Landscaper case
+                communicationHandler.askClearSoupFlood(currentSoupCluster);
+
             } else if (!canReach(currentSoupSquare)) {
                 // Drone case
                 getHitchHike(rc.getLocation(), currentSoupSquare);
@@ -468,8 +471,10 @@ public class MinerController extends Controller {
             }
             else tryMove(movementSolver.directionToGoal(currentSoupSquare));
         } else if (rc.senseSoup(currentSoupSquare) > 0) {
-            if (rc.canMineSoup(rc.getLocation().directionTo(currentSoupSquare)))
+            if (rc.canMineSoup(rc.getLocation().directionTo(currentSoupSquare))) {
                 rc.mineSoup(rc.getLocation().directionTo(currentSoupSquare));
+                System.out.println("mine soup");
+            }
         } else {
             soupCount[currentSoupSquare.y][currentSoupSquare.x] = 0;
             currentSoupSquare = null;
@@ -513,7 +518,7 @@ public class MinerController extends Controller {
                 rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
 
                 if (currentRefineryPos == allyHQ) {
-                    buildType = RobotType.FULFILLMENT_CENTER;
+                    buildType = (Math.random() > 0.5) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
                     currentState = State.BUILDER;
                     buildLoc = null;
                     execBuilder();
@@ -750,7 +755,7 @@ public class MinerController extends Controller {
         } else {
             if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
                 if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc)) ||
-                    rc.senseRobotAtLocation(buildLoc).type == buildType) {
+                        (rc.senseRobotAtLocation(buildLoc) != null && rc.senseRobotAtLocation(buildLoc).type == buildType)) {
                     currentState = State.MINE;
                 }
             } else {
@@ -867,9 +872,9 @@ public class MinerController extends Controller {
                 MapLocation nnode = node.add(dir);
                 if (!rc.onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
 
-                System.out.println("starting");
+                //System.out.println("starting");
                 canReach(nnode);
-                System.out.println("Done");
+                //System.out.println("Done");
                 while (canReach(nnode) && soupCount[nnode.y][nnode.x] == null) {
                     tryMove(movementSolver.directionToGoal(nnode));
                     searchSurroundingsSoup();

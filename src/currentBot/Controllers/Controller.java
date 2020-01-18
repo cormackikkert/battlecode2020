@@ -89,7 +89,7 @@ public abstract class Controller {
         ENEMY = rc.getTeam().opponent();
         this.rc = rc;
         this.communicationHandler = new CommunicationHandler(rc, this);
-        this.movementSolver = rc.getType() == RobotType.DELIVERY_DRONE ? new MovementSolver(rc, this) : new MovementSolver(rc);
+        this.movementSolver = new MovementSolver(rc, this);
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
         getSpawnBase();
