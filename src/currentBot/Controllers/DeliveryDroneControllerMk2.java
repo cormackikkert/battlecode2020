@@ -52,7 +52,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     int lastRound = 1;
     int lastRoundReqs = 1;
     boolean hasExplored = false;
-
+    boolean isBeingRushed = false;
     HitchHike currentReq = null;
 
     public DeliveryDroneControllerMk2(RobotController rc) {
@@ -72,7 +72,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         seenBlocks = new boolean[compressedHeight][compressedWidth];
 
-
+        if (rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent()).length > 0)
+            isBeingRushed = true;
 
         System.out.println("Getting info");
         getInfo(rc);
@@ -139,6 +140,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
         /*
             Role assignment depending on turn. Early game defend, late game attack.
          */
+        if (isBeingRushed) {
+            currentState = State.DEFEND;
+            return;
+        }
 
         updateReqs();
         if (currentReq != null) {

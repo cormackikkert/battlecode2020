@@ -42,13 +42,13 @@ public class PlayerConstants {
     static int buildSoupRequirements(RobotType buildType) {
         switch (buildType) {
             case DESIGN_SCHOOL:
-                return RobotType.DESIGN_SCHOOL.cost + 70;
+                return RobotType.DESIGN_SCHOOL.cost;
             case VAPORATOR:
                 return RobotType.VAPORATOR.cost + 150;
             case NET_GUN:
                 return RobotType.NET_GUN.cost;
             case FULFILLMENT_CENTER:
-                return RobotType.FULFILLMENT_CENTER.cost + 70;
+                return RobotType.FULFILLMENT_CENTER.cost;
             case MINER:
                 // extra soup, to allow miner to build a fulfillment center right after spawning
                 return 700 + RobotType.FULFILLMENT_CENTER.cost + RobotType.MINER.cost;
