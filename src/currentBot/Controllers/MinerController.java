@@ -568,7 +568,7 @@ public class MinerController extends Controller {
 
         movementSolver.restart();
 
-        if (!rc.getLocation().equals(currentSoupCluster.closest(rc.getLocation()))) {
+        if (currentSoupCluster != null && !rc.getLocation().equals(currentSoupCluster.closest(rc.getLocation()))) {
             /*
                 Now as we have dedicated searches we only focus on getting to the soup cluster
 
