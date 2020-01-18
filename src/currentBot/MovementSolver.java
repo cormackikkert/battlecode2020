@@ -17,6 +17,7 @@ public class MovementSolver {
     MapLocation previous;
     MapLocation twoback;
     Direction previousDir = null;
+    boolean rotateCW = true;
 
     RobotController rc;
     Controller controller;
