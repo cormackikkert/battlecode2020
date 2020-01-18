@@ -21,7 +21,7 @@ public class MovementSolver {
 
     RobotController rc;
     Controller controller;
-    final int recency = 7;
+    final int recency = 9;
     int index = 0;
     ArrayList<MapLocation> recent = new ArrayList<>(recency);
 
@@ -124,6 +124,8 @@ public class MovementSolver {
                 return d;
             }
         }
+        // currently stuck
+        recent.set(index, from); index = (index + 1)%recency;
         return Direction.CENTER;
 
     }

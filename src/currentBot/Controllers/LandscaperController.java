@@ -50,9 +50,6 @@ public class LandscaperController extends Controller {
             e.printStackTrace();
         }
 
-        if (Math.random() > 0.5) currentState = State.PROTECTHQ;
-        else currentState = State.KILLUNITS;
-
 //        int defenders = 0;
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
@@ -79,7 +76,7 @@ public class LandscaperController extends Controller {
         }
 
 
-        // System.out.println("I am a " + currentState.toString());
+        System.out.println("I am a " + currentState.toString());
         switch (currentState) {
             case PROTECTHQ:     execProtectHQ();    break;
             //case PROTECTSOUP:   execProtectSoup();  break;
@@ -101,7 +98,7 @@ public class LandscaperController extends Controller {
         MapLocation curr = rc.getLocation();
         Direction nextDir = nextDirection(curr);
         // System.out.println("New direction is " + nextDir.toString());
-        if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
+        if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(curr.directionTo(allyHQ))) {
                 rc.digDirt(rc.getLocation().directionTo(allyHQ));
                 return;
         }
@@ -331,23 +328,26 @@ public class LandscaperController extends Controller {
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
         if (rc.getLocation().distanceSquaredTo(goal) > 5) {
-            tryMove(movementSolver.directionToGoal(goal));
+            Direction dir = movementSolver.directionToGoal(goal);
+            if (!dir.equals(Direction.CENTER)) {
+                tryMove(movementSolver.directionToGoal(goal));
+                return;
+            }
         }
-        else if (rc.getLocation().distanceSquaredTo(goal) > 2) {
             Direction dir = dirToGoal(goal);
             System.out.println("Received direction " + dir.toString());
             MapLocation curr = rc.getLocation();
             if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(dir))) > 3) {
                 if (!level(dir)) {  // need to level dirt
                     // if could not level, try another path
-                    previous.add(curr.add(dir));
+                    recent.set(index, curr.add(dir)); index = (index + 1)%recency;
                     return;
                 }
             }
             tryMove(dir);
-            if (!tryMove(dir)) previous.add(curr.add(dir));
+            if (!tryMove(dir))
+                recent.set(index, curr.add(dir)); index = (index + 1)%recency;
             System.out.println("Tried to move");
-        }
     }
     // levels the dirt in given direction compared to current loc
     boolean level(Direction dir) throws GameActionException {
@@ -377,30 +377,31 @@ public class LandscaperController extends Controller {
 
     // movement solver for landscaper
     // which ignores small elevation changes (< digHeight) on path to goal
-    ArrayList<MapLocation> previous = new ArrayList<>(8);
-    Direction dirToGoal(MapLocation goal) throws GameActionException {
-        if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
+    final int recency = 8; int index = 0;
+    ArrayList<MapLocation> recent = new ArrayList<>(recency);
+
+    public Direction dirToGoal(MapLocation goal) throws GameActionException {
+        while (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
+        if (recent.size()==0)
+            for (int i=0; i<recency; ++i) recent.add(new MapLocation(-1,-1));
         MapLocation from = rc.getLocation();
+        // while obstacle ahead, keep looking for new direction
         Direction dir = from.directionTo(goal);
+        for (Direction d : getClosestDirections(dir)) {
+            if (!isLandscaperObstacle(from, from.add(d))) {
+                recent.set(index, from); index = (index + 1)%recency;
+                return d;
+            }
+        }
+        // currently stuck
+        recent.set(index, from); index = (index + 1)%recency;
+        return Direction.CENTER;
 
-        // while obstacle ahead, keep rotating
-        Direction[] closeDirs = getClosestDirections(dir); int i = 0;
-        while (isLandscaperObstacle(from, from.add(dir)) && i<7) {
-            System.out.println(dir.toString() + " is an obstacle");
-            dir = closeDirs[i]; i++;
-        }
-        if (isLandscaperObstacle(from, from.add(dir))) return Direction.CENTER;
-        else {
-            previous.add(from);
-            return dir;
-        }
     }
-
     boolean isLandscaperObstacle(MapLocation from, MapLocation to) throws GameActionException {
         // obstacle if is occupied by building, not on map, or previous point
-        if (previous.size() >= 8) previous.clear();
         if (!rc.onTheMap(to)) return true;
-        return rc.isLocationOccupied(to) || rc.senseFlooding(to) || previous.contains(to);
+        return rc.isLocationOccupied(to) || recent.contains(to);
     }
 
     Direction[] getClosestDirections(Direction d) {
