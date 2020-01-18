@@ -265,7 +265,8 @@ public abstract class Controller {
 
     public void tryFindEnemyHQLoc() throws GameActionException {
         if (enemyHQ != null) return;
-//        System.out.println("trying to find enemy HQ out of " + enemies.length + " options");
+        System.out.println("trying to find enemy HQ out of " + enemies.length + " options"
+        +", with sensor range "+rc.getCurrentSensorRadiusSquared());
         for (RobotInfo enemy : enemies) {
             if (enemy.getType() == RobotType.HQ && enemy.getTeam() == ENEMY) {
                 System.out.println("found enemy HQ location");
@@ -551,5 +552,82 @@ public abstract class Controller {
     }
 
 
+    public void solveGhostHq() throws GameActionException {
+        if (enemyHQ == null) {
+            if (allyHQ != null) {
+                int x = allyHQ.x;
+                int y = allyHQ.y;
+
+                MapLocation loc;
+
+                if (ghostH) { // Horizontal symmetry
+                    loc = new MapLocation(rc.getMapWidth()-x-1, y);
+                    if (rc.canSenseLocation(loc)) {
+                        if (rc.senseRobotAtLocation(loc) != null) {
+                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                                ghostH = false;
+                                communicationHandler.sendFailHorizontal();
+                                System.out.println("no ghosts here");
+                            } else {
+                                if (enemyHQ == null) {
+                                    enemyHQ = loc;
+                                    communicationHandler.sendEnemyHQLoc(loc);
+                                }
+                            }
+                        } else {
+                            ghostV = false;
+                            communicationHandler.sendFailVertical();
+                            System.out.println("no ghosts here");
+                        }
+                    }
+                }
+
+                if (ghostV) { // Vertical symmetry
+                    loc = new MapLocation(x, rc.getMapHeight()-y-1);
+                    if (rc.canSenseLocation(loc)) {
+                        if (rc.senseRobotAtLocation(loc) != null) {
+                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                                ghostV = false;
+                                communicationHandler.sendFailVertical();
+                                System.out.println("no ghosts here");
+                            } else {
+                                if (enemyHQ == null) {
+                                    enemyHQ = loc;
+                                    communicationHandler.sendEnemyHQLoc(loc);
+                                }
+                            }
+                        } else {
+                            ghostV = false;
+                            communicationHandler.sendFailVertical();
+                            System.out.println("no ghosts here");
+                        }
+                    }
+                }
+
+                if (ghostR) { // Rotational symmetry
+                    loc = new MapLocation(rc.getMapWidth()-x-1, rc.getMapHeight()-y-1);
+                    if (rc.canSenseLocation(loc)) {
+                        if (rc.senseRobotAtLocation(loc) != null) {
+                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                                ghostR = false;
+                                communicationHandler.sendFailRotational();
+                                System.out.println("no ghosts here");
+                            } else {
+                                if (enemyHQ == null) {
+                                    enemyHQ = loc;
+                                    communicationHandler.sendEnemyHQLoc(loc);
+                                }
+                            }
+                        } else {
+                            ghostV = false;
+                            communicationHandler.sendFailVertical();
+                            System.out.println("no ghosts here");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     abstract public void run() throws GameActionException;
 }

@@ -57,8 +57,8 @@ public class MinerControllerMk2 extends Controller {
 
         mapBlocks = new MapBlock[yBlockSize][xBlockSize];
 
-        this.movementSolver = new MovementSolver(this.rc);
-        this.communicationHandler = new CommunicationHandler(this.rc);
+        this.movementSolver = new MovementSolver(this.rc, this);
+        this.communicationHandler = new CommunicationHandler(this.rc, this);
 
         queue = new RingQueue<>(rc.getMapHeight() * rc.getMapWidth());
 

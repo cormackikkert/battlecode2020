@@ -24,7 +24,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         ATTACK,
         WANDER,
         EXPLORE, // Search for soup clustsers in places the miner couldn't reach
-        TAXI
+        TAXI,
+        STUCKKILL
     }
 
     public State currentState = null;
@@ -98,6 +99,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         assignRole();
         hqInfo(); // includes scanning robots
+        solveGhostHq();
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -108,7 +110,15 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 case TAXI: execTaxi();                      break;
             }
         } else {
-            execKill();
+            if (currentState == State.TAXI) {
+                execTaxi();
+            } else {
+                if (currentState == State.STUCKKILL) {
+                    execKill2 ();
+                } else {
+                    execKill();
+                }
+            }
         }
     }
 
@@ -119,6 +129,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
          */
 
 
+        // leave half to defend
         if (rc.getRoundNum() >= SWITCH_TO_ATTACK && rc.getID() % 2 == 0) {
             switchToAttackMode();
         } else {
@@ -127,18 +138,23 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
             // some drones explore
             // slowly turn back into other modes
-            if (rc.getID() % 3 == 0 && !hasExplored) {
-                currentState = State.EXPLORE;
-                hasExplored = true;
+            if (rc.getID() % 2 == 0) {
+                if (!hasExplored) {
+                    currentState = State.EXPLORE;
+                    hasExplored = true;
+                } else {
+                    currentState = State.WANDER;
+                }
             }
         }
 
-        if (rc.getID() % 3 == 0) {
-            updateReqs();
-            if (currentReq != null) {
-                currentState = State.TAXI;
-            }
-        }
+        //FIXME : killing our own miners
+//        if (rc.getID() % 2 == 0 && rc.getRoundNum() <= TAXI_TIME) {
+//            updateReqs();
+//            if (currentReq != null) {
+//                currentState = State.TAXI;
+//            }
+//        }
         System.out.println("role is " + currentState);
     }
 
@@ -160,19 +176,24 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
+        if (allyHQ == null) {
+            currentState = State.WANDER;
+            run();
+            return;
+        }
+
 
         // camp around home
         if (ADJACENT_DEFEND ?
                 isAdjacentTo(allyHQ) :
-                rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_RADIUS)) {
-            System.out.println("stand still to defend");
+                !rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_RADIUS)) {
+            tryMove(movementSolver.directionToGoal(allyHQ));
+            System.out.println("move to home");
+        } else if (rc.getLocation().isWithinDistanceSquared(allyHQ, DEFENSE_CAMP)) {
+            tryMove(movementSolver.directionFromPoint(allyHQ));
+            System.out.println("move away from home");
         } else {
-            if (allyHQ != null) {
-                tryMove(rc.getLocation().directionTo(allyHQ));
-            } else {
-                tryMove(randomDirection()); // should never get here since should find hq
-            }
-            System.out.println("move to defend");
+            System.out.println("camp outside home");
         }
     }
 
@@ -248,22 +269,50 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        if (nearestWaterTile == null) {
-            System.out.println("Looking for water tile");
-            movementSolver.windowsRoam();
-            nearestWaterTile = getNearestWaterTile2();
+        nearestWaterTile = getNearestWaterTile2();
+        if (nearestWaterTile == null) movementSolver.windowsRoam();
+        else if (!isAdjacentTo(nearestWaterTile)) {
+            System.out.println("Moving to water tile");
+            tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
         } else {
-            if (!isAdjacentTo(nearestWaterTile)) {
-                System.out.println("Moving to water tile");
-                tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
-            } else {
-                System.out.println("dropping in water tile");
-                if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
-                    rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
-                    nearestWaterTile = null; // look for different water tile next time
+            System.out.println("dropping in water tile");
+            if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
+                rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
+                nearestWaterTile = null; // look for different water tile next time
+            }
+        }
+
+//        if (nearestWaterTile == null) {
+//            System.out.println("Looking for water tile");
+//            movementSolver.windowsRoam();
+//            nearestWaterTile = getNearestWaterTile2();
+//        } else {
+//            if (!isAdjacentTo(nearestWaterTile)) {
+//                System.out.println("Moving to water tile");
+//                tryMove(movementSolver.droneDirectionToGoal(nearestWaterTile));
+//            } else {
+//                System.out.println("dropping in water tile");
+//                if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
+//                    rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
+//                    nearestWaterTile = null; // look for different water tile next time
+//                }
+//            }
+//        }
+    }
+    public void execKill2() throws GameActionException {
+        MapLocation loc = rc.getLocation();
+        MapLocation kill;
+        for (Direction direction : Direction.allDirections()) {
+            kill = loc.add(direction);
+            if (rc.canSenseLocation(kill) && rc.senseFlooding(kill)) {
+                if (rc.canDropUnit(direction)) {
+                    rc.dropUnit(direction);
+                    return;
                 }
             }
         }
+
+        movementSolver.windowsRoam();
     }
 
     public boolean tryPickUpUnit(RobotInfo enemy) throws GameActionException {

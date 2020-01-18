@@ -9,7 +9,7 @@ import currentBot.Controllers.PlayerConstants;
  */
 
 public class MovementSolver {
-    final static int DISTANCE_FROM_EDGE = 5;
+    final static int DISTANCE_FROM_EDGE = 1;
     final static int NET_GUN_RANGE = 15;
 
     MapLocation previous;
@@ -104,7 +104,7 @@ public class MovementSolver {
         int changes = 0;
         // while obstacle ahead, keep rotating
         while (isDroneObstacleAvoidGun(dir, from.add(dir), controller.enemies)) {
-            dir = dir.rotateLeft();
+            dir = rc.getID() % 4 == 0 ? dir.rotateLeft() : dir.rotateRight();
             changes++;
             // if blocked in every direction, stop rotating
             if (changes > 8) {
@@ -120,6 +120,9 @@ public class MovementSolver {
 
         if (rc.getLocation().add(dir).equals(twoback)) {
             ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
+            if (rc.isCurrentlyHoldingUnit()) {
+                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
+            }
         }
 
         twoback = previous;

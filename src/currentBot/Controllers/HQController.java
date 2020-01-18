@@ -6,6 +6,8 @@ import currentBot.SoupCluster;
 
 import java.util.LinkedList;
 
+import static currentBot.Controllers.PlayerConstants.START_BUILD_WALL;
+
 public class HQController extends Controller {
     boolean locationSent = false;
 
@@ -18,6 +20,7 @@ public class HQController extends Controller {
     int compressedHeight;
     int BLOCK_SIZE = PlayerConstants.GRID_BLOCK_SIZE;
     int cap = 100000;
+    boolean haveWallAround = false;
 
     public HQController(RobotController rc) {
         this.allyHQ = rc.getLocation();
@@ -116,12 +119,27 @@ public class HQController extends Controller {
         updateClusters();
         System.out.println(totalSoup);
 
+        if (!haveWallAround) {
+
+            for (RobotInfo robotInfo : allies) {
+                if (robotInfo.getType() == RobotType.DESIGN_SCHOOL) {
+                    haveWallAround = true;
+                    break;
+                }
+            }
+        }
+
         if (totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
+                (!haveWallAround && rc.getRoundNum() >= START_BUILD_WALL && rc.getRoundNum() % 50 == 0) ||
                 (totalMiners < Math.min(cap, totalSoup / PlayerConstants.AREA_PER_MINER) &&
                         rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.MINER))) {
 
             for (Direction dir : directions) {
-                if (tryBuild(RobotType.MINER, dir)) {totalMiners++; break;}
+                if (tryBuild(RobotType.MINER, dir)) {
+                    System.out.println("miner++");
+                    totalMiners++;
+                    break;
+                }
             }
         }
 

@@ -208,12 +208,13 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     }
 
     public boolean sendAllyHQLoc(MapLocation loc) throws GameActionException {
-        int[] message = new int[7];
-        message[0] = teamSecret ^ rc.getRoundNum();
-        message[1] = teamSecret ^ CommunicationType.ALLYHQ.ordinal();
-        message[2] = teamSecret ^ loc.x;
-        message[3] = teamSecret ^ loc.y;
+        int[] message = bluePrint(CommunicationType.ALLYHQ);
+//        message[0] = teamSecret ^ rc.getRoundNum();
+//        message[1] = CommunicationType.ALLYHQ.ordinal();
+        message[2] = loc.x;
+        message[3] = loc.y;
 
+        encode(message);
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
             System.out.println("home location sent ");
@@ -224,12 +225,13 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     public boolean sendEnemyHQLoc(MapLocation loc) throws GameActionException {
         if (loc == null) return false;
-        int[] message = new int[7];
-        message[0] = teamSecret ^ rc.getRoundNum();
-        message[1] = teamSecret ^ CommunicationType.ENEMYHQ.ordinal();
-        message[2] = teamSecret ^ loc.x;
-        message[3] = teamSecret ^ loc.y;
+        int[] message = bluePrint(CommunicationType.ENEMYHQ);
+//        message[0] = teamSecret ^ rc.getRoundNum();
+//        message[1] = teamSecret ^ CommunicationType.ENEMYHQ.ordinal();
+        message[2] = loc.x;
+        message[3] = loc.y;
 
+        encode(message);
         if (rc.canSubmitTransaction(message, 2)) {
             rc.submitTransaction(message, 2);
             System.out.println("enemy location sent "+loc);
@@ -250,8 +252,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
             Transaction[] ally = rc.getBlock(i);
             for (Transaction t : ally) {
                 int[] message = t.getMessage();
-                if ((CommunicationType.ALLYHQ.ordinal() ^ teamSecret) == message[1]) {
-                    out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
+                if (identify(message) == CommunicationType.ALLYHQ) {
+                    decode(message);
+                    out = new MapLocation(message[2], message[3]);
                     System.out.println("received ally location");
                     break outer;
                 }
@@ -269,8 +272,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
             Transaction[] ally = rc.getBlock(i);
             for (Transaction t : ally) {
                 int[] message = t.getMessage();
-                if ((CommunicationType.ENEMYHQ.ordinal() ^ teamSecret) == message[1]) {
-                    out = new MapLocation(message[2] ^ teamSecret, message[3] ^ teamSecret);
+                if (identify(message) == CommunicationType.ENEMYHQ) {
+                    decode(message);
+                    out = new MapLocation(message[2], message[3]);
                     System.out.println("received enemy location "+out);
                     break outer;
                 }
@@ -326,7 +330,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public boolean sendFailVertical() throws GameActionException {
         int[] message = new int[7];
         message[0] = rc.getRoundNum();
-        message[1] = CommunicationType.FAILVERTICAL.ordinal();
+        message[6] = CommunicationType.FAILVERTICAL.ordinal();
         encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
@@ -339,7 +343,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public boolean sendFailHorizontal() throws GameActionException {
         int[] message = new int[7];
         message[0] = rc.getRoundNum();
-        message[1] = CommunicationType.FAILHORIZONTAL.ordinal();
+        message[6] = CommunicationType.FAILHORIZONTAL.ordinal();
         encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
@@ -352,7 +356,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public boolean sendFailRotational() throws GameActionException {
         int[] message = new int[7];
         message[0] = rc.getRoundNum();
-        message[1] = CommunicationType.FAILROTATIONAL.ordinal();
+        message[6] = CommunicationType.FAILROTATIONAL.ordinal();
         encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
@@ -373,19 +377,22 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                 int[] message= transaction.getMessage();
                 decode(message);
 
-                if (message[1] == CommunicationType.FAILHORIZONTAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILHORIZONTAL.ordinal()) {
                     controller.ghostH = false;
                     controller.ghostsKilled++;
+                    System.out.println("not horizontal symmetry");
                 }
 
-                if (message[1] == CommunicationType.FAILVERTICAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILVERTICAL.ordinal()) {
                     controller.ghostV = false;
                     controller.ghostsKilled++;
+                    System.out.println("not vertical symmetry");
                 }
 
-                if (message[1] == CommunicationType.FAILROTATIONAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILROTATIONAL.ordinal()) {
                     controller.ghostR = false;
                     controller.ghostsKilled++;
+                    System.out.println("not rotational symmetry");
                 }
             }
         }
@@ -396,11 +403,11 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (controller.ghostsKilled == 2) {
             MapLocation enemyHQ;
             if (controller.ghostH) {
-                enemyHQ = new MapLocation(rc.getMapWidth()-x, y);
+                enemyHQ = new MapLocation(rc.getMapWidth()-x-1, y);
             } else if (controller.ghostV) {
-                enemyHQ = new MapLocation(x, rc.getMapHeight()-y);
+                enemyHQ = new MapLocation(x, rc.getMapHeight()-y-1);
             } else { // rotational
-                enemyHQ = new MapLocation(rc.getMapWidth()-x, rc.getMapHeight()-y);
+                enemyHQ = new MapLocation(rc.getMapWidth()-x-1, rc.getMapHeight()-y-1);
             }
 
             System.out.println("found hq without even going near it");
