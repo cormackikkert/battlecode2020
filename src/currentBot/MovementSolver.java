@@ -53,6 +53,7 @@ public class MovementSolver {
     }
 
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
+        rc.setIndicatorLine(from, goal, 0, 0, 255);
         if (rc.getType() == RobotType.DELIVERY_DRONE) return droneDirectionToGoal(from, goal);
 
         // TODO: account for "hallways"
@@ -66,13 +67,14 @@ public class MovementSolver {
 
         // while obstacle ahead, keep rotating
         while (isObstacle(dir, from.add(dir))) {
-            if (!onTheMap(rc.getLocation().add(dir))) {
+            if (!rc.onTheMap(rc.getLocation().add(dir))) {
                 rotateCW = !rotateCW; previous = null; failed = true;
-                ++changes;
+                changes = 0;
             }
+            ++changes;
             dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
             // if blocked in every direction, stop rotating
-            if (changes > 8) return Direction.CENTER;
+            if (changes > 8) return from.directionTo(previous);
         }
 
 
@@ -158,7 +160,9 @@ public class MovementSolver {
 //            }
 //        }
 
-        return !rc.canMove(dir) || rc.senseFlooding(to) || to.equals(previous);
+        return !rc.canMove(dir) ||
+                rc.senseFlooding(to) ||
+                to.equals(previous);
     }
 
     public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {

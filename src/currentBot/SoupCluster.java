@@ -11,6 +11,7 @@ public class SoupCluster {
     public int x1, x2, y1, y2;
     public int X, Y; // soup center
     public MapLocation center;
+    public MapLocation middle;
     public int width;
     public int height;
     public int size;
@@ -25,6 +26,7 @@ public class SoupCluster {
         this.X = (Math.abs(x2 - x1)) / 2;
         this.Y = (Math.abs(y2 - y1)) / 2;
         this.center = new MapLocation(X, Y);
+        this.middle = new MapLocation((x1 + x2) / 2, (y1 + y2) / 2);
         width = x2 - x1 + 1;
         height = y2 - y1 + 1;
         this.size = size;

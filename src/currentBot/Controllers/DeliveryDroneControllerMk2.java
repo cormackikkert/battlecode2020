@@ -69,6 +69,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         seenBlocks = new boolean[compressedHeight][compressedWidth];
 
+
+
         System.out.println("Getting info");
         getInfo(rc);
     }
@@ -100,7 +102,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
         assignRole();
         hqInfo(); // includes scanning robots
 
-        // if (currentState == State.ATTACK) currentState = State.DEFEND;
+        if (currentState == State.TAXI) {
+            // Like this cuz we don't want to execKill on our own miners
+            execTaxi();
+            return;
+        }
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -121,26 +127,31 @@ public class DeliveryDroneControllerMk2 extends Controller {
             Role assignment depending on turn. Early game defend, late game attack.
          */
 
+        updateReqs();
+        if (currentReq != null) {
+            currentState = State.TAXI;
+            return;
+        }
 
         if (rc.getRoundNum() >= SWITCH_TO_ATTACK) {
-            switchToAttackMode();
+            // switchToAttackMode();
+            switchToDefenceMode();
         } else {
 //            switchToDefenceMode();
-            switchToWanderMode();
+            // switchToWanderMode();
 
-            updateReqs();
-            if (currentReq != null) {
-                execTaxi();
-                return;
-            }
+
 
             // Half drones explore
             // slowly turn back into other modes
-            if (rc.getID() % 2 == 0 && !hasExplored) {
-                currentState = State.EXPLORE;
-                hasExplored = true;
-            }
+            switchToDefenceMode();
+
         }
+        if (rc.getID() % 2 == 0 && !hasExplored) {
+            currentState = State.EXPLORE;
+            hasExplored = true;
+        }
+
     }
 
     public void execDefendPatrol() throws GameActionException {
@@ -175,7 +186,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             } else {
                 tryMove(randomDirection()); // should never get here since should find hq
             }
-            System.out.println("move to defend");
+//            System.out.println("move to defend");
         }
     }
 
@@ -315,22 +326,38 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     HitchHike ack = communicationHandler.getHitchHikeAck(mess);
                     if (currentReq != null) {
                         // Check to see if another drone has ACK'ed
-                        if (currentReq.pos == ack.pos && currentReq.goal == ack.goal && !currentReq.confirmed) {
-                            currentReq = null;
-                        } else {
-                            currentReq.confirmed = true;
+                        //System.out.println(currentReq.toString() + " " + ack.toString());
+                        if (currentReq.pos.equals(ack.pos) && currentReq.goal.equals(ack.goal)) {
+                            //System.out.println("I see an ACK " + ack.droneID);
+                            if (ack.droneID == rc.getID()) {
+                                System.out.println(1);
+                                currentReq.confirmed = true;
+                            } else if (!currentReq.confirmed) {
+                                System.out.println(2);
+                                currentReq = null;
+                            } else {
+                                System.out.println(3);
+                            }
                         }
                     }
+//                    System.out.println("TOODOOLOO");
+//                    System.out.println(reqs.size());
+                    reqs.removeIf(r -> r.pos.equals(ack.pos) && r.goal.equals(ack.goal));
+//                    System.out.println(reqs.size());
                 }
             }
         }
         if (currentReq == null) {
+            System.out.println("finding req: " + reqs.size());
             for (HitchHike req : reqs) {
-                if (rc.getRoundNum() - req.roundNum - 1 == getChebyshevDistance(rc.getLocation(), req.goal)) {
-                    System.out.println("I'll pick you up");
+                if ((rc.getRoundNum() - req.roundNum - 1) == getChebyshevDistance(rc.getLocation(), req.goal) / GRID_BLOCK_SIZE ||
+                    rc.getRoundNum() - req.roundNum - 1 > 64 / GRID_BLOCK_SIZE + 1) {
+                    System.out.println("I'll pick you up: " + req.toString());
                     currentReq = req;
                     currentReq.droneID = rc.getID();
                     communicationHandler.sendHitchHikeAck(req);
+                    currentState = State.TAXI;
+                    System.out.println(currentReq.pos);
                 }
             }
         }
@@ -475,7 +502,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public void killCow() throws GameActionException {
         while (true) {
-            assignRole();
+//            assignRole();
             if (currentState != State.EXPLORE) break;
             RobotInfo[] cows = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), NEUTRAL);
             if (cows.length == 0) return;
@@ -499,20 +526,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         LinkedList<MapLocation> visitedBlocks = new LinkedList<>();
 
-        while (!stack.isEmpty()) {
-            assignRole();
-            if (currentState != State.EXPLORE) break;
-
-            MapLocation node = stack.pop();
-
-            // Kill annoying cows
-            killCow();
-
-
-            if (visited[node.y][node.x]) {
-                updateMapBlocks();
-                // Pick random square to start from
+        while (true) {
+            if (stack.isEmpty()) {
                 LinkedList<MapLocation> starts = new LinkedList<>();
+                System.out.println("finding start point");
+                System.out.println(compressedHeight);
+                System.out.println(compressedWidth);
                 for (int y = 0; y < compressedHeight; ++y) {
                     for (int x = 0; x < compressedWidth; ++x) {
                         if (seenBlocks[y][x]) continue;
@@ -520,11 +539,23 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     }
                 }
                 if (starts.size() == 0) {
-                    return;
+                    break;
                 }
                 int index = (Math.abs(random.nextInt())) % starts.size();
                 stack = new Stack<>();
-                node = new MapLocation(starts.get(index).x * BLOCK_SIZE, starts.get(index).y * BLOCK_SIZE);
+                stack.push(new MapLocation(starts.get(index).x * BLOCK_SIZE, starts.get(index).y * BLOCK_SIZE));
+            }
+
+            MapLocation node = stack.pop();
+
+            // Kill annoying cows
+            killCow();
+
+            updateSeenBlocks();
+
+            if (visited[node.y][node.x]) {
+                continue;
+
             }
 
             // TODO: deal with cows (kill if close to base, ignore if close to enemy)
@@ -568,6 +599,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         if (visitedBlocks.size() > 0) {
             communicationHandler.sendMapBlocks(visitedBlocks.toArray(new MapLocation[0]));
         }
+        currentState = State.DEFEND;
     }
 
     public void execTaxi() throws GameActionException {
@@ -575,25 +607,54 @@ public class DeliveryDroneControllerMk2 extends Controller {
             if (!isAdjacentTo(currentReq.goal)) {
                 tryMove(movementSolver.directionToGoal(currentReq.goal));
             } else {
+                for (MapLocation pos : rc.senseNearbySoup()) {
+                    if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null) {
+                        currentReq.goal = pos;
+                    }
+                }
                 if (rc.canDropUnit(rc.getLocation().directionTo(currentReq.goal))) {
                     rc.dropUnit(rc.getLocation().directionTo(currentReq.goal));
-                } else {
-                    for (Direction dir : Direction.allDirections()) {
-                        if (rc.canDropUnit(dir)) {
-                            rc.dropUnit(dir);
-                            break;
+                }
+
+                /*
+                // TODO: deal with edge of world
+                if (rc.senseFlooding(currentReq.goal)) {
+                    Direction dir = rc.getLocation().directionTo(currentReq.goal);
+                    drop :
+                    {
+                        while (true) {
+                            tryMove(movementSolver.directionToGoal(rc.getLocation().add(dir)));
+                            while (!rc.isReady()) Clock.yield();
+                            for (Direction d : Direction.allDirections()) {
+                                if (rc.canDropUnit(d) && !rc.senseFlooding(rc.getLocation().add(d))) {
+                                    rc.dropUnit(d);
+                                    break drop;
+                                }
+                            }
                         }
                     }
                 }
+                if (rc.canDropUnit(rc.getLocation().directionTo(currentReq.goal))) {
+                    rc.dropUnit(rc.getLocation().directionTo(currentReq.goal));
+                } else {
+
+                }
+
+                 */
             }
         } else {
-            // System.out.println("gonna pick up " + currentReq.pos);
+            System.out.println("gonna pick up " + currentReq.pos);
             if (!isAdjacentTo(currentReq.pos)) {
                 tryMove(movementSolver.directionToGoal(currentReq.pos));
             } else {
                 RobotInfo robot = rc.senseRobotAtLocation(currentReq.pos);
+                boolean found = false;
                 if (robot != null && rc.canPickUpUnit(robot.ID)) {
                     rc.pickUpUnit(robot.ID);
+                    found = true;
+                }
+                if (!found) {
+                    currentReq = null;
                 }
             }
 

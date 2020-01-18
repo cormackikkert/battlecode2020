@@ -77,7 +77,7 @@ public class HQController extends Controller {
         updateSeenBlocks();
         updateClusters();
 
-        if (rc.getRoundNum() == 100) cap = totalSoup;
+        // if (rc.getRoundNum() == 100) cap = totalSoup;
         for (int y = 0; y < compressedHeight; ++y) {
             for (int x = 0; x < compressedWidth; ++x) {
                 if (!seenBlocks[y][x]) continue;
@@ -112,9 +112,11 @@ public class HQController extends Controller {
         updateClusters();
         System.out.println(totalSoup);
 
+        // Build miner
         if (totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
                 (totalMiners < Math.min(cap, totalSoup / PlayerConstants.AREA_PER_MINER) &&
-                        rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.MINER))) {
+                        rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum()) &&
+                        rc.getRoundNum() % 10 == 0)) {
 
             for (Direction dir : directions) {
                 if (tryBuild(RobotType.MINER, dir)) {totalMiners++; break;}

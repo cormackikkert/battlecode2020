@@ -19,4 +19,8 @@ public class HitchHike {
         this.goal = goal;
         this.droneID = droneID;
     }
+
+    public String toString() {
+        return this.pos.toString() + " -> " + this.goal.toString();
+    }
 }
