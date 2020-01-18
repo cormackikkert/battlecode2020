@@ -10,8 +10,6 @@ import java.util.LinkedList;
 import java.util.Map;
 
 public class LandscaperController extends Controller {
-    MovementSolver movementSolver;
-    CommunicationHandler communicationHandler;
 
     public enum State {
         PROTECTHQ,  // builds a wall of specified height around HQ
@@ -45,10 +43,12 @@ public class LandscaperController extends Controller {
     LinkedList<SoupCluster> soupClusters = new LinkedList<>();
 
     public LandscaperController(RobotController rc) {
-        this.rc = rc;
-        this.movementSolver = new MovementSolver(rc, this);
-        this.communicationHandler = new CommunicationHandler(rc, this);
         getInfo(rc);
+        try {
+            communicationHandler.receiveLandscapeRole();
+        } catch (GameActionException e) {
+            e.printStackTrace();
+        }
 
 //        int defenders = 0;
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
@@ -70,12 +70,11 @@ public class LandscaperController extends Controller {
     }
 
     public void run() throws GameActionException {
-        /*
-        if (currentSoupCluster == null) {
+
+        if (currentSoupCluster == null && currentState == State.REMOVE_WATER) {
             communicationHandler.receiveClearSoupFlood();
         }
 
-         */
 
         // System.out.println("I am a " + currentState.toString());
         switch (currentState) {
@@ -87,29 +86,44 @@ public class LandscaperController extends Controller {
         }
     }
 
+    boolean startedWalling = false;
     public void execProtectHQ() throws GameActionException {
         if (allyHQ == null)
             allyHQ = communicationHandler.receiveAllyHQLoc();
-        if (rc.getLocation().distanceSquaredTo(allyHQ) > 2) {
-            goToLocationToDeposit(allyHQ);
+        if (!rc.getLocation().isAdjacentTo(allyHQ)) {
+            tryMove(movementSolver.directionToGoal(allyHQ));
         }
-        // robot is currently on HQ wall
-        MapLocation curr = rc.getLocation();
-        Direction nextDir = nextDirection(curr);
-        // System.out.println("New direction is " + nextDir.toString());
 
-        if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(nextDir))) > 3) {
-            if (level(nextDir)) {  // need to level dirt
-                tryMove(nextDir);
+        if (!startedWalling) {
+            boolean goodToWall = true;
+            for (Direction direction : directions) {
+                RobotInfo robotInfo = rc.senseRobotAtLocation(allyHQ.add(direction));
+                if (robotInfo == null || robotInfo.getTeam() != rc.getTeam() || robotInfo.getType() != RobotType.LANDSCAPER) {
+                    goodToWall = false;
+                    break;
+                }
             }
-            return;
+            if (goodToWall) {
+                startedWalling = true;
+                bigBigWall();
+            }
+        } else {
+            bigBigWall();
         }
-        while (rc.getDirtCarrying() == 0) {
-            tryDigRandom();
+    }
+
+    public void bigBigWall() throws GameActionException {
+        if (rc.getDirtCarrying() == 0) {
+            for (Direction direction : directions) {
+                MapLocation digHere = rc.getLocation().add(direction);
+                if (!digHere.isAdjacentTo(allyHQ) && !digHere.equals(allyHQ) && rc.canDigDirt(direction)) {
+                    rc.digDirt(direction);
+                    break;
+                }
+            }
+        } else {
+            rc.depositDirt(Direction.CENTER);
         }
-        while (!rc.canDepositDirt(nextDir)) Clock.yield();
-        rc.depositDirt(nextDir);
-        tryMove(nextDir);
     }
 
     public void execKillUnits() throws GameActionException {

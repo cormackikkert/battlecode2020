@@ -504,6 +504,7 @@ public class MinerController extends Controller {
 //                    System.out.println("I am looking for a place to build a refinery");
                     for (Direction dir : Direction.allDirections()) {
                         if (tryBuild(RobotType.REFINERY, dir)) {
+//                            communicationHandler.transmitNewRefinery();
                             currentRefineryPos = rc.getLocation().add(dir);
                             break;
                         }
