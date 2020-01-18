@@ -167,7 +167,7 @@ public abstract class Controller {
     }
 
     boolean isAdjacentTo(RobotInfo other) {
-        return getDistanceFrom(other) == 1;
+        return getDistanceFrom(other) <= 2;
     }
 
     boolean isAdjacentTo(MapLocation loc) {

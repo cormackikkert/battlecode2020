@@ -50,6 +50,9 @@ public class LandscaperController extends Controller {
             e.printStackTrace();
         }
 
+        if (Math.random() > 0.5) currentState = State.PROTECTHQ;
+        else currentState = State.KILLUNITS;
+
 //        int defenders = 0;
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
@@ -82,6 +85,7 @@ public class LandscaperController extends Controller {
             //case PROTECTSOUP:   execProtectSoup();  break;
             case DESTROY:       execDestroy();      break;
             case REMOVE_WATER: execRemoveWater(); break;
+            case KILLUNITS: execKillUnits();      break;
 //            case ROAM: movementSolver.windowsRoam(); break;
         }
     }
@@ -138,13 +142,17 @@ public class LandscaperController extends Controller {
             else if (robot.type == RobotType.DESIGN_SCHOOL) designSchoolPos = robot.location;
             else if (robot.type == RobotType.FULFILLMENT_CENTER) fulfillmentCenterPos = robot.location;
 
-            if (netGunPos != null && netGunPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
-            else if (designSchoolPos != null && designSchoolPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
-            else if (fulfillmentCenterPos != null && fulfillmentCenterPos.isAdjacentTo(rc.getLocation())) adjacentPos = netGunPos;
+            if (netGunPos != null && isAdjacentTo(netGunPos)) adjacentPos = netGunPos;
+            else if (designSchoolPos != null && isAdjacentTo(designSchoolPos)) adjacentPos = netGunPos;
+            else if (fulfillmentCenterPos != null && isAdjacentTo(fulfillmentCenterPos)) adjacentPos = netGunPos;
+
         }
+
+
 
         // Kill an adjacent one
         if (adjacentPos != null) {
+            System.out.println("adjacent enemy");
             if (rc.getDirtCarrying() > 0 && rc.canDepositDirt(rc.getLocation().directionTo(adjacentPos))) {
                 rc.depositDirt(rc.getLocation().directionTo(adjacentPos));
             } else {
@@ -167,6 +175,7 @@ public class LandscaperController extends Controller {
         } else {
             MapLocation enemy = (netGunPos != null) ? netGunPos : ((designSchoolPos != null) ? designSchoolPos : fulfillmentCenterPos);
             if (enemy != null) {
+                System.out.println(isAdjacentTo(enemy) + " " + enemy + " " + adjacentPos);
                 tryMove(movementSolver.directionToGoal(enemy));
             } else {
                 if (getChebyshevDistance(rc.getLocation(), allyHQ) < 2) {
