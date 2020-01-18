@@ -49,6 +49,7 @@ public class MinerController extends Controller {
     MapLocation searchTarget;
 
     boolean isRush = false;
+    boolean built = false;
 
     State currentState = State.SEARCHURGENT;
     int velx = 0;
@@ -171,6 +172,17 @@ public class MinerController extends Controller {
 
         solveGhostHq();
         updateClusters();
+
+//        // spam build delivery drone centers before die to flood FIXME : eco
+//        if (!built && rc.getRoundNum() >= SPAM_BUILD_DRONES) {
+//            System.out.println("spam time");
+//            for (Direction direction : directions) {
+//                if (tryBuild(RobotType.FULFILLMENT_CENTER, direction)) {
+//                    built = true;
+//                    break;
+//                }
+//            }
+//        }
 
         System.out.println("I am a " + currentState + " " + soupClusters.size());
 

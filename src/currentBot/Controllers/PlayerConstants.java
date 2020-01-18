@@ -15,6 +15,7 @@ public class PlayerConstants {
     static final int RUSH1 = 50;
     static final int RUSH2 = 51;
     static final int RUSH3 = 52;
+    static final int SPAM_BUILD_DRONES = 600;
 
 
     // Drone constants
