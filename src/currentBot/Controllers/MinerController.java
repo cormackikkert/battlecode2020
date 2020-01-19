@@ -559,7 +559,7 @@ public class MinerController extends Controller {
             execBuilder();
         }
 
-        if (getDistanceSquared(rc.getLocation(), currentRefineryPos) <= 1) {
+        if (isAdjacentTo(currentRefineryPos)) {
             if (rc.canDepositSoup(rc.getLocation().directionTo(currentRefineryPos))) {
                 rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
 
@@ -835,6 +835,7 @@ public class MinerController extends Controller {
                 currentState = State.MINE;
             }
         }
+        movementSolver.moves = 0;
     }
 
     public void execScout() throws GameActionException {
@@ -1175,5 +1176,9 @@ public class MinerController extends Controller {
             return;
         }
         while (rc.getLocation() == oldPos) Clock.yield();
+
+        currentRefineryPos = null;
+        currentSoupSquare = null;
+
     }
 }
