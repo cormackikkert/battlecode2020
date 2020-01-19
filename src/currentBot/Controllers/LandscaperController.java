@@ -81,7 +81,7 @@ public class LandscaperController extends Controller {
         if (currentState != State.PROTECTHQ && rc.getRoundNum() >= ELEVATE_TIME) {
             currentState = State.ELEVATE_BUILDING;
         }
-        if (!isAdjacentTo(allyHQ) && rc.getRoundNum() >= ELEVATE_TIME) {
+        if (!rc.getLocation().isWithinDistanceSquared(allyHQ, 8) && rc.getRoundNum() >= ELEVATE_TIME) {
             currentState = State.ELEVATE_BUILDING;
         }
 
