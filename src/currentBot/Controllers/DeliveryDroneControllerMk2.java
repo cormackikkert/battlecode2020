@@ -293,7 +293,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8) && landscapers < 2) {
+        if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8) && landscapers <= ENEMY_LANDSCAPER_ALIVE) {
             communicationHandler.tooMuchDie();
         }
 

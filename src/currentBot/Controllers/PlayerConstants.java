@@ -35,6 +35,7 @@ public class PlayerConstants {
     static final int DEFEND_NUMBER = 7;
     static final int TAXI_TIME = 300;
     static final int WAIT_FRIENDS_BEFORE_SUDOKU = 8; // number of friends to wait for within sensor radius before i sudoku
+    static final int ENEMY_LANDSCAPER_ALIVE = 0;
 
     static final int GRID_BLOCK_SIZE = 7;
     static final public int SEARCH_DIAMETER = 7;
