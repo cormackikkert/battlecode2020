@@ -548,7 +548,12 @@ public class MinerController extends Controller {
             if (robot.type == RobotType.NET_GUN) nearbyNetGun = true;
         }
 
-        if (!nearbyNetGun && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.NET_GUN)) {
+        boolean nearbyDrone = false;
+        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+            if (robot.type == RobotType.DELIVERY_DRONE) nearbyDrone = true;
+        }
+
+        if (nearbyDrone && !nearbyNetGun && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.NET_GUN)) {
             buildType = RobotType.NET_GUN;
             buildLoc = null;
             execBuilder();
@@ -1157,14 +1162,18 @@ public class MinerController extends Controller {
                 int[] mess = tx.getMessage();
                 if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_ACK) {
                     HitchHike ack = communicationHandler.getHitchHikeAck(mess);
-                    if (ack.pos.equals(pos) && ack.goal.equals(pos)) {
+//                    System.out.println("Found ack: " + ack.pos + " " + ack.goal + " " + pos + " " + goal);
+                    if (ack.pos.equals(pos) && ack.goal.equals(goal)) {
                         confirmed = true;
                     }
                 }
             }
             Clock.yield();
         }
-        if (!confirmed) return;
+        if (!confirmed) {
+            System.out.println("Didnt get ACK");
+            return;
+        }
         while (rc.getLocation() == oldPos) Clock.yield();
     }
 }
