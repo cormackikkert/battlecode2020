@@ -136,6 +136,10 @@ public class HQController extends Controller {
             }
         }
 
+        if (rc.getRoundNum() > 2000) {
+            communicationHandler.sendSudoku();
+        }
+
         if ((totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
                 totalMiners < totalSoup / PlayerConstants.AREA_PER_MINER) &&
                         rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum())) {

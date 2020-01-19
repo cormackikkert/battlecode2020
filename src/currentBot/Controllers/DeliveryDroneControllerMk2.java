@@ -109,7 +109,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 //        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
         assignRole();
-        System.out.println("I am a " + currentState);
+        System.out.println("I am a " + currentState + " " + sudoku);
 
         if (currentState == State.TAXI) {
             // Like this cuz we don't want to execKill on our own miners
@@ -308,9 +308,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8) && landscapers <= ENEMY_LANDSCAPER_ALIVE) {
-            communicationHandler.tooMuchDie();
-        }
+//        if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8) && landscapers <= ENEMY_LANDSCAPER_ALIVE) {
+//            communicationHandler.tooMuchDie();
+//        }
 
         for (RobotInfo enemy : enemies) { // doing this separately is intended
             if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID()) && enemy.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RANGE)) {
@@ -320,7 +320,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
 
         communicationHandler.receiveSudoku();
-        communicationHandler.receiveTooMuchDie();
+
+//        communicationHandler.receiveTooMuchDie();
         if (sudoku) {
             tryMove(movementSolver.directionToGoal(enemyHQ, false));
         } else {

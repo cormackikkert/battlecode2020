@@ -54,27 +54,42 @@ public class MovementSolver {
         if (!giveFucks) {
             MapLocation from = rc.getLocation();
 
-            if (!goal.equals(lastGoal)) {
-                lastGoal = goal;
-                moves = 0;
-            }
-            ++moves;
-            rc.setIndicatorLine(from, goal, 0, 0, 255);
-            if (rc.getType() == RobotType.DELIVERY_DRONE) return droneDirectionToGoal(from, goal);
+            if (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
-            while (!rc.isReady()) Clock.yield(); // canMove considers cooldown time
 
-            // while obstacle ahead, keep looking for new direction
             Direction dir = from.directionTo(goal);
-            for (Direction d : getClosestDirections(dir)) {
-                if (!isObstacleDrone(d, from.add(d))) {
-                    recent.set(index, from); index = (index + 1)%recency;
-                    return d;
+
+            int changes = 0;
+            boolean failed = false;
+
+            // while obstacle ahead, keep rotating
+            while (isObstacleDrone(dir, from.add(dir))) {
+                if (!rc.onTheMap(rc.getLocation().add(dir))) {
+                    rotateCW = !rotateCW; previous = null; failed = true;
+                    changes = 0;
                 }
+                ++changes;
+                dir = (rotateCW) ? dir.rotateRight() : dir.rotateLeft();
+                // if blocked in every direction, stop rotating
+                if (changes > 8) return from.directionTo(previous);
             }
-            // currently stuck
-            recent.set(index, from); index = (index + 1)%recency;
-            return Direction.CENTER;
+
+
+            rc.setIndicatorLine(from, goal, 255, 255, 255);
+
+            if (failed) {
+                // rotateCW = !rotateCW;
+                rc.setIndicatorDot(from, 255, 0, 0);
+                rc.setIndicatorLine(from, goal, 255, 0, 0);
+            }
+
+            if (rc.getLocation().add(dir).equals(twoback)) {
+                rotateCW = !rotateCW;
+            }
+
+            twoback = previous;
+            previous = from;
+            return dir;
         } else {
             // avoid net-guns
             return droneDirectionToGoal(rc.getLocation(), goal);
