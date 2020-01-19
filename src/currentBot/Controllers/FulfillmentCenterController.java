@@ -34,7 +34,17 @@ public class FulfillmentCenterController extends Controller {
     public void run() throws GameActionException {
         if (sent >= PRODUCTION_CAP) return;
 
-        if (rc.getRoundNum() > 1700) { // just spam at this point, no need to conserve soup
+        // changes cost so other units can be built
+        // (round % 10 == 0 is the real bottleneck, not the cost)
+        if (rc.getRoundNum() > 800 &&
+                GameConstants.getWaterLevel(rc.getRoundNum() + 200) > rc.senseElevation(rc.getLocation()) &&
+                rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) {
+
+            buildDrone();
+        }
+
+        if (rc.getRoundNum() > 1700 &&
+                rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) { // just spam at this point, no need to conserve soup
             buildDrone();
         }
 

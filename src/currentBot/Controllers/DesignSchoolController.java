@@ -15,6 +15,8 @@ public class DesignSchoolController extends Controller {
     int builtLandscapers = 0;
     MapLocation location;
 
+    int ex = 0;
+
     public DesignSchoolController(RobotController rc) {
         getInfo(rc);
         this.location = rc.getLocation();
@@ -28,11 +30,11 @@ public class DesignSchoolController extends Controller {
     }
 
     public void run() throws GameActionException {
-        if (rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && builtLandscapers < DEFEND + HELP) {
+        if ((rc.getTeamSoup() > Math.min(400, ex) + PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)) && (builtLandscapers < (DEFEND + HELP))) {
             for (Direction dir : Direction.allDirections()) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {
                     int id = rc.senseRobotAtLocation(location.add(dir)).getID();
-
+                    ex += 100;
                     if (builtLandscapers < DEFEND) {
                         communicationHandler.landscapeDefend(id);
                     } else {
