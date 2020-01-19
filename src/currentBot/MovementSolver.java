@@ -157,7 +157,7 @@ public class MovementSolver {
 
         if (rc.getLocation().add(dir).equals(twoback)) {
             ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
-            if (rc.isCurrentlyHoldingUnit()) {
+            if (rc.isCurrentlyHoldingUnit() && ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI) {
                 ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
             }
         }
