@@ -114,7 +114,7 @@ public class LandscaperController extends Controller {
         }
         while (!rc.canDepositDirt(nextDir)) Clock.yield();
         rc.depositDirt(nextDir);
-        if (nearbyLandscapers(curr.add(nextDir), 1) == 0) tryMove(nextDir);
+        if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
     }
 
     boolean startedWalling = false;
@@ -339,8 +339,8 @@ public class LandscaperController extends Controller {
     // used for landscaper to climb up to HQ wall
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
-        if (rc.getLocation().distanceSquaredTo(goal) <= 5) {
-            Direction dir = rc.getLocation().directionTo(goal);
+        if (rc.getLocation().distanceSquaredTo(goal) <= 8) {
+            Direction dir = dirToGoal(goal);
             level(dir);
             tryMove(dir);
             return;
@@ -365,13 +365,21 @@ public class LandscaperController extends Controller {
             System.out.println("Tried to move");
     }
 
-    int nearbyLandscapers(MapLocation point, int dist) {
+    boolean shouldMoveOnWall(MapLocation point) {
         int count = 0;
-        for (RobotInfo robot : rc.senseNearbyRobots(point, dist, rc.getTeam())) {
-            if (robot.type.equals(RobotType.LANDSCAPER))
-                count++;
+        for (RobotInfo robot : rc.senseNearbyRobots(-1, rc.getTeam())) {
+            if (robot.type.equals(RobotType.LANDSCAPER)) {
+                MapLocation pos = robot.location;
+                if (pos.distanceSquaredTo(point) <= 1)
+                    count++;
+                if (pos.distanceSquaredTo(allyHQ) > 2 && pos.distanceSquaredTo(allyHQ)<=8
+                && point.distanceSquaredTo(pos) > rc.getLocation().distanceSquaredTo(pos)
+                && rc.getLocation().distanceSquaredTo(pos) <= 2) {
+                    return true;
+                }
+            }
         }
-        return count;
+        return count == 0;
     }
 
     // levels the dirt in given direction compared to current loc
@@ -430,7 +438,7 @@ public class LandscaperController extends Controller {
     }
 
     Direction[] getClosestDirections(Direction d) {
-        return new Direction[]{d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(),
+        return new Direction[]{d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(),
         d.rotateRight().rotateRight(), d.opposite().rotateRight(), d.opposite().rotateLeft(),
         d.opposite()};
     }
