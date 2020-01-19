@@ -21,7 +21,7 @@ public class MovementSolver {
 
     RobotController rc;
     Controller controller;
-    final int recency = 7;
+    final int recency = 9;
     int index = 0;
     ArrayList<MapLocation> recent = new ArrayList<>(recency);
 
@@ -124,6 +124,8 @@ public class MovementSolver {
                 return d;
             }
         }
+        // currently stuck
+        recent.set(index, from); index = (index + 1)%recency;
         return Direction.CENTER;
 
     }
@@ -155,7 +157,7 @@ public class MovementSolver {
 
         if (rc.getLocation().add(dir).equals(twoback)) {
             ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
-            if (rc.isCurrentlyHoldingUnit()) {
+            if (rc.isCurrentlyHoldingUnit() && ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI) {
                 ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
             }
         }
@@ -238,6 +240,12 @@ public class MovementSolver {
             if (enemy.getTeam() != rc.getTeam().opponent()) continue;
             if ((enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
                 controller.communicationHandler.sendEnemyHQLoc(enemy.getLocation());
+                return true;
+            }
+        }
+
+        for (MapLocation gunLocation : controller.netGuns) {
+            if (to.isWithinDistanceSquared(gunLocation, NET_GUN_RANGE)) {
                 return true;
             }
         }

@@ -63,6 +63,13 @@ public class HQController extends Controller {
     }
 
     public void run() throws GameActionException {
+        communicationHandler.receiveTooMuchDie();
+        communicationHandler.receivePLUSONE();
+        if (!sudokuSent && campOutside >= PlayerConstants.WAIT_FRIENDS_BEFORE_SUDOKU) {
+            communicationHandler.sendSudoku();
+            sudokuSent = true;
+            System.out.println("attack time");
+        }
 
         communicationHandler.solveEnemyHQLocWithGhosts();
 

@@ -28,7 +28,13 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         HITCHHIKE_ACK,
         CLEAR_FLOOD,
         LANDSCAPE_DEFEND,
-        LANDSCAPE_HELP
+        LANDSCAPE_HELP,
+        NET_GUN_LOCATIONS,
+        NET_GUN_DIE,
+        PLUS_ONE_CAMP,
+        ALL_ATTACK,
+        TOO_MUCH_DIE,
+        STOP_SUDOKU,
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -354,7 +360,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     }
 
     int turnF = 1;
-    public void solveEnemyHQLocWithGhosts() throws GameActionException { // ONLY HQ SHOULD BE DOING THIS
+    public void solveEnemyHQLocWithGhosts() throws GameActionException {
+        if (controller.enemyHQ != null) return;
+        if (controller.allyHQ == null) return;
         if (controller.ghostsKilled == 2) return; //already know enemy hq
 
         for (int i = turnF; i < rc.getRoundNum(); i++) {
@@ -364,19 +372,19 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                 int[] message= transaction.getMessage();
                 decode(message);
 
-                if (message[6] == CommunicationType.FAILHORIZONTAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILHORIZONTAL.ordinal() && controller.ghostH) {
                     controller.ghostH = false;
                     controller.ghostsKilled++;
                     System.out.println("not horizontal symmetry");
                 }
 
-                if (message[6] == CommunicationType.FAILVERTICAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILVERTICAL.ordinal() && controller.ghostV) {
                     controller.ghostV = false;
                     controller.ghostsKilled++;
                     System.out.println("not vertical symmetry");
                 }
 
-                if (message[6] == CommunicationType.FAILROTATIONAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILROTATIONAL.ordinal() && controller.ghostR) {
                     controller.ghostR = false;
                     controller.ghostsKilled++;
                     System.out.println("not rotational symmetry");
@@ -466,7 +474,6 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
-
     int turnLD = 1;
     public void receiveLandscapeRole() throws GameActionException {
         outer : for (int i = turnLD
@@ -493,6 +500,135 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                     }
                 }
 
+            }
+        }
+    }
+
+    public void sendNetGunLocation(MapLocation mapLocation) throws GameActionException {
+        int[] message = bluePrint(NET_GUN_LOCATIONS);
+
+        message[1] = mapLocation.x;
+        message[2] = mapLocation.y;
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    public void sendNetGunDie(MapLocation mapLocation) throws GameActionException {
+        int[] message = bluePrint(NET_GUN_DIE);
+
+        message[1] = mapLocation.x;
+        message[2] = mapLocation.y;
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    int turnNG = 1;
+    public void receiveNetGunLocations() throws GameActionException {
+        for (int i = turnLD
+                     ; i < rc.getRoundNum(); i++) {
+            turnLD++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == NET_GUN_LOCATIONS) {
+                    decode(message);
+                    MapLocation mapLocation = new MapLocation(message[1], message[2]);
+
+                    if (!controller.netGuns.contains(mapLocation)) {
+                        controller.netGuns.add(mapLocation);
+                    }
+                }
+
+                if (identify(message) == NET_GUN_DIE) {
+                    decode(message);
+                    MapLocation mapLocation = new MapLocation(message[1], message[2]);
+
+                    controller.netGuns.remove(mapLocation);
+                }
+            }
+        }
+    }
+
+    public void sendPLUSONE() throws GameActionException {
+        int[] message = bluePrint(PLUS_ONE_CAMP);
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    public void sendSudoku() throws GameActionException {
+        int[] message = bluePrint(ALL_ATTACK);
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    int turnPO = 1;
+    public void receivePLUSONE() throws GameActionException {
+        for (int i = turnPO
+             ; i < rc.getRoundNum(); i++) {
+            turnPO++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == PLUS_ONE_CAMP) {
+                    controller.campOutside++;
+                }
+            }
+        }
+    }
+
+    int turnS = 1;
+    public void receiveSudoku() throws GameActionException {
+        for (int i = turnS
+             ; i < rc.getRoundNum(); i++) {
+            turnS++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == ALL_ATTACK) {
+                    controller.sudoku = true;
+                }
+            }
+        }
+    }
+
+    public void tooMuchDie() throws GameActionException {
+        int[] message = bluePrint(TOO_MUCH_DIE);
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    int turnWK = 1;
+    public void receiveTooMuchDie() throws GameActionException {
+        for (int i = turnWK
+             ; i < rc.getRoundNum(); i++) {
+            turnWK++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == TOO_MUCH_DIE) {
+                    controller.sudoku = false;
+                    controller.sudokuSent = false;
+                    controller.campMessageSent = false;
+                    controller.campOutside = 0;
+                }
             }
         }
     }

@@ -3,6 +3,13 @@ package currentBot.Controllers;
 import battlecode.common.RobotType;
 
 public class PlayerConstants {
+    // distance squared constants
+    static final int HQ_VISION = 45;
+    static final int MINER_VISION = 34;
+    static final int ALL_VISION = 20;
+    static final int OUTSIDE_NET_GUN_RANGE = 25;
+    static final int NET_GUN_RANGE = 13;
+
     // Miner constants
     static final int REFINERY_BUILD_THRESHOLD = 200 + 150; // (+150 for rush) Soup required before building a refinery
     static final int REFINERY_BUILD_CLUSTER_SIZE = 10; // How many soup squares to justify building a refinery
@@ -27,6 +34,7 @@ public class PlayerConstants {
     static final int SWITCH_TO_ATTACK = 600; // turn for switching to attack mode
     static final int DEFEND_NUMBER = 7;
     static final int TAXI_TIME = 300;
+    static final int WAIT_FRIENDS_BEFORE_SUDOKU = 8; // number of friends to wait for within sensor radius before i sudoku
 
     static final int GRID_BLOCK_SIZE = 7;
     static final public int SEARCH_DIAMETER = 7;

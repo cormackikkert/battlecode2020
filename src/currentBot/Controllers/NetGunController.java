@@ -1,17 +1,18 @@
 package currentBot.Controllers;
 
-import battlecode.common.Direction;
-import battlecode.common.GameActionException;
-import battlecode.common.RobotController;
-import battlecode.common.RobotType;
+import battlecode.common.*;
 
 public class NetGunController extends Controller {
     public NetGunController(RobotController rc) {
-        this.rc = rc;
+        getInfo(rc);
     }
 
     public void run() throws GameActionException {
-        for (Direction dir : directions)
-            tryBuild(RobotType.MINER, dir);
+        scanRobots();
+        for (RobotInfo enemy : enemies) {
+            if (enemy.getType() == RobotType.DELIVERY_DRONE) {
+                tryShoot(enemy);
+            }
+        }
     }
 }

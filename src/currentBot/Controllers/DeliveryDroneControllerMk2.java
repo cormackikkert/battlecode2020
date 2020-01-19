@@ -102,15 +102,18 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        assignRole();
         hqInfo(); // includes scanning robots
+        scanNetGuns();
+        solveGhostHq();
+        communicationHandler.solveEnemyHQLocWithGhosts();
+//        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
+        assignRole();
         if (currentState == State.TAXI) {
             // Like this cuz we don't want to execKill on our own miners
             execTaxi();
             return;
         }
-        solveGhostHq();
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -283,14 +286,44 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execAttackLateGame() throws GameActionException {
-        for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
-            if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID())) {
+        int landscapers = 0;
+        for (RobotInfo enemy : enemies) {
+            if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID()) && enemy.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RANGE)) {
+                landscapers++;
+            }
+        }
+
+        if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8) && landscapers < 2) {
+            communicationHandler.tooMuchDie();
+        }
+
+        for (RobotInfo enemy : enemies) { // doing this separately is intended
+            if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID()) && enemy.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RANGE)) {
                 rc.pickUpUnit(enemy.getID());
                 return;
             }
         }
 
-        tryMove(movementSolver.directionToGoal(enemyHQ, false));
+        communicationHandler.receiveSudoku();
+        communicationHandler.receiveTooMuchDie();
+        if (sudoku) {
+            tryMove(movementSolver.directionToGoal(enemyHQ, false));
+        } else {
+            camp();
+        }
+    }
+
+    public void camp() throws GameActionException {
+        if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, OUTSIDE_NET_GUN_RANGE)) {
+            tryMove(movementSolver.directionToGoal(enemyHQ, true));
+//            communicationHandler.wallKill();
+        } else {
+            if (!campMessageSent) {
+                communicationHandler.sendPLUSONE();
+                campMessageSent = true;
+            }
+            System.out.println("waiting for more friends before die");
+        }
     }
 
     public void switchToAttackMode() throws GameActionException {
@@ -480,6 +513,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
         MapLocation refineryPos = null;
 
         while (!queue.isEmpty() && (x2 - x1) * (y2 - y1) <= 50) {
+            hqInfo(); // includes scanning robots
+            scanNetGuns();
+            solveGhostHq();
+            communicationHandler.solveEnemyHQLocWithGhosts();
+//            System.out.println("sensor radius "+rc.getCurrentSensorRadiusSquared());
+
             MapLocation current = queue.poll();
             System.out.println("Inspecting " + current);
             if (buildMap[current.y][current.x] != null && buildMap[current.y][current.x] == RobotType.REFINERY.ordinal()) {
