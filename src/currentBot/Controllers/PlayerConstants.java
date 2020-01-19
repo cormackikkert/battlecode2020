@@ -3,6 +3,9 @@ package currentBot.Controllers;
 import battlecode.common.RobotType;
 
 public class PlayerConstants {
+    // movement solver constants
+    static final int GIVE_UP_THRESHOLD = 20; // How many moves before giving up and calling a drone taxi (keep in mind they are in the same soup cluster)
+
     // distance squared constants
     static final int HQ_VISION = 45;
     static final int MINER_VISION = 34;
@@ -14,7 +17,7 @@ public class PlayerConstants {
     static final int REFINERY_BUILD_THRESHOLD = 200 + 150; // (+150 for rush) Soup required before building a refinery
     static final int REFINERY_BUILD_CLUSTER_SIZE = 10; // How many soup squares to justify building a refinery
     static final int RUSH_THRESHOLD = 150; // How much soup before initiating a rush
-    static final int AREA_PER_MINER = 2; // how much new soup needs to be found before spawning another miner
+    static final int AREA_PER_MINER = 3; // how much new soup needs to be found before spawning another miner
     static final int MOVES_BY_MINER = 10; // How many moves a miner makes to explore an unexplored tile in its territory (before giving up)
     static final int INSTA_BUILD_MINERS = 4; // How many miners to build as fast as possible
     static final int DISTANCE_FROM_REFINERY = 10;
@@ -38,7 +41,7 @@ public class PlayerConstants {
     static final int ENEMY_LANDSCAPER_ALIVE = 0;
 
     static final int GRID_BLOCK_SIZE = 7;
-    static final public int SEARCH_DIAMETER = 7;
+    static final public int SEARCH_DIAMETER = 5;
 
 
     // Landscaper constants

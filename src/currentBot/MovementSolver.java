@@ -23,6 +23,10 @@ public class MovementSolver {
     Controller controller;
     final int recency = 9;
     int index = 0;
+
+    MapLocation lastGoal = new MapLocation(-1, -1);
+    public int moves = 0;
+
     ArrayList<MapLocation> recent = new ArrayList<>(recency);
 
     Direction[] cardinal = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
@@ -111,6 +115,11 @@ public class MovementSolver {
 
     // no revisits to given number of recent tiles
     public Direction directionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
+        if (!goal.equals(lastGoal)) {
+            lastGoal = goal;
+            moves = 0;
+        }
+        ++moves;
         rc.setIndicatorLine(from, goal, 0, 0, 255);
         if (rc.getType() == RobotType.DELIVERY_DRONE) return droneDirectionToGoal(from, goal);
 

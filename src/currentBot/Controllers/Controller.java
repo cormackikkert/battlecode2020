@@ -255,8 +255,8 @@ public abstract class Controller {
     public void scanRobots() throws GameActionException {
 //        enemies = rc.senseNearbyRobots();
 //        System.out.println("scan radius is "+rc.getCurrentSensorRadiusSquared()+", pollution is "+rc.sensePollution(rc.getLocation()));
-        enemies = rc.senseNearbyRobots(-1, ENEMY);
-        allies = rc.senseNearbyRobots(-1, ALLY);
+        enemies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), ENEMY);
+        allies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), ALLY);
     }
 
     public void tryFindHomeHQLoc() {
@@ -438,59 +438,74 @@ public abstract class Controller {
     }
 
     public MapLocation getNearestBuildTile() throws GameActionException {
-        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
-        queue.clear();
-
-        queue.add(rc.getLocation());
-        visited[rc.getLocation().y][rc.getLocation().x] = true;
-
-        while (!queue.isEmpty()) {
-            System.out.println("Searching for build tile");
-            MapLocation node = queue.poll();
-
-            for (Direction dir : Direction.allDirections()) {
-                MapLocation nnode = node.add(dir);
-                if (!onTheMap(nnode)) continue;
-                if (visited[nnode.y][nnode.x]) continue;
-                if ((nnode.x + nnode.y) % 2 == 1) continue;
-                while (containsWater[nnode.y][nnode.x] == null) {
-                    if (!rc.isReady()) Clock.yield();
-                    if (tryMove(movementSolver.directionToGoal(nnode))) {
-                        // Update surroundings
-                        // Done here (instead of using the updateSurroundings fuction as this way we can
-                        // respond to changes in the map) (code speed > code quality I guess)
-
-                        for (int dx = -4; dx <= 4; ++dx) {
-                            for (int dy = -4; dy <= 4; ++dy) {
-                                MapLocation sensePos = new MapLocation(
-                                        rc.getLocation().x + dx,
-                                        rc.getLocation().y + dy);
-
-                                if (!rc.canSenseLocation(sensePos)) continue;
-
-                                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
-
-                                // If we have already visited this tile it must have a shorter distance then
-                                // what we are looking at now
-                                if (!containsWater[sensePos.y][sensePos.x] &&
-                                        (getDistanceSquared(sensePos, allyHQ) > 2) &&
-                                        (rc.senseRobotAtLocation(sensePos) == null) &&
-                                        visited[sensePos.y][sensePos.x]) {
-                                    return sensePos;
-                                }
-                            }
-                        }
-                    }
-                }
-                if (containsWater[nnode.y][nnode.x]) continue;
-                if (rc.senseRobotAtLocation(nnode) == null &&
-                    getDistanceSquared(nnode, allyHQ) > 2) return nnode;
-                queue.add(nnode);
-                visited[nnode.y][nnode.x] = true;
-            }
-
+        for (Direction dir :  Direction.allDirections()) {
+            MapLocation pos = rc.getLocation().add(dir);
+            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
+                getChebyshevDistance(pos, allyHQ) >= 2 &&
+                    (pos.x + pos.y) % 2 == 0)
+                return pos;
+        }
+        for (Direction dir :  Direction.allDirections()) {
+            MapLocation pos = rc.getLocation().add(dir);
+            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
+                    getChebyshevDistance(pos, allyHQ) >= 2)
+                return pos;
         }
         return null;
+//
+//        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+//        queue.clear();
+//
+//        queue.add(rc.getLocation());
+//        visited[rc.getLocation().y][rc.getLocation().x] = true;
+//
+//        while (!queue.isEmpty()) {
+//            System.out.println("Searching for build tile");
+//            MapLocation node = queue.poll();
+//
+//            for (Direction dir : Direction.allDirections()) {
+//                MapLocation nnode = node.add(dir);
+//                if (!onTheMap(nnode)) continue;
+//                if (visited[nnode.y][nnode.x]) continue;
+//                if ((nnode.x + nnode.y) % 2 == 1) continue;
+//                while (containsWater[nnode.y][nnode.x] == null) {
+//                    if (!rc.isReady()) Clock.yield();
+//                    if (tryMove(movementSolver.directionToGoal(nnode))) {
+//                        // Update surroundings
+//                        // Done here (instead of using the updateSurroundings fuction as this way we can
+//                        // respond to changes in the map) (code speed > code quality I guess)
+//
+//                        for (int dx = -4; dx <= 4; ++dx) {
+//                            for (int dy = -4; dy <= 4; ++dy) {
+//                                MapLocation sensePos = new MapLocation(
+//                                        rc.getLocation().x + dx,
+//                                        rc.getLocation().y + dy);
+//
+//                                if (!rc.canSenseLocation(sensePos)) continue;
+//
+//                                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+//
+//                                // If we have already visited this tile it must have a shorter distance then
+//                                // what we are looking at now
+//                                if (!containsWater[sensePos.y][sensePos.x] &&
+//                                        (getDistanceSquared(sensePos, allyHQ) > 2) &&
+//                                        (rc.senseRobotAtLocation(sensePos) == null) &&
+//                                        visited[sensePos.y][sensePos.x]) {
+//                                    return sensePos;
+//                                }
+//                            }
+//                        }
+//                    }
+//                }
+//                if (containsWater[nnode.y][nnode.x]) continue;
+//                if (rc.senseRobotAtLocation(nnode) == null &&
+//                    getDistanceSquared(nnode, allyHQ) > 2) return nnode;
+//                queue.add(nnode);
+//                visited[nnode.y][nnode.x] = true;
+//            }
+//
+//        }
+//        return null;
     }
 
     public MapLocation getNearestSoupTile() throws GameActionException {

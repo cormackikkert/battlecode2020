@@ -109,6 +109,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
 //        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
         assignRole();
+        System.out.println("I am a " + currentState);
+        hqInfo(); // includes scanning robots
+
         if (currentState == State.TAXI) {
             // Like this cuz we don't want to execKill on our own miners
             execTaxi();
@@ -175,14 +178,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
             // Half drones explore
             // slowly turn back into other modes
-            if (rc.getID() % 2 == 0) {
-                if (!hasExplored) {
-                    currentState = State.EXPLORE;
-                    hasExplored = true;
-                } else {
-                    currentState = State.WANDER;
-                }
-            }
+            currentState = State.WANDER;
+//
+//            if (rc.getID() % 1 == 0) {
+//                if (!hasExplored) {
+//                    currentState = State.EXPLORE;
+//                    hasExplored = true;
+//                } else {
+//                    currentState = State.WANDER;
+//                }
+//            }
         }
     }
 
@@ -270,6 +275,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 return;
             }
         }
+        killCow();
+        searchSurroundingsSoup();
         movementSolver.windowsRoam();
     }
 
@@ -436,6 +443,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
         lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+        soupClusters.removeIf(sc -> sc.size == 0);
     }
 
     void updateReqs() throws GameActionException {
@@ -620,10 +628,15 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     SoupCluster foundSoupCluster = determineCluster(sensePos);
 
                     if (foundSoupCluster == null) break;
-
+                    System.out.println("Found cluster: " + foundSoupCluster.toStringPos());
                     soupClusters.add(foundSoupCluster);
 //                    currentState = State.DEFEND;
                     communicationHandler.sendCluster(foundSoupCluster);
+                    // If there are no clusters for team miners, have be a taxi
+
+                    if (soupClusters.size() == 1) {
+                        currentState = State.DEFEND;
+                    }
                     return foundSoupCluster;
                 }
             }
@@ -632,18 +645,32 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void killCow() throws GameActionException {
+
         while (true) {
-            assignRole();
-            if (currentState != State.EXPLORE) break;
-            RobotInfo[] cows = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), NEUTRAL);
-            if (cows.length == 0) return;
-            System.out.println("FOUND COW");
-            for (RobotInfo cow : cows) {
-                while (!tryPickUpUnit(cow)) {
-                    tryMove(movementSolver.directionToGoal(rc.getLocation(), cow.getLocation()));
-                    Clock.yield();
+            if (rc.isCurrentlyHoldingUnit()) {
+                execKill();
+            } else {
+                RobotInfo[] cows = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), NEUTRAL);
+                if (cows.length == 0) return;
+
+                MapLocation best = cows[0].getLocation();
+                int closest = 100;
+                for (RobotInfo cow : cows) {
+                    if (getChebyshevDistance(rc.getLocation(), cow.getLocation()) < closest) {
+                        best = cow.getLocation();
+                        closest = getChebyshevDistance(rc.getLocation(), cow.getLocation());
+                    }
                 }
-                while (rc.isCurrentlyHoldingUnit()) execKill();
+
+                tryMove(movementSolver.directionToGoal(best));
+                Clock.yield();
+
+                for (RobotInfo cow : cows) {
+                    if (rc.canPickUpUnit(cow.getID())) {
+                        rc.pickUpUnit(cow.getID());
+                        break;
+                    }
+                }
             }
         }
     }
@@ -657,6 +684,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         LinkedList<MapLocation> visitedBlocks = new LinkedList<>();
 
+        System.out.println("type now: " + currentState);
         while (true) {
             if (stack.isEmpty()) {
                 LinkedList<MapLocation> starts = new LinkedList<>();
@@ -677,12 +705,21 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 stack.push(new MapLocation(starts.get(index).x * BLOCK_SIZE, starts.get(index).y * BLOCK_SIZE));
             }
 
-            MapLocation node = stack.pop();
+            MapLocation node = null;
+            for (int i = 0; i < stack.size(); ++i) {
+                if (getChebyshevDistance(rc.getLocation(), stack.peek()) <= 10) {
+                    node = stack.pop();
+                    break;
+                }
+                stack.push(stack.pop());
+            }
+            if (node == null) node = stack.pop();
 
             // Kill annoying cows
             killCow();
 
             updateSeenBlocks();
+            updateClusters();
 
             if (visited[node.y][node.x]) {
                 continue;
@@ -699,7 +736,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
                 rc.setIndicatorDot(node, 255, 0, 0);
                 if (tryMove(movementSolver.directionToGoal(node))) {
+                    System.out.println("State before: " + currentState);
                     searchSurroundingsSoup();
+                    System.out.println("found a cluster, changing state");
+                    if (currentState != State.EXPLORE) return;
                     ++i;
                     Clock.yield();
                 }
@@ -721,9 +761,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             visited[node.y][node.x] = true;
 
             for (Direction dir : Direction.allDirections()) {
-                MapLocation nnode = node.add(dir);
+                MapLocation nnode = node.add(dir).add(dir);
                 if (!onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
-                if ((nnode.y + nnode.x) % 2 == 0) continue;
                 stack.push(nnode);
             }
         }
@@ -735,6 +774,21 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public void execTaxi() throws GameActionException {
         if (rc.isCurrentlyHoldingUnit()) {
+            for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+                if (robot.type == RobotType.NET_GUN) {
+                    if (getDistanceSquared(currentReq.goal, robot.getLocation()) < 24) {
+                        // There is a netgun in the way rip
+                        for (Direction dir : Direction.allDirections()) {
+                            if (rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir))) {
+                                rc.dropUnit(dir);
+                                break;
+                            }
+                        }
+                        // Hopefully doesn't get here (kill miner)
+                        rc.dropUnit(Direction.CENTER);
+                    }
+                }
+            }
             if (!isAdjacentTo(currentReq.goal)) {
                 tryMove(movementSolver.directionToGoal(currentReq.goal));
             } else {
