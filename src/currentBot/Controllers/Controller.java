@@ -149,7 +149,6 @@ public abstract class Controller {
     public boolean tryShoot(RobotInfo robotInfo) throws GameActionException {
         if (rc.canShootUnit(robotInfo.getID())) {
             rc.shootUnit(robotInfo.getID());
-            System.out.println("shot down enemy");
             return true;
         }
         return false;
@@ -594,6 +593,32 @@ public abstract class Controller {
 //                System.out.println("YEEHAW");
                 return;
             }
+        }
+    }
+
+    void avoidDrone() throws GameActionException {
+        RobotInfo[] enemies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
+
+        boolean shouldMove = false;
+
+        for (RobotInfo enemy : enemies) {
+            if (isAdjacentTo(enemy.getLocation())) {
+                shouldMove = true;
+            }
+        }
+
+        if (!shouldMove) return;
+
+        System.out.println("Rip have to avoid drone");
+
+        for (Direction dir : Direction.allDirections()) {
+            MapLocation pos = rc.getLocation().add(dir);
+
+            boolean isGood = true;
+            for (RobotInfo enemy : enemies) {
+                if (getChebyshevDistance(pos, enemy.getLocation()) <= 1) isGood = false;
+            }
+            if (isGood && tryMove(dir)) return;
         }
     }
 

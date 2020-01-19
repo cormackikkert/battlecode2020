@@ -193,6 +193,7 @@ public class MinerController extends Controller {
             }
         }
 
+        avoidDrone();
         if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
             isAdjacentToWater(rc.getLocation())) {
             avoidWater();
@@ -204,15 +205,7 @@ public class MinerController extends Controller {
         rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
             currentState = State.BUILDER;
 
-            boolean nearbyNetGun = false;
-            for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
-                if (robot.type == RobotType.NET_GUN) nearbyNetGun = true;
-            }
-
-            if (Math.random() > 0.5 && !nearbyNetGun)
-                buildType = RobotType.VAPORATOR;
-            else
-                buildType = RobotType.NET_GUN;
+            buildType = RobotType.VAPORATOR;
             buildLoc = null;
         }
 
@@ -532,7 +525,7 @@ public class MinerController extends Controller {
                 }
             }
 
-            if (currentRefineryPos == null) {
+            if (currentRefineryPos == null && rc.getTeamSoup() > RobotType.REFINERY.cost) {
                 // Build a new refinery
                 while (currentRefineryPos == null) {
 //                    System.out.println("I am looking for a place to build a refinery");
@@ -545,7 +538,20 @@ public class MinerController extends Controller {
                     }
                     Clock.yield();
                 }
+            } else if (currentRefineryPos == null) {
+                currentRefineryPos = allyHQ;
             }
+        }
+
+        boolean nearbyNetGun = false;
+        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
+            if (robot.type == RobotType.NET_GUN) nearbyNetGun = true;
+        }
+
+        if (!nearbyNetGun && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.NET_GUN)) {
+            buildType = RobotType.NET_GUN;
+            buildLoc = null;
+            execBuilder();
         }
 
         if (getDistanceSquared(rc.getLocation(), currentRefineryPos) <= 1) {
@@ -562,12 +568,12 @@ public class MinerController extends Controller {
                 currentState = State.MINE;
             }
         } else {
-            System.out.println("Going to refinery: " +  movementSolver.moves);
+//            System.out.println("Going to refinery: " +  movementSolver.moves);
             if (!canReach(currentRefineryPos) || movementSolver.moves > GIVE_UP_THRESHOLD) {
                 // Build refinery
 
                 if (currentRefineryPos == allyHQ) {
-                    buildType = (Math.random() > 0.5) ? RobotType.FULFILLMENT_CENTER : RobotType.DESIGN_SCHOOL;
+                    buildType = RobotType.REFINERY;
                     currentState = State.BUILDER;
                     buildLoc = null;
                     execBuilder();

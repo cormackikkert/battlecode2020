@@ -184,13 +184,21 @@ public class MovementSolver {
     public void restart() {
     }
 
+    int getChebyshevDistance(MapLocation p1, MapLocation p2) {
+        return Math.max(Math.abs(p1.x - p2.x), Math.abs(p1.y - p2.y));
+    }
+
     boolean isObstacle(Direction dir, MapLocation to) throws GameActionException {
         //point is obstacle if there is a building, is not on map (checked by canMove)
         // if it is flooded, next to a drone or is previous point
 
         // pretty crap implementation to avoid drones since gets stuck if many drones around
-//        boolean alreadyInDroneRange = false;
-//        controller.scanRobots();
+
+        //boolean alreadyInDroneRange = false;
+        controller.scanRobots();
+        for (RobotInfo robot : controller.enemies) {
+            if (getChebyshevDistance(rc.getLocation().add(dir), robot.getLocation())<=1) return true;
+        }
 //        for (RobotInfo robotInfo : controller.enemies) {
 //            if (robotInfo.getType() == RobotType.DELIVERY_DRONE &&
 //                    rc.getLocation().isAdjacentTo(robotInfo.getLocation())) {
