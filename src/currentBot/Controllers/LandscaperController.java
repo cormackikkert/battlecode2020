@@ -178,6 +178,7 @@ public class LandscaperController extends Controller {
         }
     }
     final int numWallers = 7;
+    final int roundToLevelWall = 450;
     public void execProtectHQ() throws GameActionException {
         if (allyHQ == null)
             allyHQ = communicationHandler.receiveAllyHQLoc();
@@ -198,21 +199,21 @@ public class LandscaperController extends Controller {
         }
         // robot is currently on HQ wall
         MapLocation curr = rc.getLocation();
-        if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(curr.directionTo(allyHQ))) {
-            rc.digDirt(rc.getLocation().directionTo(allyHQ));
-            return;
-        }
-        if (rc.getRoundNum() <= 450 && walled < numWallers) {  // wait for more wallers
-            return;
-        }
         Direction nextDir = nextDirection(curr);
-        // System.out.println("New direction is " + nextDir.toString());
-
-        while (rc.getDirtCarrying() == 0) {
-            tryDigRandom();
+        if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0) {
+            if (rc.canDigDirt(curr.directionTo(allyHQ))) {
+                rc.digDirt(rc.getLocation().directionTo(allyHQ));
+                return;
+            } else if (rc.canDepositDirt(nextDir)) {
+                rc.depositDirt(nextDir);
+                return;
+            }
         }
-        while (!rc.canDepositDirt(nextDir)) Clock.yield();
-        rc.depositDirt(nextDir);
+        if (rc.getRoundNum() <= roundToLevelWall && walled < numWallers) {  // wait for more wallers
+            tryDeposit(Direction.CENTER);
+            return;
+        }
+        tryDeposit(nextDir);
         if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
     }
 
@@ -351,6 +352,13 @@ public class LandscaperController extends Controller {
         return buryDir;  // if no option but to bury an ally
     }
 
+    void tryDeposit(Direction d) throws GameActionException {
+        if (rc.getDirtCarrying() == 0)
+            tryDigRandom();
+        else if (rc.canDepositDirt(d))
+            rc.depositDirt(d);
+    }
+
     boolean tryDigRandom() throws GameActionException {
         return tryDigRandom(Direction.CENTER);
     }
@@ -369,30 +377,37 @@ public class LandscaperController extends Controller {
     // used for landscaper to climb up to HQ wall
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
-        if (rc.getLocation().distanceSquaredTo(goal) <= 8) {
-            Direction dir = dirToGoal(goal);
-            level(dir);
-            tryMove(dir);
-            return;
-        }
+        MapLocation curr = rc.getLocation();
+        if (curr.distanceSquaredTo(goal) <= 8 && rc.getRoundNum() > roundToLevelWall) {
+            Direction dir = curr.directionTo(goal);
+            for (Direction direction : directions) {
+                if (curr.add(direction).isAdjacentTo(allyHQ) && !rc.isLocationOccupied(curr.add(direction)))
+                    dir = direction;
+            }
+            if (rc.senseElevation(curr.add(dir)) - rc.senseElevation(curr) > 3) level(dir);
+            else tryMove(dir);
+        } else {
             Direction dir = movementSolver.directionToGoal(goal);
             if (!dir.equals(Direction.CENTER)) {
-                if (tryMove(movementSolver.directionToGoal(goal)))
+                if (tryMove(dir))
                     return;
             }
             dir = dirToGoal(goal);
             System.out.println("Received direction " + dir.toString());
-            MapLocation curr = rc.getLocation();
             if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(dir))) > 3) {
                 if (!level(dir)) {  // need to level dirt
                     // if could not level, try another path
-                    recent.set(index, curr.add(dir)); index = (index + 1)%recency;
+                    recent.set(index, curr.add(dir));
+                    index = (index + 1) % recency;
                     return;
                 }
             }
-            if (!tryMove(dir))
-                recent.set(index, curr.add(dir)); index = (index + 1)%recency;
+            if (!tryMove(dir)) {
+                recent.set(index, curr.add(dir));
+                index = (index + 1) % recency;
+            }
             System.out.println("Tried to move");
+        }
     }
 
     boolean shouldMoveOnWall(MapLocation point) {
@@ -403,8 +418,7 @@ public class LandscaperController extends Controller {
                 if (pos.distanceSquaredTo(point) <= 1)
                     count++;
                 if (pos.distanceSquaredTo(allyHQ) > 2 && pos.distanceSquaredTo(allyHQ)<=8
-                && point.distanceSquaredTo(pos) > rc.getLocation().distanceSquaredTo(pos)
-                && rc.getLocation().distanceSquaredTo(pos) <= 2) {
+                && point.distanceSquaredTo(pos) > rc.getLocation().distanceSquaredTo(pos)) {
                     return true;
                 }
             }
