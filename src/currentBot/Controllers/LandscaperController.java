@@ -9,6 +9,9 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Map;
 
+import static currentBot.Controllers.PlayerConstants.ELEVATE_ENOUGH;
+import static currentBot.Controllers.PlayerConstants.ELEVATE_TIME;
+
 public class LandscaperController extends Controller {
 
     public enum State {
@@ -19,7 +22,8 @@ public class LandscaperController extends Controller {
         ATTACK,
         ROAM,
         REMOVE_WATER,
-        KILLUNITS // Kills units around HQ
+        KILLUNITS, // Kills units around HQ
+        ELEVATE_BUILDING
     }
     public State currentState = State.REMOVE_WATER;
     public SoupCluster currentSoupCluster; // build wall around this
@@ -74,6 +78,9 @@ public class LandscaperController extends Controller {
         if (currentSoupCluster == null && currentState == State.REMOVE_WATER) {
             communicationHandler.receiveClearSoupFlood();
         }
+        if (currentState != State.PROTECTHQ && rc.getRoundNum() >= ELEVATE_TIME) {
+            currentState = State.ELEVATE_BUILDING;
+        }
 
         hqInfo(); // includes scanning robots
         scanNetGuns();
@@ -89,7 +96,66 @@ public class LandscaperController extends Controller {
             case DESTROY:       execDestroy();      break;
             case REMOVE_WATER: execRemoveWater(); break;
             case KILLUNITS: execKillUnits();      break;
+            case ELEVATE_BUILDING: execElevate(); break;
 //            case ROAM: movementSolver.windowsRoam(); break;
+        }
+    }
+
+    boolean askFriend = false;
+    Direction minerDirection = null;
+    MapLocation minerLocation = null;
+    public void execElevate() throws GameActionException { // DO NOT MOVE
+        MapLocation mapLocation = rc.getLocation();
+        if (minerDirection == null) {
+
+            // asking for help if not already
+            if (!askFriend) {
+                communicationHandler.landscaperAskForCompany(mapLocation);
+                askFriend = true;
+            }
+
+            // checking if ally miner is adjacent yet
+            for (Direction direction : directions) {
+                RobotInfo robotInfo = rc.senseRobotAtLocation(mapLocation.add(direction));
+                if (robotInfo != null && robotInfo.getTeam() == ALLY && robotInfo.getType() == RobotType.MINER) {
+                    minerDirection = direction;
+                    minerLocation = mapLocation.add(minerDirection);
+                }
+            }
+
+        } else {
+            if (rc.senseElevation(mapLocation) >= ELEVATE_ENOUGH && rc.senseElevation(minerLocation) >= ELEVATE_ENOUGH) {
+                System.out.println("try to die");
+                rc.disintegrate();
+            }
+
+            if (rc.getDirtCarrying() == 0) {
+                System.out.println("want to dig for "+minerLocation);
+                for (Direction dir : Direction.allDirections()) {
+                    MapLocation digHere = mapLocation.add(dir);
+                    RobotInfo robotInfo = rc.senseRobotAtLocation(digHere);
+                    if (rc.canDigDirt(dir)
+//                            && (digHere.x + digHere.y) % 2 == 1
+                            && !digHere.equals(minerLocation)
+                            && (robotInfo == null || robotInfo.getTeam() != ALLY)
+                                    ) {
+                        rc.digDirt(dir);
+                        System.out.println("dig for center dig");
+                    }
+                }
+            } else {
+                if (rc.senseElevation(mapLocation) > rc.senseElevation(minerLocation)) {
+                    if (rc.canDepositDirt(minerDirection)) {
+                        rc.depositDirt(minerDirection);
+                        System.out.println("dump for friend");
+                    }
+                } else {
+                    if (rc.canDepositDirt(Direction.CENTER)) {
+                        rc.depositDirt(Direction.CENTER);
+                        System.out.println("dump for me");
+                    }
+                }
+            }
         }
     }
 
@@ -114,7 +180,7 @@ public class LandscaperController extends Controller {
         }
         while (!rc.canDepositDirt(nextDir)) Clock.yield();
         rc.depositDirt(nextDir);
-        if (nearbyLandscapers(curr.add(nextDir), 1) == 0) tryMove(nextDir);
+        if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
     }
 
     boolean startedWalling = false;
@@ -339,8 +405,8 @@ public class LandscaperController extends Controller {
     // used for landscaper to climb up to HQ wall
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
-        if (rc.getLocation().distanceSquaredTo(goal) <= 5) {
-            Direction dir = rc.getLocation().directionTo(goal);
+        if (rc.getLocation().distanceSquaredTo(goal) <= 8) {
+            Direction dir = dirToGoal(goal);
             level(dir);
             tryMove(dir);
             return;
@@ -365,13 +431,21 @@ public class LandscaperController extends Controller {
             System.out.println("Tried to move");
     }
 
-    int nearbyLandscapers(MapLocation point, int dist) {
+    boolean shouldMoveOnWall(MapLocation point) {
         int count = 0;
-        for (RobotInfo robot : rc.senseNearbyRobots(point, dist, rc.getTeam())) {
-            if (robot.type.equals(RobotType.LANDSCAPER))
-                count++;
+        for (RobotInfo robot : rc.senseNearbyRobots(-1, rc.getTeam())) {
+            if (robot.type.equals(RobotType.LANDSCAPER)) {
+                MapLocation pos = robot.location;
+                if (pos.distanceSquaredTo(point) <= 1)
+                    count++;
+                if (pos.distanceSquaredTo(allyHQ) > 2 && pos.distanceSquaredTo(allyHQ)<=8
+                && point.distanceSquaredTo(pos) > rc.getLocation().distanceSquaredTo(pos)
+                && rc.getLocation().distanceSquaredTo(pos) <= 2) {
+                    return true;
+                }
+            }
         }
-        return count;
+        return count == 0;
     }
 
     // levels the dirt in given direction compared to current loc
@@ -430,7 +504,7 @@ public class LandscaperController extends Controller {
     }
 
     Direction[] getClosestDirections(Direction d) {
-        return new Direction[]{d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(),
+        return new Direction[]{d, d.rotateLeft(), d.rotateRight(), d.rotateLeft().rotateLeft(),
         d.rotateRight().rotateRight(), d.opposite().rotateRight(), d.opposite().rotateLeft(),
         d.opposite()};
     }
@@ -680,11 +754,22 @@ public class LandscaperController extends Controller {
 
     static final int HIGHER = 5;
     public void execRemoveWater() throws GameActionException {
+        MapLocation location = rc.getLocation();
+
+        if (rc.getRoundNum() >= 1200) { // elevation 5 tiles flooded at round 1210 so try to survive alone
+            protectSelf();
+            return;
+        }
+
         if (currentSoupCluster == null) {
-            movementSolver.windowsRoam();
+            if (rc.getRoundNum() >= 1200) { // elevation 5 tiles flooded at round 1210 so try to survive alone
+                protectSelf();
+                return;
+            } else {
+                movementSolver.windowsRoam();
+            }
         } else {
 
-        MapLocation location = rc.getLocation();
 
         boolean allWaterAround = rc.senseElevation(location) < HIGHER;
         for (Direction dir : cardinal) {
@@ -694,7 +779,30 @@ public class LandscaperController extends Controller {
         }
 
         if (allWaterAround) {
+            for (Direction direction : ordinal) {
+                while (rc.senseElevation(location.add(direction)) < HIGHER) {
+                    if (rc.getRoundNum() >= 1200) break;
+
+                    if (rc.getDirtCarrying() == 0) {
+                        for (Direction dir : Direction.allDirections()) {
+                            MapLocation digHere = location.add(dir);
+                            if (rc.canDigDirt(dir)
+                                    && (digHere.x + digHere.y) % 2 == 1) {
+                                rc.digDirt(dir);
+                                System.out.println("dig for ordinal dig");
+                            }
+                        }
+                    } else {
+                        if (rc.canDepositDirt(direction)) {
+                            rc.depositDirt(direction);
+                            System.out.println("dump center dump");
+                        }
+                    }
+                }
+            }
             while (rc.senseElevation(location) < HIGHER) {
+                if (rc.getRoundNum() >= 1200) break;
+
                 if (rc.getDirtCarrying() == 0) {
                     for (Direction dir : Direction.allDirections()) {
                         MapLocation digHere = location.add(dir);
@@ -713,6 +821,10 @@ public class LandscaperController extends Controller {
             }
         }
 
+        if (rc.getRoundNum() >= 1200) { // elevation 5 tiles flooded at round 1210 so try to survive alone
+            protectSelf();
+            return;
+        }
 
 
         boolean near = false;
@@ -726,6 +838,11 @@ public class LandscaperController extends Controller {
                 near = true;
                 break;
             }
+        }
+
+        if (rc.getRoundNum() >= 1200) { // elevation 5 tiles flooded at round 1210 so try to survive alone
+            protectSelf();
+            return;
         }
 
         if (near) {
@@ -841,7 +958,25 @@ public class LandscaperController extends Controller {
 //
 //    }
 
-
+    public void protectSelf() throws GameActionException {
+        MapLocation location = rc.getLocation();
+        if (rc.getDirtCarrying() == 0) {
+            for (Direction dir : Direction.allDirections()) {
+                MapLocation digHere = location.add(dir);
+                if (rc.canDigDirt(dir)
+                        && (digHere.x + digHere.y) % 2 == 1) {
+                    rc.digDirt(dir);
+                    System.out.println("dig dig dig");
+                    break;
+                }
+            }
+        } else {
+            if (rc.canDepositDirt(Direction.CENTER)) {
+                rc.depositDirt(Direction.CENTER);
+                System.out.println("dump dump dump");
+            }
+        }
+    }
 
     public static boolean inRange(int a, int lo, int hi) {
         return (lo <= a && a < hi);

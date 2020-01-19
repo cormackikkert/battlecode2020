@@ -34,6 +34,10 @@ public class FulfillmentCenterController extends Controller {
     public void run() throws GameActionException {
         if (sent >= PRODUCTION_CAP) return;
 
+        if (rc.getRoundNum() > 1700) { // just spam at this point, no need to conserve soup
+            buildDrone();
+        }
+
         if (rc.getRoundNum() % 10 == 0 && rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) {
             buildDrone();
             ex += 100;
