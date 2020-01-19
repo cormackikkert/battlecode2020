@@ -110,7 +110,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         assignRole();
         System.out.println("I am a " + currentState);
-        hqInfo(); // includes scanning robots
 
         if (currentState == State.TAXI) {
             // Like this cuz we don't want to execKill on our own miners
@@ -297,6 +296,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execAttackLateGame() throws GameActionException {
+        if (enemyHQ == null) {
+            currentState = State.DEFENDLATEGAME;
+            execDefendLateGame();
+        }
+
         int landscapers = 0;
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID()) && enemy.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RANGE)) {
