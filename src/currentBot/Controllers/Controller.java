@@ -234,7 +234,9 @@ public abstract class Controller {
         for (Direction dir : directions) {
             RobotInfo robotAt = null;
             try {
-                robotAt = rc.senseRobotAtLocation(loc.add(dir));
+                if (rc.canSenseLocation(loc.add(dir))) {
+                    robotAt = rc.senseRobotAtLocation(loc.add(dir));
+                }
             } catch (GameActionException e) {
                 e.printStackTrace();
             }

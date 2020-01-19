@@ -6,6 +6,8 @@ import currentBot.Controllers.PlayerConstants;
 
 import java.util.ArrayList;
 
+import static battlecode.common.RobotType.HQ;
+
 /*
     A class that handles movement
  */
@@ -255,8 +257,8 @@ public class MovementSolver {
         if (enemies == null) enemies = rc.senseNearbyRobots();
         for (RobotInfo enemy : enemies) {
             if (enemy.getTeam() != rc.getTeam().opponent()) continue;
-            if ((enemy.getType() == RobotType.HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
-                controller.communicationHandler.sendEnemyHQLoc(enemy.getLocation());
+            if ((enemy.getType() == HQ || enemy.getType() == RobotType.NET_GUN) && to.isWithinDistanceSquared(enemy.getLocation(), NET_GUN_RANGE)) {
+                if (enemy.getType() == HQ) controller.communicationHandler.sendEnemyHQLoc(enemy.getLocation());
                 return true;
             }
         }
@@ -278,7 +280,7 @@ public class MovementSolver {
                     loc = new MapLocation(rc.getMapWidth()-x-1, y);
                     if (rc.canSenseLocation(loc)) {
                         if (rc.senseRobotAtLocation(loc) != null) {
-                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                            if (rc.senseRobotAtLocation(loc).getType() != HQ) {
                                 ((DeliveryDroneControllerMk2) controller).ghostH = false;
                                 controller.communicationHandler.sendFailHorizontal();
                                 System.out.println("no ghosts here");
@@ -299,7 +301,7 @@ public class MovementSolver {
                     loc = new MapLocation(x, rc.getMapHeight()-y-1);
                     if (rc.canSenseLocation(loc)) {
                         if (rc.senseRobotAtLocation(loc) != null) {
-                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                            if (rc.senseRobotAtLocation(loc).getType() != HQ) {
                                 ((DeliveryDroneControllerMk2) controller).ghostV = false;
                                 controller.communicationHandler.sendFailVertical();
                                 System.out.println("no ghosts here");
@@ -320,7 +322,7 @@ public class MovementSolver {
                     loc = new MapLocation(rc.getMapWidth()-x-1, rc.getMapHeight()-y-1);
                     if (rc.canSenseLocation(loc)) {
                         if (rc.senseRobotAtLocation(loc) != null) {
-                            if (rc.senseRobotAtLocation(loc).getType() != RobotType.HQ) {
+                            if (rc.senseRobotAtLocation(loc).getType() != HQ) {
                                 ((DeliveryDroneControllerMk2) controller).ghostR = false;
                                 controller.communicationHandler.sendFailRotational();
                                 System.out.println("no ghosts here");
