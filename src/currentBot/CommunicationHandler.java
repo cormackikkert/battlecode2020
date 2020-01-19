@@ -3,6 +3,7 @@ package currentBot;
 import battlecode.common.*;
 import currentBot.Controllers.Controller;
 import currentBot.Controllers.LandscaperController;
+import currentBot.Controllers.MinerController;
 
 import static currentBot.CommunicationHandler.CommunicationType.*;
 
@@ -35,6 +36,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         ALL_ATTACK,
         TOO_MUCH_DIE,
         STOP_SUDOKU,
+        ASK_COMPANY
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -628,6 +630,41 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                     controller.sudokuSent = false;
                     controller.campMessageSent = false;
                     controller.campOutside = 0;
+                }
+            }
+        }
+    }
+
+    public void landscaperAskForCompany(MapLocation mapLocation) throws GameActionException {
+        int[] message = bluePrint(ASK_COMPANY);
+
+        message[1] = mapLocation.x;
+        message[2] = mapLocation.y;
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+            System.out.println("asked for company");
+        }
+    }
+
+    int turnBC = 1;
+    public void beCompany() throws GameActionException {
+        for (int i = turnBC
+             ; i < rc.getRoundNum(); i++) {
+            turnBC++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == ASK_COMPANY) {
+                    decode(message);
+                    controller.landscaperLocation = new MapLocation(message[1], message[2]);
+                    controller.landscaperLocations.add(new MapLocation(message[1], message[2]));
+                    if (((MinerController) controller).previousState == null) {
+                        ((MinerController) controller).previousState = ((MinerController) controller).currentState;
+                    }
+                    ((MinerController) controller).currentState = MinerController.State.ELEVATE;
+                    System.out.println("landscaper location++ "+new MapLocation(message[1], message[2]));
                 }
             }
         }

@@ -11,6 +11,7 @@ import currentBot.MapBlock;
 import currentBot.MovementSolver;
 import currentBot.RingQueue;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -73,6 +74,9 @@ public abstract class Controller {
     public boolean ghostV = true;
     public boolean ghostR = true;
     public int ghostsKilled = 0;
+
+    public MapLocation landscaperLocation = null;
+    public List<MapLocation> landscaperLocations = new ArrayList<>();
 
     Direction[] directions = {
             Direction.NORTH,
@@ -667,7 +671,7 @@ public abstract class Controller {
     public void scanNetGuns() throws GameActionException {
         communicationHandler.receiveNetGunLocations();
 
-        System.out.println("scanning for net guns out of "+enemies.length+" enemies");
+//        System.out.println("scanning for net guns out of "+enemies.length+" enemies");
 
         for (RobotInfo robotInfo : enemies) {
             if (robotInfo.getType() == RobotType.HQ || robotInfo.getType() == RobotType.NET_GUN) {
@@ -682,7 +686,9 @@ public abstract class Controller {
 
         for (MapLocation mapLocation : netGuns) {
             if (rc.canSenseLocation(mapLocation)) {
-                RobotType robotType = rc.senseRobotAtLocation(mapLocation).getType();
+                RobotInfo robotInfo = rc.senseRobotAtLocation(mapLocation);
+                if (robotInfo == null) continue;
+                RobotType robotType = robotInfo.getType();
                 if (robotType != RobotType.NET_GUN && robotType != RobotType.HQ) {
                     System.out.println("net gun no longer there");
                     communicationHandler.sendNetGunDie(mapLocation);

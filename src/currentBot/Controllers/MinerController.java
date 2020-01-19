@@ -1,6 +1,7 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
+import com.sun.org.apache.bcel.internal.generic.LAND;
 import currentBot.*;
 
 import java.util.Arrays;
@@ -27,7 +28,8 @@ public class MinerController extends Controller {
         BUILDER,
         SPECIALOPSBUILDER, // builds the fulfillment center which builds the drone scouts
         RUSHBOT, // Rushes to enemy HQ and builds a design school
-        EXPLORE  // Uses DFS to find soup locations (DFS > BFS)
+        EXPLORE,  // Uses DFS to find soup locations (DFS > BFS)
+        ELEVATE
     }
 
     final int BIAS_TYPES = 16;
@@ -50,7 +52,8 @@ public class MinerController extends Controller {
 
     boolean isRush = false;
 
-    State currentState = State.SEARCHURGENT;
+    public State currentState = State.SEARCHURGENT;
+    public State previousState = null;
     int velx = 0;
     int vely = 0;
 
@@ -175,6 +178,9 @@ public class MinerController extends Controller {
         scanNetGuns();
         solveGhostHq();
         communicationHandler.solveEnemyHQLocWithGhosts();
+        if (previousState == null) {
+            communicationHandler.beCompany();
+        }
 
         updateClusters();
 
@@ -191,7 +197,7 @@ public class MinerController extends Controller {
             avoidWater();
         }
 
-//        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
+        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
 
         if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
         rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
@@ -212,6 +218,7 @@ public class MinerController extends Controller {
             case SCOUT: execScout();               break;
             case RUSHBOT: execRush();              break;
             case EXPLORE: execExplore();           break;
+            case ELEVATE: execElevate();           break;
         }
     }
 
@@ -923,6 +930,67 @@ public class MinerController extends Controller {
             communicationHandler.sendMapBlocks(visitedBlocks.toArray(new MapLocation[0]));
         }
         currentState = State.SEARCHURGENT;
+    }
+
+    Direction landscaperDirection = null;
+    int pointer = 0;
+    public int elevateRoleStart = 0;
+    public void execElevate() throws GameActionException {
+        MapLocation mapLocation = rc.getLocation();
+
+        for (Direction direction : directions) {
+            RobotInfo robotInfo = rc.senseRobotAtLocation(mapLocation.add(direction));
+            if (robotInfo != null && robotInfo.getTeam() == ALLY && robotInfo.getType() == RobotType.LANDSCAPER
+            && !robotInfo.getLocation().isAdjacentTo(allyHQ) // no point going near hq they wont help you
+            ) {
+                landscaperDirection = direction;
+                landscaperLocation = mapLocation.add(direction);
+            }
+        }
+
+        if (!mapLocation.isAdjacentTo(landscaperLocation)) {
+            tryMove(movementSolver.directionToGoal(landscaperLocation));
+        } else {
+            elevateRoleStart++;
+            int highestNextElevation = 0;
+            for (Direction direction : directions) {
+                highestNextElevation = Math.max(highestNextElevation, rc.senseElevation(mapLocation.add(direction)));
+            }
+            if (elevateRoleStart > 10 && rc.senseElevation(landscaperLocation) - highestNextElevation > 5) { // means not chosen
+//                for (Direction direction : directions) {
+//                    RobotInfo robotInfo = rc.senseRobotAtLocation(landscaperLocation.add(direction));
+//                    if (robotInfo != null && robotInfo.getTeam() == ALLY && robotInfo.getType() == RobotType.MINER) {
+////                        for (int i = 0; i < landscaperLocations.size(); i++) {
+////                            if (landscaperLocations.get(i).equals(landscaperLocation)) {
+////                                System.out.println("remove");
+////                                landscaperLocations.remove(i);
+////                                break;
+////                            }
+////                        }
+                        pointer++;
+                        if (pointer < landscaperLocations.size()) {
+                            landscaperLocation = landscaperLocations.get(pointer);
+                            System.out.println("try again");
+//                            execElevate();
+                        } else {
+                            System.out.println("revert back to "+previousState);
+                            currentState = previousState;
+                        }
+//                    }
+//                }
+            }
+
+            if (landscaperDirection == null) {
+                landscaperDirection = mapLocation.directionTo(landscaperLocation);
+            }
+
+            if (rc.canSenseLocation(landscaperLocation)) {
+                RobotInfo robotInfo = rc.senseRobotAtLocation(landscaperLocation);
+                if (robotInfo == null || robotInfo.getTeam() != ALLY || robotInfo.getType() != RobotType.LANDSCAPER) {
+                    tryBuild(RobotType.FULFILLMENT_CENTER, landscaperDirection);
+                }
+            }
+        }
     }
 
     int reduce(int val, int decay) {
