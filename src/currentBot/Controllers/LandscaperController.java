@@ -91,12 +91,9 @@ public class LandscaperController extends Controller {
 
         System.out.println("I am a " + currentState.toString());
         switch (currentState) {
-            case PROTECTHQ:
-                if (rc.getRoundNum() > 450) execProtectHQ();
-                else execProtectHQ2();
-                break;
+            case PROTECTHQ: execProtectHQ();      break;
             //case PROTECTSOUP:   execProtectSoup();  break;
-            case DESTROY:       execDestroy();      break;
+            case DESTROY:       execDestroy();    break;
             case REMOVE_WATER: execRemoveWater(); break;
             case KILLUNITS: execKillUnits();      break;
             case ELEVATE_BUILDING: execElevate(); break;
@@ -180,22 +177,36 @@ public class LandscaperController extends Controller {
             }
         }
     }
-
+    final int numWallers = 7;
     public void execProtectHQ() throws GameActionException {
         if (allyHQ == null)
             allyHQ = communicationHandler.receiveAllyHQLoc();
-        if (rc.getLocation().distanceSquaredTo(allyHQ) > 2) {
+        int walled = 0;
+        if (rc.canSenseLocation(allyHQ)) {
+            for (RobotInfo rb : rc.senseNearbyRobots(allyHQ, 2,rc.getTeam())) {
+                if (rb.type.equals(RobotType.LANDSCAPER)) walled++;
+            }
+        }
+        if (!rc.getLocation().isAdjacentTo(allyHQ)) {
+            if (walled == numWallers) {  // if already have all 8 landscapers building wall
+                currentState = State.REMOVE_WATER; // TODO : or assign another role
+                return;
+            }
+            // otherwise go to HQ
             goToLocationToDeposit(allyHQ);
             return;
         }
         // robot is currently on HQ wall
         MapLocation curr = rc.getLocation();
+        if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(curr.directionTo(allyHQ))) {
+            rc.digDirt(rc.getLocation().directionTo(allyHQ));
+            return;
+        }
+        if (rc.getRoundNum() <= 450 && walled < numWallers) {  // wait for more wallers
+            return;
+        }
         Direction nextDir = nextDirection(curr);
         // System.out.println("New direction is " + nextDir.toString());
-        if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(curr.directionTo(allyHQ))) {
-                rc.digDirt(rc.getLocation().directionTo(allyHQ));
-                return;
-        }
 
         while (rc.getDirtCarrying() == 0) {
             tryDigRandom();
@@ -203,76 +214,6 @@ public class LandscaperController extends Controller {
         while (!rc.canDepositDirt(nextDir)) Clock.yield();
         rc.depositDirt(nextDir);
         if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
-    }
-
-    boolean startedWalling = false;
-
-    public void execProtectHQ2() throws GameActionException {
-        if (allyHQ == null)
-            allyHQ = communicationHandler.receiveAllyHQLoc();
-
-        int walled = 0;
-        MapLocation sitHere = null;
-        for (Direction direction : directions) {
-            if (!rc.canSenseLocation(allyHQ.add(direction))) continue;
-            RobotInfo robotInfo = rc.senseRobotAtLocation(allyHQ.add(direction));
-            if (robotInfo == null || robotInfo.getTeam() != rc.getTeam() || robotInfo.getType() != RobotType.LANDSCAPER) {
-                sitHere = allyHQ.add(direction);
-            }
-            if (robotInfo != null && robotInfo.getTeam() == ALLY && robotInfo.getType() == RobotType.LANDSCAPER) {
-                walled++;
-            }
-        }
-
-        if (walled == 7 && !rc.getLocation().isAdjacentTo(allyHQ)) { // if already have all 8 landscapers building wall
-            currentState = State.REMOVE_WATER; // TODO : or assign another role
-            return;
-        }
-
-        if (!rc.getLocation().isAdjacentTo(allyHQ)) {
-            if (sitHere == null) {
-                tryMove(movementSolver.directionToGoal(allyHQ));
-            } else {
-                tryMove(movementSolver.directionToGoal(sitHere));
-            }
-        }
-
-        if (!startedWalling) {
-            boolean goodToWall = true;
-            for (Direction direction : directions) {
-                if (!rc.canSenseLocation(allyHQ.add(direction))) continue;
-                RobotInfo robotInfo = rc.senseRobotAtLocation(allyHQ.add(direction));
-                if (robotInfo == null || robotInfo.getTeam() != rc.getTeam() || robotInfo.getType() != RobotType.LANDSCAPER) {
-                    goodToWall = false;
-                    break;
-                }
-            }
-            if (goodToWall) {
-                startedWalling = true;
-                bigBigWall();
-            }
-        } else {
-            bigBigWall();
-        }
-    }
-
-
-    public void bigBigWall() throws GameActionException {
-        if (rc.getDirtCarrying() == 0) {
-            if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
-                rc.digDirt(rc.getLocation().directionTo(allyHQ));
-            } else {
-                for (Direction direction : directions) {
-                    MapLocation digHere = rc.getLocation().add(direction);
-                    if (!digHere.isAdjacentTo(allyHQ) && !digHere.equals(allyHQ) && rc.canDigDirt(direction)) {
-                        rc.digDirt(direction);
-                        break;
-                    }
-                }
-            }
-        } else {
-            rc.depositDirt(Direction.CENTER);
-        }
     }
 
     public void execKillUnits() throws GameActionException {
