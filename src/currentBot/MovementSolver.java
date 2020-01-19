@@ -244,6 +244,12 @@ public class MovementSolver {
             }
         }
 
+        for (MapLocation gunLocation : controller.netGuns) {
+            if (to.isWithinDistanceSquared(gunLocation, NET_GUN_RANGE)) {
+                return true;
+            }
+        }
+
         if (controller.enemyHQ == null) {
             if (controller.allyHQ != null) {
                 int x = controller.allyHQ.x;

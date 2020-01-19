@@ -102,15 +102,17 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        assignRole();
         hqInfo(); // includes scanning robots
+        scanNetGuns();
+        solveGhostHq();
+        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
+        assignRole();
         if (currentState == State.TAXI) {
             // Like this cuz we don't want to execKill on our own miners
             execTaxi();
             return;
         }
-        solveGhostHq();
 
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
@@ -480,6 +482,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
         MapLocation refineryPos = null;
 
         while (!queue.isEmpty() && (x2 - x1) * (y2 - y1) <= 50) {
+            hqInfo(); // includes scanning robots
+            scanNetGuns();
+            solveGhostHq();
+            System.out.println("sensor radius "+rc.getCurrentSensorRadiusSquared());
+
             MapLocation current = queue.poll();
             System.out.println("Inspecting " + current);
             if (buildMap[current.y][current.x] != null && buildMap[current.y][current.x] == RobotType.REFINERY.ordinal()) {

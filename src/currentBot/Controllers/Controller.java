@@ -55,6 +55,7 @@ public abstract class Controller {
     int lrsb = 1;
 
     public RingQueue<MapLocation> queue;
+    public List<MapLocation> netGuns = new LinkedList<>();
 
     enum Symmetry {
         HORIZONTAL,
@@ -138,7 +139,7 @@ public abstract class Controller {
     public boolean tryShoot(RobotInfo robotInfo) throws GameActionException {
         if (rc.canShootUnit(robotInfo.getID())) {
             rc.shootUnit(robotInfo.getID());
-//            System.out.println("shot down enemy");
+            System.out.println("shot down enemy");
             return true;
         }
         return false;
@@ -656,4 +657,32 @@ public abstract class Controller {
     }
     
     abstract public void run() throws GameActionException;
+
+    public void scanNetGuns() throws GameActionException {
+        communicationHandler.receiveNetGunLocations();
+
+        System.out.println("scanning for net guns out of "+enemies.length+" enemies");
+
+        for (RobotInfo robotInfo : enemies) {
+            if (robotInfo.getType() == RobotType.HQ || robotInfo.getType() == RobotType.NET_GUN) {
+                MapLocation mapLocation = robotInfo.getLocation();
+                if (!netGuns.contains(mapLocation)) {
+                    System.out.println("found net gun "+mapLocation);
+                    netGuns.add(mapLocation);
+                    communicationHandler.sendNetGunLocation(mapLocation);
+                }
+            }
+        }
+
+        for (MapLocation mapLocation : netGuns) {
+            if (rc.canSenseLocation(mapLocation)) {
+                RobotType robotType = rc.senseRobotAtLocation(mapLocation).getType();
+                if (robotType != RobotType.NET_GUN && robotType != RobotType.HQ) {
+                    System.out.println("net gun no longer there");
+                    communicationHandler.sendNetGunDie(mapLocation);
+                    netGuns.remove(mapLocation);
+                }
+            }
+        }
+    }
 }

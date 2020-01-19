@@ -75,6 +75,8 @@ public class LandscaperController extends Controller {
             communicationHandler.receiveClearSoupFlood();
         }
 
+        hqInfo(); // includes scanning robots
+        scanNetGuns();
 
         System.out.println("I am a " + currentState.toString());
         switch (currentState) {

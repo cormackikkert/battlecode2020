@@ -28,7 +28,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         HITCHHIKE_ACK,
         CLEAR_FLOOD,
         LANDSCAPE_DEFEND,
-        LANDSCAPE_HELP
+        LANDSCAPE_HELP,
+        NET_GUN_LOCATIONS,
+        NET_GUN_DIE
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -466,7 +468,6 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
-
     int turnLD = 1;
     public void receiveLandscapeRole() throws GameActionException {
         outer : for (int i = turnLD
@@ -493,6 +494,57 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                     }
                 }
 
+            }
+        }
+    }
+
+    public void sendNetGunLocation(MapLocation mapLocation) throws GameActionException {
+        int[] message = bluePrint(NET_GUN_LOCATIONS);
+
+        message[1] = mapLocation.x;
+        message[2] = mapLocation.y;
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    public void sendNetGunDie(MapLocation mapLocation) throws GameActionException {
+        int[] message = bluePrint(NET_GUN_DIE);
+
+        message[1] = mapLocation.x;
+        message[2] = mapLocation.y;
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    int turnNG = 1;
+    public void receiveNetGunLocations() throws GameActionException {
+        for (int i = turnLD
+                     ; i < rc.getRoundNum(); i++) {
+            turnLD++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == NET_GUN_LOCATIONS) {
+                    decode(message);
+                    MapLocation mapLocation = new MapLocation(message[1], message[2]);
+
+                    if (!controller.netGuns.contains(mapLocation)) {
+                        controller.netGuns.add(mapLocation);
+                    }
+                }
+
+                if (identify(message) == NET_GUN_DIE) {
+                    decode(message);
+                    MapLocation mapLocation = new MapLocation(message[1], message[2]);
+
+                    controller.netGuns.remove(mapLocation);
+                }
             }
         }
     }

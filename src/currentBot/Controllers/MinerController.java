@@ -99,6 +99,7 @@ public class MinerController extends Controller {
         this.movementSolver = new MovementSolver(this.rc, this);
         this.communicationHandler = new CommunicationHandler(this.rc, this);
         queue = new RingQueue<>(rc.getMapHeight() * rc.getMapWidth());
+        getInfo(rc);
 
 //        System.out.println("I got built on round " + this.rc.getRoundNum());
         bias = (int) (Math.random() * BIAS_TYPES);
@@ -170,10 +171,12 @@ public class MinerController extends Controller {
     public void run() throws GameActionException {
         if (this.currentSoupCluster != null) this.currentSoupCluster.draw(this.rc);
 
+        hqInfo(); // includes scanning robots
+        scanNetGuns();
         solveGhostHq();
+
         updateClusters();
 
-        scanRobots();
         if (currentRefineryPos == allyHQ) {
             for (RobotInfo ally : allies) {
                 if (ally.getType() == RobotType.REFINERY) {
