@@ -153,9 +153,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
             currentState = State.TAXI;
             return;
         }
-        if (rc.getRoundNum() > 800) {
+        if (rc.getRoundNum() > 1600) {
             currentState = State.ATTACKLATEGAME;
-        } else if (rc.getRoundNum() > 700) {
+        } else if (rc.getRoundNum() > 800) {
             currentState = State.DEFENDLATEGAME;
         } else {
             currentState = State.DEFEND;

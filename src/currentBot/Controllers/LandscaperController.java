@@ -81,7 +81,10 @@ public class LandscaperController extends Controller {
 
         System.out.println("I am a " + currentState.toString());
         switch (currentState) {
-            case PROTECTHQ:     execProtectHQ();    break;
+            case PROTECTHQ:
+                if (rc.getRoundNum() > 450) execProtectHQ();
+                else execProtectHQ2();
+                break;
             //case PROTECTSOUP:   execProtectSoup();  break;
             case DESTROY:       execDestroy();      break;
             case REMOVE_WATER: execRemoveWater(); break;
@@ -106,23 +109,17 @@ public class LandscaperController extends Controller {
                 return;
         }
 
-        if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(nextDir))) > 3) {
-            if (level(nextDir)) {  // need to level dirt
-                tryMove(nextDir);
-            }
-            return;
-        }
         while (rc.getDirtCarrying() == 0) {
             tryDigRandom();
         }
         while (!rc.canDepositDirt(nextDir)) Clock.yield();
         rc.depositDirt(nextDir);
-        tryMove(nextDir);
+        if (nearbyLandscapers(curr.add(nextDir), 1) == 0) tryMove(nextDir);
     }
 
-    /*
     boolean startedWalling = false;
-    public void execProtectHQ() throws GameActionException {
+
+    public void execProtectHQ2() throws GameActionException {
         if (allyHQ == null)
             allyHQ = communicationHandler.receiveAllyHQLoc();
 
@@ -139,7 +136,7 @@ public class LandscaperController extends Controller {
             }
         }
 
-        if (walled == 8 && !rc.getLocation().isAdjacentTo(allyHQ)) { // if already have all 8 landscapers building wall
+        if (walled == 7 && !rc.getLocation().isAdjacentTo(allyHQ)) { // if already have all 8 landscapers building wall
             currentState = State.REMOVE_WATER; // TODO : or assign another role
             return;
         }
@@ -170,20 +167,25 @@ public class LandscaperController extends Controller {
         }
     }
 
+
     public void bigBigWall() throws GameActionException {
         if (rc.getDirtCarrying() == 0) {
-            for (Direction direction : directions) {
-                MapLocation digHere = rc.getLocation().add(direction);
-                if (!digHere.isAdjacentTo(allyHQ) && !digHere.equals(allyHQ) && rc.canDigDirt(direction)) {
-                    rc.digDirt(direction);
-                    break;
+            if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
+                rc.digDirt(rc.getLocation().directionTo(allyHQ));
+            } else {
+                for (Direction direction : directions) {
+                    MapLocation digHere = rc.getLocation().add(direction);
+                    if (!digHere.isAdjacentTo(allyHQ) && !digHere.equals(allyHQ) && rc.canDigDirt(direction)) {
+                        rc.digDirt(direction);
+                        break;
+                    }
                 }
             }
         } else {
             rc.depositDirt(Direction.CENTER);
         }
     }
-    */
+
     public void execKillUnits() throws GameActionException {
         // Prioritize killing in this order
         MapLocation adjacentPos = null;
@@ -191,22 +193,24 @@ public class LandscaperController extends Controller {
         MapLocation designSchoolPos = null;
         MapLocation fulfillmentCenterPos = null;
 
+        boolean foundEnemy = false;
         for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
             if (robot.type == RobotType.NET_GUN) netGunPos = robot.location;
             else if (robot.type == RobotType.DESIGN_SCHOOL) designSchoolPos = robot.location;
             else if (robot.type == RobotType.FULFILLMENT_CENTER) fulfillmentCenterPos = robot.location;
 
             if (netGunPos != null && isAdjacentTo(netGunPos)) adjacentPos = netGunPos;
-            else if (designSchoolPos != null && isAdjacentTo(designSchoolPos)) adjacentPos = netGunPos;
-            else if (fulfillmentCenterPos != null && isAdjacentTo(fulfillmentCenterPos)) adjacentPos = netGunPos;
-
+            else if (designSchoolPos != null && isAdjacentTo(designSchoolPos)) adjacentPos = designSchoolPos;
+            else if (fulfillmentCenterPos != null && isAdjacentTo(fulfillmentCenterPos)) adjacentPos = fulfillmentCenterPos;
+            foundEnemy = true;
         }
 
-
-
+        if (!foundEnemy) {
+            currentState = State.PROTECTHQ;
+            execProtectHQ();
+        }
         // Kill an adjacent one
         if (adjacentPos != null) {
-            System.out.println("adjacent enemy");
             if (rc.getDirtCarrying() > 0 && rc.canDepositDirt(rc.getLocation().directionTo(adjacentPos))) {
                 rc.depositDirt(rc.getLocation().directionTo(adjacentPos));
             } else {
@@ -232,19 +236,24 @@ public class LandscaperController extends Controller {
                 System.out.println(isAdjacentTo(enemy) + " " + enemy + " " + adjacentPos);
                 tryMove(movementSolver.directionToGoal(enemy));
             } else {
-                if (getChebyshevDistance(rc.getLocation(), allyHQ) < 2) {
+                if (getChebyshevDistance(rc.getLocation(), allyHQ) <= 2) {
                     tryMove(movementSolver.directionToGoal(rc.getLocation().add(rc.getLocation().directionTo(allyHQ).opposite())));
                 } else if (getChebyshevDistance(rc.getLocation(), allyHQ) > 4) {
                     tryMove(movementSolver.directionToGoal(allyHQ));
                 } else {
                     // Dig dirt so depositing is fast
+                    Direction best = null;
+                    int highest = 0;
                     for (Direction dir : Direction.allDirections()) {
                         if (dir == rc.getLocation().directionTo(allyHQ)) continue;
-                        if (rc.canDigDirt(dir)) {
-                            rc.digDirt(dir);
-                            return;
+                        if (rc.canSenseLocation(rc.getLocation().add(dir)) &&
+                                rc.senseElevation(rc.getLocation().add(dir)) > highest &&
+                            rc.canDigDirt(dir)) {
+                            best = dir;
+                            highest = rc.senseElevation(rc.getLocation().add(dir));
                         }
                     }
+                    rc.digDirt(best);
                 }
             }
         }
@@ -330,14 +339,18 @@ public class LandscaperController extends Controller {
     // used for landscaper to climb up to HQ wall
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
-        if (rc.getLocation().distanceSquaredTo(goal) > 5) {
+        if (rc.getLocation().distanceSquaredTo(goal) <= 5) {
+            Direction dir = rc.getLocation().directionTo(goal);
+            level(dir);
+            tryMove(dir);
+            return;
+        }
             Direction dir = movementSolver.directionToGoal(goal);
             if (!dir.equals(Direction.CENTER)) {
-                tryMove(movementSolver.directionToGoal(goal));
-                return;
+                if (tryMove(movementSolver.directionToGoal(goal)))
+                    return;
             }
-        }
-            Direction dir = dirToGoal(goal);
+            dir = dirToGoal(goal);
             System.out.println("Received direction " + dir.toString());
             MapLocation curr = rc.getLocation();
             if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(dir))) > 3) {
@@ -347,11 +360,20 @@ public class LandscaperController extends Controller {
                     return;
                 }
             }
-            tryMove(dir);
             if (!tryMove(dir))
                 recent.set(index, curr.add(dir)); index = (index + 1)%recency;
             System.out.println("Tried to move");
     }
+
+    int nearbyLandscapers(MapLocation point, int dist) {
+        int count = 0;
+        for (RobotInfo robot : rc.senseNearbyRobots(point, dist, rc.getTeam())) {
+            if (robot.type.equals(RobotType.LANDSCAPER))
+                count++;
+        }
+        return count;
+    }
+
     // levels the dirt in given direction compared to current loc
     boolean level(Direction dir) throws GameActionException {
         MapLocation curr = rc.getLocation();
