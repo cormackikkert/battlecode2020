@@ -196,10 +196,16 @@ public class MinerController extends Controller {
         if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
         rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
             currentState = State.BUILDER;
-            if (Math.random() > 0.7)
+
+            boolean nearbyNetGun = false;
+            for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
+                if (robot.type == RobotType.NET_GUN) nearbyNetGun = true;
+            }
+
+            if (Math.random() > 0.5 && !nearbyNetGun)
                 buildType = RobotType.VAPORATOR;
             else
-                buildType = RobotType.FULFILLMENT_CENTER;
+                buildType = RobotType.NET_GUN;
             buildLoc = null;
         }
 
