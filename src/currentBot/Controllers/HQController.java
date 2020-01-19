@@ -129,15 +129,12 @@ public class HQController extends Controller {
             }
         }
 
-        // Build miner
-        if (totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
-                (!haveWallAround && rc.getRoundNum() >= START_BUILD_WALL && rc.getRoundNum() % 10 == 0) ||
-                (totalMiners < Math.min(cap, totalSoup / PlayerConstants.AREA_PER_MINER) &&
-                        rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum()) &&
-                        rc.getRoundNum() % 10 == 0)) {
+        if ((totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
+                totalMiners < totalSoup / PlayerConstants.AREA_PER_MINER) &&
+                        rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum())) {
 
             for (Direction dir : directions) {
-                if (tryBuild(RobotType.MINER, dir)) {
+                    if (tryBuild(RobotType.MINER, dir)) {
                     System.out.println("miner++");
                     totalMiners++;
                     break;
