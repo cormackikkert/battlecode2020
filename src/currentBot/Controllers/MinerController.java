@@ -29,7 +29,8 @@ public class MinerController extends Controller {
         SPECIALOPSBUILDER, // builds the fulfillment center which builds the drone scouts
         RUSHBOT, // Rushes to enemy HQ and builds a design school
         EXPLORE,  // Uses DFS to find soup locations (DFS > BFS)
-        ELEVATE
+        ELEVATE,
+        ELEVATE2
     }
 
     final int BIAS_TYPES = 16;
@@ -216,6 +217,10 @@ public class MinerController extends Controller {
             buildLoc = null;
         }
 
+        if (rc.getRoundNum() >= ELEVATE_BUILD) {
+            currentState = State.ELEVATE;
+        }
+
         switch (currentState) {
             case SEARCH: execSearch();             break;
             case MINE: execMine();                 break;
@@ -226,6 +231,7 @@ public class MinerController extends Controller {
             case RUSHBOT: execRush();              break;
             case EXPLORE: execExplore();           break;
             case ELEVATE: execElevate();           break;
+            case ELEVATE2: execElevate2();         break;
         }
     }
 
@@ -1029,6 +1035,10 @@ public class MinerController extends Controller {
                 }
             }
         }
+    }
+
+    public void execElevate2() throws GameActionException {
+        tryMultiBuild(RobotType.FULFILLMENT_CENTER);
     }
 
     int reduce(int val, int decay) {

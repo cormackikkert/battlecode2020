@@ -114,8 +114,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         if (currentState == State.TAXI) {
             // Like this cuz we don't want to execKill on our own miners
-            execTaxi();
-            return;
+            if (rc.getRoundNum() >= ELEVATE_TIME) {
+                currentState = State.DEFEND;
+            } else {
+                execTaxi();
+                return;
+            }
         }
 
         if (!rc.isCurrentlyHoldingUnit()) {

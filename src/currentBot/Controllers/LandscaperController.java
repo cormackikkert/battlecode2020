@@ -81,6 +81,9 @@ public class LandscaperController extends Controller {
         if (currentState != State.PROTECTHQ && rc.getRoundNum() >= ELEVATE_TIME) {
             currentState = State.ELEVATE_BUILDING;
         }
+        if (!isAdjacentTo(allyHQ) && rc.getRoundNum() >= ELEVATE_TIME) {
+            currentState = State.ELEVATE_BUILDING;
+        }
 
         hqInfo(); // includes scanning robots
         scanNetGuns();
@@ -122,6 +125,25 @@ public class LandscaperController extends Controller {
                     minerLocation = mapLocation.add(minerDirection);
                 }
             }
+
+//            if (rc.getDirtCarrying() == 0) {
+//                for (Direction dir : Direction.allDirections()) {
+//                    MapLocation digHere = mapLocation.add(dir);
+//                    RobotInfo robotInfo = rc.senseRobotAtLocation(digHere);
+//                    if (rc.canDigDirt(dir)
+//                            && (digHere.x + digHere.y) % 2 == 1
+//                            && (robotInfo == null || robotInfo.getTeam() != ALLY)
+//                    ) {
+//                        rc.digDirt(dir);
+//                        System.out.println("dig for center dig");
+//                    }
+//                }
+//            } else {
+//                if (rc.canDepositDirt(Direction.CENTER)) {
+//                    rc.depositDirt(Direction.CENTER);
+//                    System.out.println("dump for me");
+//                }
+//            }
 
         } else {
             if (rc.senseElevation(mapLocation) >= ELEVATE_ENOUGH && rc.senseElevation(minerLocation) >= ELEVATE_ENOUGH) {
@@ -218,6 +240,7 @@ public class LandscaperController extends Controller {
         if (!startedWalling) {
             boolean goodToWall = true;
             for (Direction direction : directions) {
+                if (!rc.canSenseLocation(allyHQ.add(direction))) continue;
                 RobotInfo robotInfo = rc.senseRobotAtLocation(allyHQ.add(direction));
                 if (robotInfo == null || robotInfo.getTeam() != rc.getTeam() || robotInfo.getType() != RobotType.LANDSCAPER) {
                     goodToWall = false;
