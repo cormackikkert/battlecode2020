@@ -170,7 +170,7 @@ public class LandscaperController extends Controller {
 
     public void bigBigWall() throws GameActionException {
         if (rc.getDirtCarrying() == 0) {
-            if (rc.senseRobotAtLocation(allyHQ).dirtCarrying() > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
+            if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
                 rc.digDirt(rc.getLocation().directionTo(allyHQ));
             } else {
                 for (Direction direction : directions) {
