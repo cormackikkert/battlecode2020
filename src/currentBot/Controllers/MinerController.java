@@ -174,6 +174,7 @@ public class MinerController extends Controller {
         hqInfo(); // includes scanning robots
         scanNetGuns();
         solveGhostHq();
+        communicationHandler.solveEnemyHQLocWithGhosts();
 
         updateClusters();
 

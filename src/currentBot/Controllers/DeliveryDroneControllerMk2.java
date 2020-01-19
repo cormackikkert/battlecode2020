@@ -105,7 +105,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         hqInfo(); // includes scanning robots
         scanNetGuns();
         solveGhostHq();
-        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
+        communicationHandler.solveEnemyHQLocWithGhosts();
+//        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
         assignRole();
         if (currentState == State.TAXI) {
@@ -515,7 +516,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             hqInfo(); // includes scanning robots
             scanNetGuns();
             solveGhostHq();
-            System.out.println("sensor radius "+rc.getCurrentSensorRadiusSquared());
+            communicationHandler.solveEnemyHQLocWithGhosts();
+//            System.out.println("sensor radius "+rc.getCurrentSensorRadiusSquared());
 
             MapLocation current = queue.poll();
             System.out.println("Inspecting " + current);

@@ -360,7 +360,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     }
 
     int turnF = 1;
-    public void solveEnemyHQLocWithGhosts() throws GameActionException { // ONLY HQ SHOULD BE DOING THIS
+    public void solveEnemyHQLocWithGhosts() throws GameActionException {
+        if (controller.enemyHQ != null) return;
+        if (controller.allyHQ == null) return;
         if (controller.ghostsKilled == 2) return; //already know enemy hq
 
         for (int i = turnF; i < rc.getRoundNum(); i++) {
@@ -370,19 +372,19 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                 int[] message= transaction.getMessage();
                 decode(message);
 
-                if (message[6] == CommunicationType.FAILHORIZONTAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILHORIZONTAL.ordinal() && controller.ghostH) {
                     controller.ghostH = false;
                     controller.ghostsKilled++;
                     System.out.println("not horizontal symmetry");
                 }
 
-                if (message[6] == CommunicationType.FAILVERTICAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILVERTICAL.ordinal() && controller.ghostV) {
                     controller.ghostV = false;
                     controller.ghostsKilled++;
                     System.out.println("not vertical symmetry");
                 }
 
-                if (message[6] == CommunicationType.FAILROTATIONAL.ordinal()) {
+                if (message[6] == CommunicationType.FAILROTATIONAL.ordinal() && controller.ghostR) {
                     controller.ghostR = false;
                     controller.ghostsKilled++;
                     System.out.println("not rotational symmetry");

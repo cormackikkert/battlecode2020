@@ -272,8 +272,8 @@ public abstract class Controller {
 
     public void tryFindEnemyHQLoc() throws GameActionException {
         if (enemyHQ != null) return;
-        System.out.println("trying to find enemy HQ out of " + enemies.length + " options"
-        +", with sensor range "+rc.getCurrentSensorRadiusSquared());
+//        System.out.println("trying to find enemy HQ out of " + enemies.length + " options"
+//        +", with sensor range "+rc.getCurrentSensorRadiusSquared());
         for (RobotInfo enemy : enemies) {
             if (enemy.getType() == RobotType.HQ && enemy.getTeam() == ENEMY) {
                 System.out.println("found enemy HQ location");

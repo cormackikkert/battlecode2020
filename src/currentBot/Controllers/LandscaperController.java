@@ -77,6 +77,7 @@ public class LandscaperController extends Controller {
 
         hqInfo(); // includes scanning robots
         scanNetGuns();
+        communicationHandler.solveEnemyHQLocWithGhosts();
 
         System.out.println("I am a " + currentState.toString());
         switch (currentState) {
