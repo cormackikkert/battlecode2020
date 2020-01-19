@@ -54,6 +54,11 @@ public abstract class Controller {
     int lrmb = 1;
     int lrsb = 1;
 
+    public int campOutside = 0;
+    public boolean sudoku = false;
+    public boolean sudokuSent = false;
+    public boolean campMessageSent = false;
+
     public RingQueue<MapLocation> queue;
     public List<MapLocation> netGuns = new LinkedList<>();
 

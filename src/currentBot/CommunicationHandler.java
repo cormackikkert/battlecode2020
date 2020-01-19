@@ -30,7 +30,11 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         LANDSCAPE_DEFEND,
         LANDSCAPE_HELP,
         NET_GUN_LOCATIONS,
-        NET_GUN_DIE
+        NET_GUN_DIE,
+        PLUS_ONE_CAMP,
+        ALL_ATTACK,
+        TOO_MUCH_DIE,
+        STOP_SUDOKU,
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -544,6 +548,84 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                     MapLocation mapLocation = new MapLocation(message[1], message[2]);
 
                     controller.netGuns.remove(mapLocation);
+                }
+            }
+        }
+    }
+
+    public void sendPLUSONE() throws GameActionException {
+        int[] message = bluePrint(PLUS_ONE_CAMP);
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    public void sendSudoku() throws GameActionException {
+        int[] message = bluePrint(ALL_ATTACK);
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    int turnPO = 1;
+    public void receivePLUSONE() throws GameActionException {
+        for (int i = turnPO
+             ; i < rc.getRoundNum(); i++) {
+            turnPO++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == PLUS_ONE_CAMP) {
+                    controller.campOutside++;
+                }
+            }
+        }
+    }
+
+    int turnS = 1;
+    public void receiveSudoku() throws GameActionException {
+        for (int i = turnS
+             ; i < rc.getRoundNum(); i++) {
+            turnS++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == ALL_ATTACK) {
+                    controller.sudoku = true;
+                }
+            }
+        }
+    }
+
+    public void tooMuchDie() throws GameActionException {
+        int[] message = bluePrint(TOO_MUCH_DIE);
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
+            rc.submitTransaction(message, MESSAGE_COST);
+        }
+    }
+
+    int turnWK = 1;
+    public void receiveTooMuchDie() throws GameActionException {
+        for (int i = turnWK
+             ; i < rc.getRoundNum(); i++) {
+            turnWK++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == TOO_MUCH_DIE) {
+                    controller.sudoku = false;
+                    controller.sudokuSent = false;
+                    controller.campMessageSent = false;
+                    controller.campOutside = 0;
                 }
             }
         }
