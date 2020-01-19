@@ -109,18 +109,12 @@ public class LandscaperController extends Controller {
                 return;
         }
 
-        if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(nextDir))) > 3) {
-            if (level(nextDir)) {  // need to level dirt
-                tryMove(nextDir);
-            }
-            return;
-        }
         while (rc.getDirtCarrying() == 0) {
             tryDigRandom();
         }
         while (!rc.canDepositDirt(nextDir)) Clock.yield();
         rc.depositDirt(nextDir);
-        tryMove(nextDir);
+        if (nearbyLandscapers(curr.add(nextDir), 1) == 0) tryMove(nextDir);
     }
 
     boolean startedWalling = false;
@@ -176,7 +170,7 @@ public class LandscaperController extends Controller {
 
     public void bigBigWall() throws GameActionException {
         if (rc.getDirtCarrying() == 0) {
-            if (rc.senseRobotAtLocation(allyHQ).getDirtCarrying() > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
+            if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
                 rc.digDirt(rc.getLocation().directionTo(allyHQ));
             } else {
                 for (Direction direction : directions) {
@@ -345,14 +339,18 @@ public class LandscaperController extends Controller {
     // used for landscaper to climb up to HQ wall
     void goToLocationToDeposit(MapLocation goal) throws GameActionException {
         System.out.println("Going to tile to protect HQ at " + goal.toString());
-        if (rc.getLocation().distanceSquaredTo(goal) > 5) {
+        if (rc.getLocation().distanceSquaredTo(goal) <= 5) {
+            Direction dir = rc.getLocation().directionTo(goal);
+            level(dir);
+            tryMove(dir);
+            return;
+        }
             Direction dir = movementSolver.directionToGoal(goal);
             if (!dir.equals(Direction.CENTER)) {
-                tryMove(movementSolver.directionToGoal(goal));
-                return;
+                if (tryMove(movementSolver.directionToGoal(goal)))
+                    return;
             }
-        }
-            Direction dir = dirToGoal(goal);
+            dir = dirToGoal(goal);
             System.out.println("Received direction " + dir.toString());
             MapLocation curr = rc.getLocation();
             if (Math.abs(rc.senseElevation(curr) - rc.senseElevation(curr.add(dir))) > 3) {
@@ -362,11 +360,20 @@ public class LandscaperController extends Controller {
                     return;
                 }
             }
-            tryMove(dir);
             if (!tryMove(dir))
                 recent.set(index, curr.add(dir)); index = (index + 1)%recency;
             System.out.println("Tried to move");
     }
+
+    int nearbyLandscapers(MapLocation point, int dist) {
+        int count = 0;
+        for (RobotInfo robot : rc.senseNearbyRobots(point, dist, rc.getTeam())) {
+            if (robot.type.equals(RobotType.LANDSCAPER))
+                count++;
+        }
+        return count;
+    }
+
     // levels the dirt in given direction compared to current loc
     boolean level(Direction dir) throws GameActionException {
         MapLocation curr = rc.getLocation();
