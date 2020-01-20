@@ -114,7 +114,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         if (currentState == State.TAXI) {
             // Like this cuz we don't want to execKill on our own miners
             if (rc.getRoundNum() >= ELEVATE_TIME) {
-                currentState = State.DEFEND;
+                currentState = State.DEFENDLATEGAME;
             } else {
                 execTaxi();
                 return;
@@ -149,16 +149,20 @@ public class DeliveryDroneControllerMk2 extends Controller {
         /*
             Role assignment depending on turn. Early game defend, late game attack.
          */
-        if (isBeingRushed) {
+        if (isBeingRushed && rc.getRoundNum() < 800) {
             currentState = State.DEFEND;
             return;
         }
 
-        updateReqs();
-        if (currentReq != null) {
-            currentState = State.TAXI;
-            return;
+        if (rc.getRoundNum() < 800) {
+            updateReqs();
+            if (currentReq != null) {
+                currentState = State.TAXI;
+                return;
+            }
         }
+
+        System.out.println("assigning role");
         if (rc.getRoundNum() > 1600) {
             currentState = State.ATTACKLATEGAME;
         } else if (rc.getRoundNum() > 800) {
@@ -231,6 +235,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             System.out.println("move away from home");
         } else {
             System.out.println("camp outside home");
+            assignRole();
         }
     }
 
@@ -330,6 +335,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void camp() throws GameActionException {
+        if (enemyHQ == null) {
+            currentState = State.DEFENDLATEGAME;
+            return;
+        }
         if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, OUTSIDE_NET_GUN_RANGE)) {
             tryMove(movementSolver.directionToGoal(enemyHQ, true));
 //            communicationHandler.wallKill();

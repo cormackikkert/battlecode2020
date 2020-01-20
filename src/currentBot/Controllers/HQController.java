@@ -136,8 +136,9 @@ public class HQController extends Controller {
             }
         }
 
-        if (rc.getRoundNum() > 2000) {
+        if (rc.getRoundNum() > 2000 && !sudokuSent) {
             communicationHandler.sendSudoku();
+            sudokuSent = true;
         }
 
         if ((totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||

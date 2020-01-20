@@ -209,10 +209,12 @@ public class MinerController extends Controller {
         !shouldBuildDS && !shouldBuildFC) {
             currentState = State.BUILDER;
 
-            if (rc.getRoundNum() > 1000 & Math.random() > 0.7)
-                buildType = RobotType.FULFILLMENT_CENTER;
-            else
-                buildType = RobotType.VAPORATOR;
+            if (rc.getRoundNum() > 1000) {
+                switch (rc.getRoundNum() % 10) {
+                    case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.VAPORATOR; break;
+                    default: buildType = RobotType.FULFILLMENT_CENTER;
+                }
+            }
             buildLoc = null;
         }
 
@@ -862,6 +864,12 @@ public class MinerController extends Controller {
         if (!isAdjacentTo(buildLoc)) {
             tryMove(movementSolver.directionToGoal(buildLoc));
         } else {
+            if (buildType == null) {
+                switch (rc.getRoundNum() % 10) {
+                    case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.FULFILLMENT_CENTER; break;
+                    default: buildType = RobotType.VAPORATOR;
+                }
+            }
             if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
                 if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc)) ||
                         (rc.senseRobotAtLocation(buildLoc) != null && rc.senseRobotAtLocation(buildLoc).type == buildType)) {
@@ -1030,6 +1038,7 @@ public class MinerController extends Controller {
         MapLocation mapLocation = rc.getLocation();
 
         for (Direction direction : directions) {
+            if (!rc.canSenseLocation(mapLocation.add(direction))) continue;
             RobotInfo robotInfo = rc.senseRobotAtLocation(mapLocation.add(direction));
             if (robotInfo != null && robotInfo.getTeam() == ALLY && robotInfo.getType() == RobotType.LANDSCAPER
             && !robotInfo.getLocation().isAdjacentTo(allyHQ) // no point going near hq they wont help you
@@ -1078,7 +1087,15 @@ public class MinerController extends Controller {
             if (rc.canSenseLocation(landscaperLocation)) {
                 RobotInfo robotInfo = rc.senseRobotAtLocation(landscaperLocation);
                 if (robotInfo == null || robotInfo.getTeam() != ALLY || robotInfo.getType() != RobotType.LANDSCAPER) {
-                    tryBuild(RobotType.FULFILLMENT_CENTER, landscaperDirection);
+
+                    switch (rc.getRoundNum() % 10) {
+                        case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.VAPORATOR; break;
+                        default: buildType = RobotType.FULFILLMENT_CENTER;
+                    }
+                    for (Direction direction : directions) {
+                        if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseElevation(mapLocation.add(direction)) > ELEVATE_ENOUGH - 5)
+                            tryBuild(buildType, direction);
+                    }
                 }
             }
         }
