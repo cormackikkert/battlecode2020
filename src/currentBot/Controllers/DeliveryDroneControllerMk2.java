@@ -230,10 +230,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         // trying to pick up enemies
 
+        boolean enemyF = false;
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (tryPickUpUnit(enemy)) return;
-                if (allyHQ != null && enemy.getLocation().isWithinDistanceSquared(allyHQ, 2)) {
+                if (allyHQ != null && enemy.getLocation().isAdjacentTo(allyHQ)) {
+                    enemyF = true;
                     tryMove(movementSolver.directionToGoal(enemy.getLocation()));
                 }
             }
@@ -245,7 +247,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-
+        if (enemyF) return;
+        
         // camp around home
         if (ADJACENT_DEFEND ?
                 isAdjacentTo(allyHQ) :
