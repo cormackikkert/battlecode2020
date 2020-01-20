@@ -23,6 +23,7 @@ public class PlayerConstants {
     static final int INSTA_BUILD_MINERS = 4; // How many miners to build as fast as possible
     static final int DISTANCE_FROM_REFINERY = 10;
     static final int START_BUILD_WALL = 299; // turn to start building wall around hq
+
     static final int RUSH1 = 50;
     static final int RUSH2 = 51;
     static final int RUSH3 = 52;
@@ -42,6 +43,7 @@ public class PlayerConstants {
     static final int TAXI_TIME = 300;
     static final int WAIT_FRIENDS_BEFORE_SUDOKU = 8; // number of friends to wait for within sensor radius before i sudoku
     static final int ENEMY_LANDSCAPER_ALIVE = 0;
+    static final int CONTEST_SOUP_CLUSTER_SIZE = 20;
 
     static final int GRID_BLOCK_SIZE = 7;
     static final public int SEARCH_DIAMETER = 5;

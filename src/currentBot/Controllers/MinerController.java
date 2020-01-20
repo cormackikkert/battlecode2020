@@ -457,6 +457,13 @@ public class MinerController extends Controller {
         System.out.println("Doing mining stuff " + currentSoupSquare);
 
         updateClusters();
+
+        if (currentSoupCluster.size == 0) {
+            currentState = State.SEARCHURGENT;
+            execSearchUrgent();
+            return;
+        }
+
         searchSurroundingsContinued();
 
         // If you can no longer carry any soup deposit it

@@ -535,6 +535,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         int y1 = pos.y;
         int y2 = pos.y;
 
+        boolean occupiedByEnemy = false;
+
         // Incase the enemy has already occupied this spot
         MapLocation refineryPos = null;
 
@@ -552,6 +554,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
 
             searchedForSoupCluster[current.y][current.x] = true;
+            occupiedByEnemy |= rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent()).length > 0;
 
             x1 = Math.min(x1, current.x);
             x2 = Math.max(x2, current.x);
@@ -573,6 +576,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 // If you cant tell whether neighbour has soup or not move closer to it
 
                 while (!rc.isReady()) Clock.yield();
+
+
 
                 int usedMoves = 0; // remove infinite loops
                 while (soupCount[neighbour.y][neighbour.x] == null) {
@@ -603,6 +608,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 }
             }
         }
+
+        if (occupiedByEnemy && size < PlayerConstants.CONTEST_SOUP_CLUSTER_SIZE) return null;
+
         SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, containsWaterSoup);
 
 //        System.out.println("Finished finding cluster: " + found.size);
