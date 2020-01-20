@@ -566,7 +566,7 @@ public class MinerController extends Controller {
             getChebyshevDistance(rc.getLocation(), currentRefineryPos) > PlayerConstants.DISTANCE_FROM_REFINERY ||
             !canReach(currentRefineryPos) ||
                 (currentRefineryPos.equals(allyHQ) && ((!shouldBuildDS && !shouldBuildFC) || usedDrone || rc.getRoundNum() > 500)) ||
-                movementSolver.moves > GIVE_UP_THRESHOLD) {
+                movementSolver.moves + getChebyshevDistance(rc.getLocation(), currentRefineryPos) > GIVE_UP_THRESHOLD) {
 
             currentRefineryPos = null;
 

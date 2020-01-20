@@ -191,7 +191,7 @@ public class LandscaperController extends Controller {
             }
         }
     }
-    final int numWallers = 7;
+    final int numWallers = 8;
     final int roundToLevelWall = 450;
     public void execProtectHQ() throws GameActionException {
         if (allyHQ == null)
@@ -214,7 +214,7 @@ public class LandscaperController extends Controller {
         // robot is currently on HQ wall
         MapLocation curr = rc.getLocation();
         Direction nextDir = nextDirection(curr);
-        if (rc.senseRobotAtLocation(allyHQ).dirtCarrying > 0) {
+        if (rc.senseRobotAtLocation(allyHQ).getDirtCarrying() > 0) {
             if (rc.canDigDirt(curr.directionTo(allyHQ))) {
                 rc.digDirt(rc.getLocation().directionTo(allyHQ));
                 return;
