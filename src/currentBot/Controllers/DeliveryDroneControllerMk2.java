@@ -32,6 +32,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public State currentState = null;
+    public boolean defendLateGameShield = false;
 
     Deque<HitchHike> reqs = new LinkedList<>();
 
@@ -172,7 +173,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
 
         System.out.println("assigning role, enemy hq is "+enemyHQ);
-        if (rc.getRoundNum() > 1600 && enemyHQ != null) {
+        if (rc.getRoundNum() > 1600 && enemyHQ != null && !defendLateGameShield) {
             currentState = State.ATTACKLATEGAME;
         } else if (rc.getRoundNum() > 800) {
             currentState = State.DEFENDLATEGAME;
@@ -312,7 +313,14 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        tryMove(movementSolver.directionToGoal(allyHQ));
+        MapLocation mapLocation = rc.getLocation();
+
+        if (!mapLocation.isWithinDistanceSquared(allyHQ, 8)) {
+            tryMove(movementSolver.directionToGoal(allyHQ));
+        } else {
+            System.out.println("defend late game stay still");
+            defendLateGameShield = true;
+        }
     }
 
     public void execAttackLateGame() throws GameActionException {
