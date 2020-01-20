@@ -72,7 +72,7 @@ public class MinerController extends Controller {
     Integer[][] soupCount = null;
     Integer[][] elevationHeight = null;
     Integer[][] buildMap = null; // Stores what buildings have been built and where
-
+    int lastChecked[][] = null;
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
 
     SoupCluster currentSoupCluster; // Soup cluster the miner goes to
@@ -140,6 +140,7 @@ public class MinerController extends Controller {
         searchedForSoupCluster = new boolean[rc.getMapHeight()][rc.getMapWidth()];
         buildMap = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+        lastChecked   = new int[rc.getMapHeight()][rc.getMapWidth()];
 
         compressedHeight = rc.getMapHeight() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapHeight() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
@@ -246,6 +247,9 @@ public class MinerController extends Controller {
                 MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
                 if (!rc.canSenseLocation(sensePos)) continue;
 
+                if (rc.getRoundNum() - lastChecked[sensePos.y][sensePos.x] <= 10) continue;
+                lastChecked[sensePos.y][sensePos.x] = rc.getRoundNum();
+
                 if (soupCount[sensePos.y][sensePos.x] != null) continue;
 
                 // Check robot
@@ -302,7 +306,9 @@ public class MinerController extends Controller {
             for (int dy = -3; dy <= 3; ++dy) {
                 MapLocation sensePos = new MapLocation(rc.getLocation().x + dx, rc.getLocation().y + dy);
                 if (!rc.canSenseLocation(sensePos)) continue;
-                if (!rc.onTheMap(sensePos)) continue;
+
+                if (rc.getRoundNum() - lastChecked[sensePos.y][sensePos.x] <= 10) continue;
+                lastChecked[sensePos.y][sensePos.x] = rc.getRoundNum();
 
                 // if (soupCount[sensePos.y][sensePos.x] != null) continue;
 
