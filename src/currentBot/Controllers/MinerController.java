@@ -625,18 +625,20 @@ public class MinerController extends Controller {
             if (rc.canDepositSoup(rc.getLocation().directionTo(currentRefineryPos))) {
                 rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
 
-                if (currentRefineryPos == allyHQ) {
+                if (currentRefineryPos.equals(allyHQ)) {
                     if (shouldBuildDS) {
+                        System.out.println("Building DS");
                         buildType = RobotType.DESIGN_SCHOOL;
                         currentState = State.BUILDER;
                         buildLoc = null;
-                        execBuilder();
+                        return;
                     }
                     if (shouldBuildFC) {
+                        System.out.println("Building FC");
                         buildType = RobotType.FULFILLMENT_CENTER;
                         currentState = State.BUILDER;
                         buildLoc = null;
-                        execBuilder();
+                        return;
                     }
                 }
 
@@ -889,18 +891,7 @@ public class MinerController extends Controller {
 
     public void execBuilder() throws GameActionException {
 
-        if (PlayerConstants.shouldntDuplicate(this.buildType)) {
-            for (RobotInfo robot : rc.senseNearbyRobots()) {
-                if (robot.team == rc.getTeam() && robot.type == this.buildType) {
 
-                    if (this.buildType == RobotType.DESIGN_SCHOOL) shouldBuildDS = false;
-                    if (this.buildType == RobotType.FULFILLMENT_CENTER) shouldBuildFC = false;
-
-                    currentState = State.MINE;
-                    return;
-                }
-            }
-        }
 
         if (buildLoc == null) {
             buildLoc = getNearestBuildTile();
@@ -925,6 +916,21 @@ public class MinerController extends Controller {
                 }
             }
             while (!rc.isReady()) Clock.yield();
+
+            if (PlayerConstants.shouldntDuplicate(this.buildType)) {
+                for (RobotInfo robot : rc.senseNearbyRobots()) {
+                    if (robot.team == rc.getTeam() && robot.type == this.buildType) {
+
+                        if (this.buildType == RobotType.DESIGN_SCHOOL) shouldBuildDS = false;
+                        if (this.buildType == RobotType.FULFILLMENT_CENTER) shouldBuildFC = false;
+
+                        currentState = State.MINE;
+                        execMine();
+                        return;
+                    }
+                }
+            }
+
             if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
                 if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc)) ||
                         (rc.senseRobotAtLocation(buildLoc) != null && rc.senseRobotAtLocation(buildLoc).type == buildType)) {
@@ -932,6 +938,10 @@ public class MinerController extends Controller {
                     if (this.buildType == RobotType.FULFILLMENT_CENTER) shouldBuildFC = false;
                     System.out.println("built");
                     currentState = State.MINE;
+                } else {
+                    currentState = State.MINE;
+                    execMine();
+                    return;
                 }
             } else {
                 System.out.println("failed: not enough soup");
