@@ -114,7 +114,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         if (currentState == State.TAXI) {
             // Like this cuz we don't want to execKill on our own miners
             if (rc.getRoundNum() >= ELEVATE_TIME) {
-                currentState = State.DEFEND;
+                currentState = State.DEFENDLATEGAME;
             } else {
                 execTaxi();
                 return;
@@ -149,7 +149,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         /*
             Role assignment depending on turn. Early game defend, late game attack.
          */
-        if (isBeingRushed) {
+        if (isBeingRushed && rc.getRoundNum() < 800) {
             currentState = State.DEFEND;
             return;
         }
@@ -159,6 +159,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             currentState = State.TAXI;
             return;
         }
+
+        System.out.println("assigning role");
         if (rc.getRoundNum() > 1600) {
             currentState = State.ATTACKLATEGAME;
         } else if (rc.getRoundNum() > 800) {
@@ -231,6 +233,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             System.out.println("move away from home");
         } else {
             System.out.println("camp outside home");
+            assignRole();
         }
     }
 
