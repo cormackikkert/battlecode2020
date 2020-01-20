@@ -536,6 +536,7 @@ public class MinerController extends Controller {
                     communicationHandler.sendCluster(currentSoupCluster);
                 }
                 // Reset variables
+                soupClusters.remove(currentSoupCluster);
                 currentSoupCluster = null;
                 currentSoupSquare = null;
                 //execSearchUrgent();
@@ -592,12 +593,16 @@ public class MinerController extends Controller {
                 while (currentRefineryPos == null) {
 //                    System.out.println("I am looking for a place to build a refinery");
                     for (Direction dir : Direction.allDirections()) {
+                        if (getChebyshevDistance(allyHQ, rc.getLocation().add(dir)) <= 2) continue;
                         if (tryBuild(RobotType.REFINERY, dir)) {
 //                            communicationHandler.transmitNewRefinery();
                             currentRefineryPos = rc.getLocation().add(dir);
                             break;
                         }
                     }
+
+                    while (!rc.isReady()) Clock.yield();
+                    tryMove(movementSolver.directionToGoal(rc.getLocation().add(allyHQ.directionTo(rc.getLocation()))));
                     Clock.yield();
                 }
             } else if (currentRefineryPos == null) {
@@ -668,7 +673,7 @@ public class MinerController extends Controller {
             tryMove(movementSolver.directionToGoal(currentRefineryPos));
         }
     }
-
+    boolean builtFC = false;
     public void execSearchUrgent() throws GameActionException {
         // Decide which cluster each miner goes to by using ID's
         // So each cluster has the number of miners proportional to its size
@@ -682,6 +687,8 @@ public class MinerController extends Controller {
             }
         }
         if (currentSoupCluster == null) {
+            System.out.println(1);
+            System.out.println(currentSoupCluster);
             currentSoupSquare = null;
             updateClusters();
 
@@ -692,6 +699,15 @@ public class MinerController extends Controller {
 
             if (totalSoupSquares == 0) {
                 soupClusters = waterClusters;
+                if (waterClusters.size() == 0 && rc.getRoundNum() > 500 && !builtFC) {
+                    while (!rc.isReady()) Clock.yield();
+                    for (Direction dir : Direction.allDirections()) {
+                        if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, dir)) {
+                            rc.buildRobot(RobotType.FULFILLMENT_CENTER, dir);
+                            builtFC = true;
+                        }
+                    }
+                }
                 return;
             }
 
@@ -714,6 +730,7 @@ public class MinerController extends Controller {
                 // Explore time
                 // System.out.println("YASSS");
             }
+            System.out.println(currentSoupCluster);
         }
 
 //        System.out.println(currentSoupCluster.middle + " " + currentSoupSquare);
@@ -721,6 +738,7 @@ public class MinerController extends Controller {
         movementSolver.restart();
 
         if (currentSoupCluster != null && !rc.getLocation().equals(currentSoupCluster.closest(rc.getLocation()))) {
+            System.out.println(2);
             /*
                 Now as we have dedicated searches we only focus on getting to the soup cluster
 
@@ -747,10 +765,12 @@ public class MinerController extends Controller {
 
 
             } else {
+                System.out.println(3);
 //                System.out.println("true");
             }
 
         } else {
+            System.out.println(4);
             currentState = State.MINE;
             execMine();
         }

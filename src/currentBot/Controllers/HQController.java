@@ -143,7 +143,8 @@ public class HQController extends Controller {
 
         if ((totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
                 totalMiners < totalSoup / PlayerConstants.AREA_PER_MINER) &&
-                        rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum())) {
+                        rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum()) &&
+            rc.getRoundNum() < 450 - 10) {
 
             for (Direction dir : directions) {
                     if (tryBuild(RobotType.MINER, dir)) {
