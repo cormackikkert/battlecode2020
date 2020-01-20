@@ -27,6 +27,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         WANDER,
         EXPLORE, // Search for soup clustsers in places the miner couldn't reach
         TAXI,
+        TAXI2,
         STUCKKILL
     }
 
@@ -108,7 +109,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
         communicationHandler.solveEnemyHQLocWithGhosts();
 //        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
-        assignRole();
+        if (currentState != State.TAXI2) {
+            assignRole();
+        } else {
+            if (!rc.isCurrentlyHoldingUnit()) {
+                assignRole();
+            }
+        }
         System.out.println("I am a " + currentState + " " + sudoku);
 
         if (currentState == State.TAXI) {
@@ -134,6 +141,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         } else {
             if (currentState == State.TAXI) {
                 execTaxi();
+            } else if (currentState == State.TAXI2) {
+                execTaxi2();
             } else {
                 if (currentState == State.STUCKKILL) {
                     execKill2 ();
@@ -830,8 +839,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                                 break;
                             }
                         }
-                        // Hopefully doesn't get here (kill miner)
-                        rc.dropUnit(Direction.CENTER);
+//                        // Hopefully doesn't get here (kill miner). unfortunately it does sometimes get here
+//                        rc.dropUnit(Direction.CENTER);
                     }
                 }
             }
@@ -842,9 +851,20 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null) {
                         currentReq.goal = pos;
                     }
+                } // potentially changes the goal to not be adjacent anymore
+                Direction direction = rc.getLocation().directionTo(currentReq.goal);
+                if (rc.canDropUnit(direction)
+                        && rc.canSenseLocation(rc.getLocation().add(direction))
+                        && !rc.senseFlooding(rc.getLocation().add(direction))
+                ) {
+                    System.out.println("drop unit "+direction);
+                    rc.dropUnit(direction);
+                    assignRole();
+                    return;
                 }
-                if (rc.canDropUnit(rc.getLocation().directionTo(currentReq.goal))) {
-                    rc.dropUnit(rc.getLocation().directionTo(currentReq.goal));
+
+                if (rc.canSenseLocation(currentReq.goal) && rc.senseFlooding(currentReq.goal) && rc.isCurrentlyHoldingUnit()) {
+                    currentState = State.TAXI2;
                 }
 
                 /*
@@ -890,5 +910,21 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
 
         }
+    }
+
+    public void execTaxi2() throws GameActionException {
+        if (!rc.isCurrentlyHoldingUnit()) {
+            assignRole();
+            return;
+        }
+
+        for (Direction dir : Direction.allDirections()) {
+            if (rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir))) {
+                rc.dropUnit(dir);
+                assignRole();
+                break;
+            }
+        }
+        movementSolver.windowsRoam();
     }
 }
