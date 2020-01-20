@@ -200,7 +200,8 @@ public class MovementSolver {
         //boolean alreadyInDroneRange = false;
         controller.scanRobots();
         for (RobotInfo robot : controller.enemies) {
-            if (getChebyshevDistance(rc.getLocation().add(dir), robot.getLocation())<=1) return true;
+            if (robot.type.equals(RobotType.DELIVERY_DRONE)
+                && getChebyshevDistance(rc.getLocation().add(dir), robot.getLocation())<=1) return true;
         }
 //        for (RobotInfo robotInfo : controller.enemies) {
 //            if (robotInfo.getType() == RobotType.DELIVERY_DRONE &&
