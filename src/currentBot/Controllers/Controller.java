@@ -660,7 +660,7 @@ public abstract class Controller {
                             }
                         } else {
                             ghostH = false;
-                            communicationHandler.sendFailVertical();
+                            communicationHandler.sendFailHorizontal();
                             System.out.println("no ghosts here");
                         }
                     }
@@ -704,7 +704,7 @@ public abstract class Controller {
                             }
                         } else {
                             ghostR = false;
-                            communicationHandler.sendFailVertical();
+                            communicationHandler.sendFailRotational();
                             System.out.println("no ghosts here");
                         }
                     }

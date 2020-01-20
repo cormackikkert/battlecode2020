@@ -28,7 +28,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         EXPLORE, // Search for soup clustsers in places the miner couldn't reach
         TAXI,
         TAXI2,
-        STUCKKILL
+        STUCKKILL,
+        WANDERLATE
     }
 
     public State currentState = null;
@@ -138,6 +139,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 case TAXI: execTaxi();                      break;
                 case ATTACKLATEGAME: execAttackLateGame();  break;
                 case DEFENDLATEGAME: execDefendLateGame();  break;
+                case WANDERLATE: execWanderPatrol2();        break;
             }
         } else {
             if (currentState == State.TAXI) {
@@ -159,6 +161,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
         /*
             Role assignment depending on turn. Early game defend, late game attack.
          */
+        if (currentState == State.WANDERLATE) {
+            return;
+        }
+
         if (isBeingRushed && rc.getRoundNum() < 800) {
             currentState = State.DEFEND;
             return;
@@ -224,10 +230,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         // trying to pick up enemies
 
+        boolean enemyF = false;
         for (RobotInfo enemy : enemies) {
             if (enemy.type == RobotType.LANDSCAPER || enemy.type == RobotType.MINER) {
                 if (tryPickUpUnit(enemy)) return;
-                if (allyHQ != null && enemy.getLocation().isWithinDistanceSquared(allyHQ, 2)) {
+                if (allyHQ != null && enemy.getLocation().isAdjacentTo(allyHQ)) {
+                    enemyF = true;
                     tryMove(movementSolver.directionToGoal(enemy.getLocation()));
                 }
             }
@@ -239,6 +247,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
+        if (enemyF) return;
 
         // camp around home
         if (ADJACENT_DEFEND ?
@@ -304,6 +313,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
         movementSolver.windowsRoam();
     }
 
+    public void execWanderPatrol2() throws GameActionException {
+        movementSolver.windowsRoam();
+    }
+
     public void execDefendLateGame() throws GameActionException {
         // defend / attack code are awfully similar
         for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
@@ -320,6 +333,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
         } else {
             System.out.println("defend late game stay still");
             defendLateGameShield = true;
+            if (rc.getLocation().isAdjacentTo(allyHQ)) {
+                rc.disintegrate(); // die so don't disrupt landscapers
+            }
         }
     }
 
@@ -364,8 +380,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public void camp() throws GameActionException {
         if (enemyHQ == null) {
-            currentState = State.DEFENDLATEGAME;
-            return;
+            currentState = State.WANDERLATE;
         }
         if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, OUTSIDE_NET_GUN_RANGE)) {
             tryMove(movementSolver.directionToGoal(enemyHQ, true));
