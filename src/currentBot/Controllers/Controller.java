@@ -520,6 +520,21 @@ public abstract class Controller {
         return null;
     }
 
+    public void commitSudoku() throws GameActionException {
+        if (getChebyshevDistance(rc.getLocation(), allyHQ) == 1 && rc.getRoundNum() > 500) {
+            while (!rc.isReady()) Clock.yield();
+
+            boolean isStuck = true;
+            for (Direction dir : Direction.allDirections()) {
+                if (rc.canMove(dir) && getChebyshevDistance(rc.getLocation().add(dir), allyHQ) >= 2) {
+                    isStuck = false;
+                }
+            }
+
+            if (isStuck) rc.disintegrate();
+        }
+    }
+
     public MapLocation getNearestSoupTile() throws GameActionException {
         boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
         searchSurroundings();

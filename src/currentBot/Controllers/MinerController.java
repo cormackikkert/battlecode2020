@@ -188,6 +188,7 @@ public class MinerController extends Controller {
         scanNetGuns();
         solveGhostHq();
         updateReqs();
+        commitSudoku(); // if stuck
 
         communicationHandler.solveEnemyHQLocWithGhosts();
 
