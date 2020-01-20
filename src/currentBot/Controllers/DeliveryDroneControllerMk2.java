@@ -248,7 +248,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
 
         if (enemyF) return;
-        
+
         // camp around home
         if (ADJACENT_DEFEND ?
                 isAdjacentTo(allyHQ) :
