@@ -208,10 +208,12 @@ public class MinerController extends Controller {
         !shouldBuildDS && !shouldBuildFC) {
             currentState = State.BUILDER;
 
-            if (rc.getRoundNum() > 1000 & Math.random() > 0.7)
-                buildType = RobotType.FULFILLMENT_CENTER;
-            else
-                buildType = RobotType.VAPORATOR;
+            if (rc.getRoundNum() > 1000) {
+                switch (rc.getRoundNum() % 10) {
+                    case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.FULFILLMENT_CENTER; break;
+                    default: buildType = RobotType.VAPORATOR;
+                }
+            }
             buildLoc = null;
         }
 
@@ -856,6 +858,12 @@ public class MinerController extends Controller {
         if (!isAdjacentTo(buildLoc)) {
             tryMove(movementSolver.directionToGoal(buildLoc));
         } else {
+            if (buildType == null) {
+                switch (rc.getRoundNum() % 10) {
+                    case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.FULFILLMENT_CENTER; break;
+                    default: buildType = RobotType.VAPORATOR;
+                }
+            }
             if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
                 if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc)) ||
                         (rc.senseRobotAtLocation(buildLoc) != null && rc.senseRobotAtLocation(buildLoc).type == buildType)) {
