@@ -162,8 +162,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        System.out.println("assigning role");
-        if (rc.getRoundNum() > 1600) {
+        System.out.println("assigning role, enemy hq is "+enemyHQ);
+        if (rc.getRoundNum() > 1600 && enemyHQ != null) {
             currentState = State.ATTACKLATEGAME;
         } else if (rc.getRoundNum() > 800) {
             currentState = State.DEFENDLATEGAME;
@@ -307,10 +307,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execAttackLateGame() throws GameActionException {
+//        System.out.println("enemyHQ is "+enemyHQ);
         if (enemyHQ == null) {
             currentState = State.DEFENDLATEGAME;
             execDefendLateGame();
         }
+//        System.out.println("enemyHQ is "+enemyHQ);
 
         int landscapers = 0;
         for (RobotInfo enemy : enemies) {
@@ -318,6 +320,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 landscapers++;
             }
         }
+//        System.out.println("enemyHQ is "+enemyHQ);
 
 //        if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8) && landscapers <= ENEMY_LANDSCAPER_ALIVE) {
 //            communicationHandler.tooMuchDie();
@@ -329,11 +332,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 return;
             }
         }
+//        System.out.println("enemyHQ is "+enemyHQ);
 
         communicationHandler.receiveSudoku();
 
 //        communicationHandler.receiveTooMuchDie();
         if (sudoku) {
+            System.out.println("sudoku to "+enemyHQ);
             tryMove(movementSolver.directionToGoal(enemyHQ, false));
         } else {
             camp();
@@ -370,15 +375,23 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execKill() throws GameActionException {
+        System.out.println("executing kill");
         MapLocation loc = rc.getLocation();
         MapLocation kill;
         for (Direction direction : Direction.allDirections()) {
+//            System.out.println("trying to kill in direction "+direction+" at "+loc);
             kill = loc.add(direction);
             if (rc.canSenseLocation(kill) && rc.senseFlooding(kill)) {
+                System.out.println("water at "+kill);
+                if (!rc.isReady()) Clock.yield();
                 if (rc.canDropUnit(direction)) {
                     rc.dropUnit(direction);
                     return;
+                } else {
+                    System.out.println(rc.canDropUnit(direction));
                 }
+            } else {
+                System.out.println("no water at "+kill);
             }
         }
 
@@ -418,6 +431,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         for (Direction direction : Direction.allDirections()) {
             kill = loc.add(direction);
             if (rc.canSenseLocation(kill) && rc.senseFlooding(kill)) {
+                if (!rc.isReady()) Clock.yield();
                 if (rc.canDropUnit(direction)) {
                     rc.dropUnit(direction);
                     return;
