@@ -43,7 +43,7 @@ public abstract class Controller {
     public int spawnTurn;
 
     Boolean[][] containsWater;
-    Integer[][] elevationMap;
+    Integer[][] elevationHeight;
     Integer[][] soupCount;
     RobotType[][] allyBuildMap;
     RobotType[][] enemyBuildMap;
@@ -479,7 +479,7 @@ public abstract class Controller {
                         // Update surroundings
                         // Done here (instead of using the updateSurroundings fuction as this way we can
                         // respond to changes in the map) (code speed > code quality I guess)
-
+//                        searchSurroundindsContined
                         for (int dx = -4; dx <= 4; ++dx) {
                             for (int dy = -4; dy <= 4; ++dy) {
                                 MapLocation sensePos = new MapLocation(
@@ -489,6 +489,7 @@ public abstract class Controller {
                                 if (!rc.canSenseLocation(sensePos)) continue;
 
                                 containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+                                elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
 
                                 // If we have already visited this tile it must have a shorter distance then
                                 // what we are looking at now
@@ -503,6 +504,8 @@ public abstract class Controller {
                     }
                 }
                 if (containsWater[nnode.y][nnode.x]) continue;
+                if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
+
                 if (rc.senseRobotAtLocation(nnode) == null &&
                     getDistanceSquared(nnode, allyHQ) > 2) return nnode;
                 queue.add(nnode);

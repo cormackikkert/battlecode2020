@@ -70,7 +70,7 @@ public class MinerController extends Controller {
 
     // Arrays that are filled as each miner searches the map
     Integer[][] soupCount = null;
-    Integer[][] elevationHeight = null;
+//    Integer[][] elevationHeight = null;
     Integer[][] buildMap = null; // Stores what buildings have been built and where
     int lastChecked[][] = null;
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
@@ -853,7 +853,9 @@ public class MinerController extends Controller {
 
         if (buildLoc == null) {
             buildLoc = getNearestBuildTile();
+            System.out.println("buildLoc: " + buildLoc);
             if (buildLoc == null) {
+                System.out.println("Couldnt find one");
                 currentState = State.MINE;
                 execMine();
                 return;
