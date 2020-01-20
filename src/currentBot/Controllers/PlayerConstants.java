@@ -68,7 +68,7 @@ public class PlayerConstants {
             case DELIVERY_DRONE:
                 return RobotType.DELIVERY_DRONE.cost;
             case LANDSCAPER:
-                return RobotType.LANDSCAPER.cost + 50; // want more drones
+                return RobotType.LANDSCAPER.cost; // want more drones
             default:
                 return 0; // Shouldn't get here anyway
         }
