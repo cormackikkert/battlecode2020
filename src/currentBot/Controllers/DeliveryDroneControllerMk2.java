@@ -154,10 +154,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        updateReqs();
-        if (currentReq != null) {
-            currentState = State.TAXI;
-            return;
+        if (rc.getRoundNum() < 800) {
+            updateReqs();
+            if (currentReq != null) {
+                currentState = State.TAXI;
+                return;
+            }
         }
 
         System.out.println("assigning role");
@@ -333,6 +335,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void camp() throws GameActionException {
+        if (enemyHQ == null) {
+            currentState = State.DEFENDLATEGAME;
+            return;
+        }
         if (!rc.getLocation().isWithinDistanceSquared(enemyHQ, OUTSIDE_NET_GUN_RANGE)) {
             tryMove(movementSolver.directionToGoal(enemyHQ, true));
 //            communicationHandler.wallKill();

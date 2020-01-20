@@ -49,8 +49,9 @@ public class PlayerConstants {
     // Landscaper constants
     static final int DEFEND = 12; // IN CASE DRONES KILL
     static final int HELP = 0; // like for clearing water at soup locations
-    static final int ELEVATE_TIME = 90000; // 600;
+    static final int ELEVATE_TIME = 600; // 600;
     static final int ELEVATE_ENOUGH = 100; // lasts until round 2500
+    static final int ELEVATE_SELF_IF_LONELY = 800;
 
     static int buildSoupRequirements(RobotType buildType) {
         switch (buildType) {

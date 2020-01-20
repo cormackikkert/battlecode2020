@@ -9,8 +9,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Map;
 
-import static currentBot.Controllers.PlayerConstants.ELEVATE_ENOUGH;
-import static currentBot.Controllers.PlayerConstants.ELEVATE_TIME;
+import static currentBot.Controllers.PlayerConstants.*;
 
 public class LandscaperController extends Controller {
 
@@ -123,24 +122,27 @@ public class LandscaperController extends Controller {
                 }
             }
 
-//            if (rc.getDirtCarrying() == 0) {
-//                for (Direction dir : Direction.allDirections()) {
-//                    MapLocation digHere = mapLocation.add(dir);
-//                    RobotInfo robotInfo = rc.senseRobotAtLocation(digHere);
-//                    if (rc.canDigDirt(dir)
-//                            && (digHere.x + digHere.y) % 2 == 1
-//                            && (robotInfo == null || robotInfo.getTeam() != ALLY)
-//                    ) {
-//                        rc.digDirt(dir);
-//                        System.out.println("dig for center dig");
-//                    }
-//                }
-//            } else {
-//                if (rc.canDepositDirt(Direction.CENTER)) {
-//                    rc.depositDirt(Direction.CENTER);
-//                    System.out.println("dump for me");
-//                }
-//            }
+            if (rc.getRoundNum() >= ELEVATE_SELF_IF_LONELY) {
+                if (rc.getDirtCarrying() == 0) {
+                    for (Direction dir : Direction.allDirections()) {
+                        MapLocation digHere = mapLocation.add(dir);
+                        RobotInfo robotInfo = rc.senseRobotAtLocation(digHere);
+                        if (rc.canDigDirt(dir)
+                                && (digHere.x + digHere.y) % 2 == 1
+                                && (robotInfo == null || robotInfo.getTeam() != ALLY)
+                        ) {
+                            rc.digDirt(dir);
+                            System.out.println("dig for center dig");
+                        }
+                    }
+                } else {
+                    if (rc.canDepositDirt(Direction.CENTER)) {
+                        rc.depositDirt(Direction.CENTER);
+                        System.out.println("dump for me");
+                    }
+                }
+
+            }
 
         } else {
             if (rc.senseElevation(mapLocation) >= ELEVATE_ENOUGH && rc.senseElevation(minerLocation) >= ELEVATE_ENOUGH) {
