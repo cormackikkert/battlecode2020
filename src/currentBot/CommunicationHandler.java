@@ -454,6 +454,28 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
+    public boolean seenClearSoupCluster(SoupCluster cluster) throws GameActionException {
+        for (int i = turnFF
+                     ; i < rc.getRoundNum(); i++) {
+            turnFF++;
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if (identify(message) == CLEAR_FLOOD) {
+                    decode(message);
+
+                    SoupCluster soupCluster = new SoupCluster(message[1], message[2], message[3], message[4]);
+
+                    if (cluster.x1 == soupCluster.x1 && cluster.x2 == soupCluster.x2 && cluster.y1 == soupCluster.y1 && cluster.y2 == soupCluster.y2) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
+
+
     public void landscapeDefend(int id) throws GameActionException {
         int[] message = bluePrint(LANDSCAPE_DEFEND);
 
