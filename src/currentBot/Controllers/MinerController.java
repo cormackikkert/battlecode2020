@@ -47,6 +47,10 @@ public class MinerController extends Controller {
     int[] BUILD_DX = {-1,0,1,-1,1,-1,0,1};
     int[] BUILD_DY = {1,1,1,0,0,-1,-1,-1};
 
+    int lastRoundReqs = 1;
+    LinkedList<Company> reqs = new LinkedList<>();
+    Company currentReq = null;
+
     int bias; // Which bias the robot has
     MapLocation BIAS_TARGET; // which square the robot is targeting
     MapLocation searchTarget;
@@ -180,11 +184,9 @@ public class MinerController extends Controller {
         hqInfo(); // includes scanning robots
         scanNetGuns();
         solveGhostHq();
+        updateReqs();
 
         communicationHandler.solveEnemyHQLocWithGhosts();
-        if (previousState == null) {
-            communicationHandler.beCompany();
-        }
 
         updateClusters();
 
@@ -218,8 +220,15 @@ public class MinerController extends Controller {
             buildLoc = null;
         }
 
-        if (rc.getRoundNum() >= ELEVATE_BUILD) {
-            currentState = State.ELEVATE;
+        // Instead only elevate when a landscaper asks too
+//        if (rc.getRoundNum() >= ELEVATE_BUILD) {
+//            currentState = State.ELEVATE;
+//        }
+
+        updateReqs();
+        if (currentReq != null) {
+            execElevate();
+            return;
         }
 
         switch (currentState) {
@@ -458,10 +467,8 @@ public class MinerController extends Controller {
 
         updateClusters();
 
-        if (currentSoupCluster.size == 0) {
-            currentState = State.SEARCHURGENT;
-            execSearchUrgent();
-            return;
+        if (rc.getRoundNum() > 100 && currentSoupCluster.size == 0) {
+            // TODO: do something
         }
 
         searchSurroundingsContinued();
@@ -539,20 +546,23 @@ public class MinerController extends Controller {
     public void execDeposit() throws GameActionException {
         searchSurroundingsContinued();
 
-        // Look for new refinery
-        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared())) {
-            if (robot.type == RobotType.REFINERY) {
-                currentRefineryPos = robot.location;
-                break;
-            }
-        }
 
         if (currentRefineryPos == null ||
             getChebyshevDistance(rc.getLocation(), currentRefineryPos) > PlayerConstants.DISTANCE_FROM_REFINERY ||
             !canReach(currentRefineryPos) ||
-                (currentRefineryPos.equals(allyHQ) && !shouldBuildDS && !shouldBuildFC)) {
+                (currentRefineryPos.equals(allyHQ) && !shouldBuildDS && !shouldBuildFC) ||
+                movementSolver.moves > GIVE_UP_THRESHOLD) {
 
             currentRefineryPos = null;
+
+            // Look for new refinery
+            for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared())) {
+                if (robot.type == RobotType.REFINERY) {
+                    currentRefineryPos = robot.location;
+                    break;
+                }
+            }
+
 
             if (currentRefineryPos == null && rc.getTeamSoup() > RobotType.REFINERY.cost) {
                 // Build a new refinery
@@ -1053,17 +1063,7 @@ public class MinerController extends Controller {
     public int elevateRoleStart = 0;
     public void execElevate() throws GameActionException {
         MapLocation mapLocation = rc.getLocation();
-
-        for (Direction direction : directions) {
-            if (!rc.canSenseLocation(mapLocation.add(direction))) continue;
-            RobotInfo robotInfo = rc.senseRobotAtLocation(mapLocation.add(direction));
-            if (robotInfo != null && robotInfo.getTeam() == ALLY && robotInfo.getType() == RobotType.LANDSCAPER
-            && !robotInfo.getLocation().isAdjacentTo(allyHQ) // no point going near hq they wont help you
-            ) {
-                landscaperDirection = direction;
-                landscaperLocation = mapLocation.add(direction);
-            }
-        }
+        MapLocation landscaperLocation = currentReq.landscaperPos;
 
         if (!mapLocation.isAdjacentTo(landscaperLocation)) {
             tryMove(movementSolver.directionToGoal(landscaperLocation));
@@ -1244,7 +1244,7 @@ public class MinerController extends Controller {
 
         boolean confirmed = false;
         // Wait for ACK
-        for (int i = 0; i < 64 / BLOCK_SIZE + 2; ++i) {
+        for (int i = 0; i < 64 / BLOCK_SIZE + 10; ++i) {
             for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
                 int[] mess = tx.getMessage();
                 if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_ACK) {
@@ -1268,5 +1268,45 @@ public class MinerController extends Controller {
         currentRefineryPos = null;
         currentSoupSquare = null;
 
+    }
+
+    void updateReqs() throws GameActionException {
+        for (int i = lastRoundReqs; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.ASK_COMPANY) {
+                    Company req = communicationHandler.getCompany(mess);
+                    req.roundNum = i;
+                    reqs.add(req);
+                }
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.ASK_COMPANY_ACK) {
+                    Company ack = communicationHandler.getCompanyAck(mess);
+                    if (currentReq != null) {
+                        if (currentReq.landscaperPos.equals(ack.landscaperPos)) {
+                            if (ack.minerID == rc.getID()) {
+                                currentReq.confirmed = true;
+                            } else if (!currentReq.confirmed) {
+                                currentReq = null;
+                            }
+                        }
+                    }
+                    reqs.removeIf(r -> r.landscaperPos.equals(ack.landscaperPos));
+                }
+            }
+        }
+        if (currentReq == null) {
+            for (Company req : reqs) {
+                if ((rc.getRoundNum() - req.roundNum - 1) == getChebyshevDistance(rc.getLocation(), req.landscaperPos) / GRID_BLOCK_SIZE ||
+                        rc.getRoundNum() - req.roundNum - 1 > 64 / GRID_BLOCK_SIZE + 1) {
+                    System.out.println("I'll pick you up: " + req.toString());
+                    currentReq = req;
+                    currentReq.minerID = rc.getID();
+                    communicationHandler.sendCompanyAck(req);
+                    currentState = State.ELEVATE;
+                }
+            }
+        }
+        System.out.println("Current req: " + currentReq);
+        lastRoundReqs = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 }

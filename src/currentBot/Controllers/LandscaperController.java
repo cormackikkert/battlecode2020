@@ -103,23 +103,34 @@ public class LandscaperController extends Controller {
     boolean askFriend = false;
     Direction minerDirection = null;
     MapLocation minerLocation = null;
+    Company confirmedReq = null;
     public void execElevate() throws GameActionException { // DO NOT MOVE
         MapLocation mapLocation = rc.getLocation();
         if (minerDirection == null) {
 
             // asking for help if not already
             if (!askFriend) {
-                communicationHandler.landscaperAskForCompany(mapLocation);
+                communicationHandler.sendCompany(new Company(mapLocation, -1));
                 askFriend = true;
+            } else if (confirmedReq == null) {
+                for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+                    int[] mess = tx.getMessage();
+                    if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.ASK_COMPANY_ACK) {
+                        Company ack = communicationHandler.getCompanyAck(mess);
+                        if (ack.landscaperPos.equals(rc.getLocation())) {
+                            confirmedReq = ack;
+                            break;
+                        }
+                    }
+                }
+                return;
+
             }
 
-            // checking if ally miner is adjacent yet
-            for (Direction direction : directions) {
-                RobotInfo robotInfo = rc.senseRobotAtLocation(mapLocation.add(direction));
-                if (robotInfo != null && robotInfo.getTeam() == ALLY && robotInfo.getType() == RobotType.MINER) {
-                    minerDirection = direction;
-                    minerLocation = mapLocation.add(minerDirection);
-                }
+            // checking if helper miner is here
+            if (rc.canSenseRobot(confirmedReq.minerID) && isAdjacentTo(rc.senseRobot(confirmedReq.minerID).getLocation())) {
+                minerLocation = rc.senseRobot(confirmedReq.minerID).getLocation();
+                minerDirection = rc.getLocation().directionTo(minerLocation);
             }
 
             if (rc.getRoundNum() >= ELEVATE_SELF_IF_LONELY) {

@@ -36,7 +36,8 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         ALL_ATTACK,
         TOO_MUCH_DIE,
         STOP_SUDOKU,
-        ASK_COMPANY
+        ASK_COMPANY,
+        ASK_COMPANY_ACK
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -649,25 +650,66 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
-    int turnBC = 1;
-    public void beCompany() throws GameActionException {
-        for (int i = turnBC
-             ; i < rc.getRoundNum(); i++) {
-            turnBC++;
-            for (Transaction t : rc.getBlock(i)) {
-                int[] message = t.getMessage();
+    public boolean sendCompany(Company req) throws GameActionException {
+        int[] message = bluePrint(CommunicationType.ASK_COMPANY);
 
-                if (identify(message) == ASK_COMPANY) {
-                    decode(message);
-                    controller.landscaperLocation = new MapLocation(message[1], message[2]);
-                    controller.landscaperLocations.add(new MapLocation(message[1], message[2]));
-                    if (((MinerController) controller).previousState == null) {
-                        ((MinerController) controller).previousState = ((MinerController) controller).currentState;
-                    }
-                    ((MinerController) controller).currentState = MinerController.State.ELEVATE;
-                    System.out.println("landscaper location++ "+new MapLocation(message[1], message[2]));
-                }
-            }
+        message[1] = req.landscaperPos.x;
+        message[2] = req.landscaperPos.y;
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
+            return true;
         }
+        return false;
     }
+
+    public Company getCompany(int[] message) throws GameActionException {
+        decode(message);
+        return new Company(new MapLocation(message[1], message[2]), -1);
+    }
+
+    public boolean sendCompanyAck(Company req) throws GameActionException {
+        int[] message = bluePrint(CommunicationType.ASK_COMPANY_ACK);
+
+        message[1] = req.landscaperPos.x;
+        message[2] = req.landscaperPos.y;
+        message[3] = req.minerID;
+
+        encode(message);
+
+        if (rc.canSubmitTransaction(message, 1)) {
+            rc.submitTransaction(message, 1);
+            return true;
+        }
+        return false;
+    }
+
+    public Company getCompanyAck(int[] message) throws GameActionException {
+        decode(message);
+        return new Company(new MapLocation(message[1], message[2]), message[3]);
+    }
+//
+//    int turnBC = 1;
+//    public void beCompany() throws GameActionException {
+//        for (int i = turnBC
+//             ; i < rc.getRoundNum(); i++) {
+//            turnBC++;
+//            for (Transaction t : rc.getBlock(i)) {
+//                int[] message = t.getMessage();
+//
+//                if (identify(message) == ASK_COMPANY) {
+//                    decode(message);
+//                    controller.landscaperLocation = new MapLocation(message[1], message[2]);
+//                    controller.landscaperLocations.add(new MapLocation(message[1], message[2]));
+//                    if (((MinerController) controller).previousState == null) {
+//                        ((MinerController) controller).previousState = ((MinerController) controller).currentState;
+//                    }
+//                    ((MinerController) controller).currentState = MinerController.State.ELEVATE;
+//                    System.out.println("landscaper location++ "+new MapLocation(message[1], message[2]));
+//                }
+//            }
+//        }
+//    }
 }
