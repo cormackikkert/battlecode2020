@@ -197,10 +197,15 @@ public class LandscaperController extends Controller {
         if (allyHQ == null)
             allyHQ = communicationHandler.receiveAllyHQLoc();
         int walled = 0;
+        int maximum = 8;
         if (rc.canSenseLocation(allyHQ)) {
             for (RobotInfo rb : rc.senseNearbyRobots(allyHQ, 2,rc.getTeam())) {
                 if (rb.type.equals(RobotType.LANDSCAPER)) walled++;
             }
+        }
+        for (Direction dir : Direction.allDirections()) {
+            if (dir == Direction.CENTER) continue;
+            if (!rc.onTheMap(allyHQ.add(dir))) --maximum;
         }
         if (!rc.getLocation().isAdjacentTo(allyHQ)) {
             if (walled == numWallers) {  // if already have all 8 landscapers building wall
@@ -213,22 +218,26 @@ public class LandscaperController extends Controller {
         }
         // robot is currently on HQ wall
         MapLocation curr = rc.getLocation();
-        Direction nextDir = nextDirection(curr);
-        if (rc.senseRobotAtLocation(allyHQ).getDirtCarrying() > 0) {
-            if (rc.canDigDirt(curr.directionTo(allyHQ))) {
-                rc.digDirt(rc.getLocation().directionTo(allyHQ));
-                return;
-            } else if (rc.canDepositDirt(nextDir)) {
-                rc.depositDirt(nextDir);
-                return;
-            }
-        }
-        if (rc.getRoundNum() <= roundToLevelWall && walled < numWallers) {  // wait for more wallers
-            tryDeposit(Direction.CENTER);
+        if (rc.senseRobotAtLocation(allyHQ).getDirtCarrying() > 0 && rc.canDigDirt(curr.directionTo(allyHQ))) {
+            rc.digDirt(rc.getLocation().directionTo(allyHQ));
             return;
         }
-        tryDeposit(nextDir);
-        if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
+        if (rc.getRoundNum() <= 450 && walled < Math.min(maximum, numWallers)) {  // wait for more wallers
+            return;
+        }
+        Direction nextDir = nextDirection(curr);
+        // System.out.println("New direction is " + nextDir.toString());
+
+        while (rc.getDirtCarrying() == 0) {
+            tryDigRandom();
+        }
+        if (walled == maximum) {
+            rc.depositDirt(Direction.CENTER);
+        } else {
+            while (!rc.canDepositDirt(nextDir)) Clock.yield();
+            rc.depositDirt(nextDir);
+            if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
+        }
     }
 
     public void execKillUnits() throws GameActionException {

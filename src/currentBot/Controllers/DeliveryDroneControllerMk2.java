@@ -713,7 +713,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     // If there are no clusters for team miners, have be a taxi
 
                     if (soupClusters.size() == 1) {
-                        currentState = State.DEFEND;
+                        if (Math.random() > 0.5)
+                            currentState = State.WANDER;
+                        else
+                            currentState = State.DEFEND;
                     }
                     return foundSoupCluster;
                 }
@@ -794,8 +797,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             if (node == null) node = stack.pop();
 
             // Kill annoying cows
-            killCow();
-
+//            killCow();
+            solveGhostHq();
             updateSeenBlocks();
             updateClusters();
 
@@ -807,22 +810,32 @@ public class DeliveryDroneControllerMk2 extends Controller {
             // TODO: deal with cows (kill if close to base, ignore if close to enemy)
 
             System.out.println("searching: " + node);
+
+            boolean isProtectedByNetGun = false;
             for (int i = 0; i < 2 * Math.max(rc.getMapHeight(), rc.getMapWidth()) &&
                     (soupCount[node.y][node.x] == null || visited[rc.getLocation().y][rc.getLocation().x]); ) {
 
-                killCow();
+//                killCow();
+
+                for (RobotInfo enemies : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+                    if ((enemies.type == RobotType.NET_GUN || enemies.type == RobotType.HQ) &&
+                            getDistanceSquared(node, enemies.getLocation()) <= NET_GUN_RADIUS) {
+                        isProtectedByNetGun = true;
+                        break;
+                    }
+                }
 
                 rc.setIndicatorDot(node, 255, 0, 0);
                 if (tryMove(movementSolver.directionToGoal(node))) {
                     solveGhostHq();
-                    System.out.println("State before: " + currentState);
                     searchSurroundingsSoup();
-                    System.out.println("found a cluster, changing state");
                     if (currentState != State.EXPLORE) return;
                     ++i;
                     Clock.yield();
                 }
             }
+
+            if (isProtectedByNetGun) continue;
 
             // Broadcast what areas have been searched
             if (!seenBlocks[node.y / BLOCK_SIZE][node.x / BLOCK_SIZE]) {

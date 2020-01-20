@@ -487,8 +487,22 @@ public class MinerController extends Controller {
         if (currentSoupSquare == null) {
             int closest = 100;
             currentSoupSquare = null;
+
+            boolean containsWaterTile = true;
+            boolean existsSoupTile = false;
             for (MapLocation square : rc.senseNearbySoup()) {
                 if (rc.sensePollution(square) > MINER_POLLUTION_THRESHOLD) continue;
+                existsSoupTile = true;
+                boolean surroundedByWater = false;
+                for (Direction dir : Direction.allDirections()) {
+                    if (rc.canSenseLocation(square.add(dir)) && !rc.senseFlooding(square.add(dir))) surroundedByWater = false;
+                }
+
+                if (surroundedByWater) {
+                    containsWaterTile = true;
+                    continue;
+                }
+
                 if (dontCheckThisSoup[square.y][square.x]) continue;
 
                 int dist = getChebyshevDistance(rc.getLocation(), square);
@@ -501,39 +515,34 @@ public class MinerController extends Controller {
             if (currentSoupSquare == null) {
                 currentState = State.SEARCHURGENT;
 
-                // Communicate that the soup cluster is finished
-                currentSoupCluster.size = 0;
+                if (containsWaterTile && existsSoupTile) {
+                    // this might be useful: if (rc.senseElevation(currentSoupSquare) >= rc.senseElevation(rc.getLocation()) - PlayerConstants.BOTHER_DIGGING) {
+                    if (!communicationHandler.seenClearSoupCluster(currentSoupCluster)) {
+                        communicationHandler.askClearSoupFlood(currentSoupCluster);
+                        buildType = RobotType.DESIGN_SCHOOL;
+                        currentState = State.BUILDER;
+                        buildLoc = null;
+                        execBuilder();
+                    }
+                    // go to other cluster in the mean time
+                    soupClusters.remove(currentSoupCluster);
+                    waterClusters.add(currentSoupCluster);
+                    currentSoupSquare = null;
+                    currentState = State.SEARCHURGENT;
+                } else {
+                    // Communicate that the soup cluster is finished
+                    currentSoupCluster.size = 0;
 //            System.out.println("This cluster is finished");
-                communicationHandler.sendCluster(currentSoupCluster);
-
+                    communicationHandler.sendCluster(currentSoupCluster);
+                }
                 // Reset variables
                 currentSoupCluster = null;
                 currentSoupSquare = null;
-                execSearchUrgent();
+                //execSearchUrgent();
                 return;
             }
             if (!isAdjacentTo(currentSoupSquare)) {
-                if (rc.senseFlooding(currentSoupSquare)) {
-                    if (rc.senseElevation(currentSoupSquare) >= rc.senseElevation(rc.getLocation()) - PlayerConstants.BOTHER_DIGGING) {
-                        dontCheckThisSoup[currentSoupSquare.y][currentSoupSquare.x] = true;
-                    } else {
-                        // Landscaper case
-                        if (!communicationHandler.seenClearSoupCluster(currentSoupCluster)) {
-                            communicationHandler.askClearSoupFlood(currentSoupCluster);
-//                            System.out.println("I will build a landscaper cuz I'm retarded");
-                            buildType = RobotType.DESIGN_SCHOOL;
-                            currentState = State.BUILDER;
-                            buildLoc = null;
-                            execBuilder();
-                        }
-                        // go to other cluster in the mean time
-                        soupClusters.remove(currentSoupCluster);
-                        waterClusters.add(currentSoupCluster);
-                        currentSoupSquare = null;
-                        currentState = State.SEARCHURGENT;
-
-                    }
-                } else if (!canReach(currentSoupSquare)) {
+                if (!canReach(currentSoupSquare)) {
                     // Drone case
                     getHitchHike(rc.getLocation(), currentSoupSquare);
                 }
@@ -801,7 +810,7 @@ public class MinerController extends Controller {
 
                 boolean isPossible = true;
                 while (soupCount[neighbour.y][neighbour.x] == null){
-                    if (!canReach(neighbour)) {
+                    if (!canReach(neighbour) || movementSolver.moves > GIVE_UP_THRESHOLD) {
                         isPossible = false;
                         break;
                     }
@@ -906,6 +915,7 @@ public class MinerController extends Controller {
 
 
         if (!isAdjacentTo(buildLoc)) {
+            System.out.println("Moving closer");
             tryMove(movementSolver.directionToGoal(buildLoc));
         } else {
             if (buildType == null) {
@@ -914,15 +924,17 @@ public class MinerController extends Controller {
                     default: buildType = RobotType.VAPORATOR;
                 }
             }
+            while (!rc.isReady()) Clock.yield();
             if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
                 if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc)) ||
                         (rc.senseRobotAtLocation(buildLoc) != null && rc.senseRobotAtLocation(buildLoc).type == buildType)) {
                     if (this.buildType == RobotType.DESIGN_SCHOOL) shouldBuildDS = false;
                     if (this.buildType == RobotType.FULFILLMENT_CENTER) shouldBuildFC = false;
-
+                    System.out.println("built");
                     currentState = State.MINE;
                 }
             } else {
+                System.out.println("failed: not enough soup");
                 currentState = State.MINE;
             }
         }
@@ -1282,6 +1294,7 @@ public class MinerController extends Controller {
         }
         while (rc.getLocation() == oldPos) Clock.yield();
 
+        usedDrone = true;
         shouldBuildDS = false;
         shouldBuildFC = false;
         currentRefineryPos = null;

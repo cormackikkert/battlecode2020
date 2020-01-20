@@ -120,6 +120,7 @@ public class MovementSolver {
         if (!goal.equals(lastGoal)) {
             lastGoal = goal;
             moves = 0;
+            for (int i = 0; i < recency;++i) recent[i] = new MapLocation(-1, -1);
         }
         ++moves;
         rc.setIndicatorLine(from, goal, 0, 0, 255);

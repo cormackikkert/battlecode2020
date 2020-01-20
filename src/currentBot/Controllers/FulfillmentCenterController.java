@@ -23,7 +23,6 @@ public class FulfillmentCenterController extends Controller {
 
     int sent = 0;
     int counter = 0;
-    int turnsSinceLastSpawn = 0;
     Direction latestDirSpawn;
 
     int ex = 0;
@@ -44,24 +43,18 @@ public class FulfillmentCenterController extends Controller {
             buildDrone();
         }
 
-        else if (rc.getRoundNum() > 1700 &&
+        if (rc.getRoundNum() > 1700 &&
                 rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) { // just spam at this point, no need to conserve soup
             buildDrone();
         }
 
-        else if (rc.getRoundNum() % 10 == 0 && rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) {
+        if (rc.getRoundNum() % 10 == 0 && rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) {
             buildDrone();
             ex += 100;
-        }
-
-        else {
-            turnsSinceLastSpawn++;
         }
     }
 
     public void buildDrone() throws GameActionException {
-        if (rc.getRoundNum() > 800 && turnsSinceLastSpawn < 100 && rc.getTeamSoup() < 1000) return;
-
         Direction[] out;
         if (enemyHQ != null && allyHQ != null) {
             if (enemyHQ.x == allyHQ.x) {
@@ -84,13 +77,9 @@ public class FulfillmentCenterController extends Controller {
         }
         if (tryBuild(RobotType.DELIVERY_DRONE, out[counter])) {
             counter = (counter + 1) % 3;
-            turnsSinceLastSpawn = 0;
         }
         for (Direction direction : directions) {
-            if (tryBuild(RobotType.DELIVERY_DRONE, direction)) {
-                turnsSinceLastSpawn = 0;
-            }
+            tryBuild(RobotType.DELIVERY_DRONE, direction);
         }
-        turnsSinceLastSpawn++;
     }
 }

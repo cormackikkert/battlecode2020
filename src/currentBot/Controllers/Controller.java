@@ -463,6 +463,7 @@ public abstract class Controller {
 
         queue.add(rc.getLocation());
         visited[rc.getLocation().y][rc.getLocation().x] = true;
+        searchSurroundingsContinued();
 
         for (int i = 0; i < 30 && !queue.isEmpty(); i++) {
             System.out.println("Searching for build tile");
@@ -472,7 +473,7 @@ public abstract class Controller {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode)) continue;
                 if (visited[nnode.y][nnode.x]) continue;
-                if (getChebyshevDistance(allyHQ, nnode) <= 1) continue;
+                if (getChebyshevDistance(allyHQ, nnode) <= 2) continue;
 
                 if (rc.getRoundNum() > PlayerConstants.FLIP_TO_LATTICE && (nnode.x + nnode.y) % 2 == 1) continue;
                 while (containsWater[nnode.y][nnode.x] == null) {
@@ -508,8 +509,7 @@ public abstract class Controller {
                 if (containsWater[nnode.y][nnode.x]) continue;
                 if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
 
-                if (rc.senseRobotAtLocation(nnode) == null &&
-                    getDistanceSquared(nnode, allyHQ) > 2) return nnode;
+                if (rc.senseRobotAtLocation(nnode) == null) return nnode;
                 queue.add(nnode);
                 visited[nnode.y][nnode.x] = true;
             }
