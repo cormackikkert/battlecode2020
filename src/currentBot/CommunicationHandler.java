@@ -60,6 +60,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
      */
 
     private int[] bluePrint(CommunicationType message) {
+        System.out.println("SENDING: " + message);
         int[] arr = new int[7];
         arr[0] = (message.ordinal() << 25);
         return arr;

@@ -467,9 +467,9 @@ public class MinerController extends Controller {
 
         updateClusters();
 
-        if (rc.getRoundNum() > 100 && currentSoupCluster.size == 0) {
-            // TODO: do something
-        }
+//        if (rc.getRoundNum() > 100 && currentSoupCluster.size == 0) {
+//            // TODO: do something
+//        }
 
         searchSurroundingsContinued();
 
@@ -510,6 +510,7 @@ public class MinerController extends Controller {
             }
             if (!isAdjacentTo(currentSoupSquare)) {
                 if (rc.senseFlooding(currentSoupSquare)) {
+                    if (rc.senseElevation(currentSoupSquare) >= rc.senseElevation(rc.getLocation()) - PlayerConstants.BOTHER_DIGGING)
                     // Landscaper case
                     communicationHandler.askClearSoupFlood(currentSoupCluster);
                     buildType = RobotType.DESIGN_SCHOOL;
@@ -546,11 +547,10 @@ public class MinerController extends Controller {
     public void execDeposit() throws GameActionException {
         searchSurroundingsContinued();
 
-
         if (currentRefineryPos == null ||
             getChebyshevDistance(rc.getLocation(), currentRefineryPos) > PlayerConstants.DISTANCE_FROM_REFINERY ||
             !canReach(currentRefineryPos) ||
-                (currentRefineryPos.equals(allyHQ) && !shouldBuildDS && !shouldBuildFC) ||
+                (currentRefineryPos.equals(allyHQ) && ((!shouldBuildDS && !shouldBuildFC) || usedDrone || rc.getRoundNum() > 500)) ||
                 movementSolver.moves > GIVE_UP_THRESHOLD) {
 
             currentRefineryPos = null;
@@ -562,7 +562,6 @@ public class MinerController extends Controller {
                     break;
                 }
             }
-
 
             if (currentRefineryPos == null && rc.getTeamSoup() > RobotType.REFINERY.cost) {
                 // Build a new refinery
@@ -620,7 +619,7 @@ public class MinerController extends Controller {
                 currentState = State.MINE;
             }
         } else {
-            System.out.println("Going to refinery: " +  movementSolver.moves);
+//            System.out.println("Going to refinery: " +  movementSolver.moves + " " + currentRefineryPos);
             if (!canReach(currentRefineryPos) || movementSolver.moves > GIVE_UP_THRESHOLD) {
                 // Build refinery
                 // Check to see if there is a closer refinery
@@ -1287,6 +1286,7 @@ public class MinerController extends Controller {
                                 currentReq.confirmed = true;
                             } else if (!currentReq.confirmed) {
                                 currentReq = null;
+                                currentState = State.MINE;
                             }
                         }
                     }
