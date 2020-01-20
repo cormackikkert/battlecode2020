@@ -574,6 +574,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
+            System.out.println("sudoku");
         }
     }
 
