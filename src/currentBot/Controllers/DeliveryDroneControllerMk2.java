@@ -312,7 +312,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        tryMove(movementSolver.directionToGoal(allyHQ));
+        MapLocation mapLocation = rc.getLocation();
+
+        if (!mapLocation.isWithinDistanceSquared(allyHQ, 8)) {
+            tryMove(movementSolver.directionToGoal(allyHQ));
+        } else {
+            System.out.println("defend late game stay still");
+        }
     }
 
     public void execAttackLateGame() throws GameActionException {
