@@ -162,8 +162,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
 
-        System.out.println("assigning role");
-        if (rc.getRoundNum() > 1600) {
+        System.out.println("assigning role, enemy hq is "+enemyHQ);
+        if (rc.getRoundNum() > 1600 && enemyHQ != null) {
             currentState = State.ATTACKLATEGAME;
         } else if (rc.getRoundNum() > 800) {
             currentState = State.DEFENDLATEGAME;
@@ -307,10 +307,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execAttackLateGame() throws GameActionException {
+//        System.out.println("enemyHQ is "+enemyHQ);
         if (enemyHQ == null) {
             currentState = State.DEFENDLATEGAME;
             execDefendLateGame();
         }
+//        System.out.println("enemyHQ is "+enemyHQ);
 
         int landscapers = 0;
         for (RobotInfo enemy : enemies) {
@@ -318,6 +320,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 landscapers++;
             }
         }
+//        System.out.println("enemyHQ is "+enemyHQ);
 
 //        if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8) && landscapers <= ENEMY_LANDSCAPER_ALIVE) {
 //            communicationHandler.tooMuchDie();
@@ -329,6 +332,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 return;
             }
         }
+//        System.out.println("enemyHQ is "+enemyHQ);
 
         communicationHandler.receiveSudoku();
 
