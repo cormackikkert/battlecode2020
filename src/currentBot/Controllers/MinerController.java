@@ -1078,22 +1078,29 @@ public class MinerController extends Controller {
                 landscaperDirection = mapLocation.directionTo(landscaperLocation);
             }
 
-            if (rc.canSenseLocation(landscaperLocation)) {
-                RobotInfo robotInfo = rc.senseRobotAtLocation(landscaperLocation);
-                if (robotInfo == null || robotInfo.getTeam() != ALLY || robotInfo.getType() != RobotType.LANDSCAPER) {
-
-                    switch (rc.getRoundNum() % 10) {
-                        case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.VAPORATOR; break;
-                        default: buildType = RobotType.FULFILLMENT_CENTER;
-                    }
-                    for (Direction direction : directions) {
-                        if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseElevation(mapLocation.add(direction)) > ELEVATE_ENOUGH - 5)
-                            tryBuild(buildType, direction);
+            if (rc.getTeamSoup() > 500) {
+                switch (rc.getRoundNum() % 10) {
+//                        case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.VAPORATOR; break;
+//                        default: buildType = RobotType.FULFILLMENT_CENTER;
+                    case 0: case 3: case 6: buildType = RobotType.FULFILLMENT_CENTER; break;
+                    default: buildType = RobotType.VAPORATOR;
+                }
+                if (rc.getTeamSoup() < 1000 && vaporatorsBuilt == 0) buildType = RobotType.VAPORATOR;
+                for (Direction direction : directions) {
+                    if (rc.canSenseLocation(mapLocation.add(direction))
+                            && rc.senseElevation(mapLocation.add(direction)) > ELEVATE_ENOUGH - 5) {
+                        if (tryBuild(buildType, direction)) {
+                            if (buildType == RobotType.VAPORATOR) {
+                                vaporatorsBuilt++;
+                            }
+                            System.out.println("built "+buildType+" as an elevator");
+                        }
                     }
                 }
             }
         }
     }
+    public int vaporatorsBuilt = 0;
 
     public void execElevate2() throws GameActionException {
         tryMultiBuild(RobotType.FULFILLMENT_CENTER);
