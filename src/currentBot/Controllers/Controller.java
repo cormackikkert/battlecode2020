@@ -659,7 +659,7 @@ public abstract class Controller {
                                 }
                             }
                         } else {
-                            ghostV = false;
+                            ghostH = false;
                             communicationHandler.sendFailVertical();
                             System.out.println("no ghosts here");
                         }
@@ -703,7 +703,7 @@ public abstract class Controller {
                                 }
                             }
                         } else {
-                            ghostV = false;
+                            ghostR = false;
                             communicationHandler.sendFailVertical();
                             System.out.println("no ghosts here");
                         }
