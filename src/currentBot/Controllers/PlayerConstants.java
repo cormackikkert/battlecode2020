@@ -28,7 +28,7 @@ public class PlayerConstants {
     static final int RUSH2 = 51;
     static final int RUSH3 = 52;
     static final int SPAM_BUILD_DRONES = 600;
-    static final int ELEVATE_BUILD = 1300;// sorry 1300;
+    static final int ELEVATE_BUILD = 900000;// sorry 1300;
     static final int FLIP_TO_LATTICE = 200; // For building
 
 

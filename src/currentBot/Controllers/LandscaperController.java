@@ -77,12 +77,13 @@ public class LandscaperController extends Controller {
         if (currentSoupCluster == null && currentState == State.REMOVE_WATER) {
             communicationHandler.receiveClearSoupFlood();
         }
-        if (currentState != State.PROTECTHQ && rc.getRoundNum() >= ELEVATE_TIME) {
-            currentState = State.ELEVATE_BUILDING;
-        }
-        if (!rc.getLocation().isWithinDistanceSquared(allyHQ, 8) && rc.getRoundNum() >= ELEVATE_TIME) {
-            currentState = State.ELEVATE_BUILDING;
-        }
+
+//        if (currentState != State.PROTECTHQ && rc.getRoundNum() >= ELEVATE_TIME) {
+//            currentState = State.ELEVATE_BUILDING;
+//        }
+//        if (!rc.getLocation().isWithinDistanceSquared(allyHQ, 8) && rc.getRoundNum() >= ELEVATE_TIME) {
+//            currentState = State.ELEVATE_BUILDING;
+//        }
 
         hqInfo(); // includes scanning robots
         scanNetGuns();

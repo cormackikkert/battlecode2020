@@ -210,16 +210,14 @@ public class MinerController extends Controller {
         System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
 
         if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
-        rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR) &&
-        !shouldBuildDS && !shouldBuildFC) {
+                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR) &&
+                !shouldBuildDS && !shouldBuildFC) {
             currentState = State.BUILDER;
 
-            if (rc.getRoundNum() > 1000) {
-                switch (rc.getRoundNum() % 10) {
-                    case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.VAPORATOR; break;
-                    default: buildType = RobotType.FULFILLMENT_CENTER;
-                }
-            }
+            if (rc.getRoundNum() > 1000 & Math.random() > 0.7)
+                buildType = RobotType.FULFILLMENT_CENTER;
+            else
+                buildType = RobotType.VAPORATOR;
             buildLoc = null;
         }
 
@@ -637,7 +635,7 @@ public class MinerController extends Controller {
             }
         } else {
 //            System.out.println("Going to refinery: " +  movementSolver.moves + " " + currentRefineryPos);
-            if (!canReach(currentRefineryPos) || movementSolver.moves > GIVE_UP_THRESHOLD) {
+            if (movementSolver.moves > GIVE_UP_THRESHOLD) {
                 // Build refinery
                 // Check to see if there is a closer refinery
                 if (!isAdjacentTo(currentSoupSquare)) {
