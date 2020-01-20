@@ -29,7 +29,7 @@ public class MovementSolver {
     MapLocation lastGoal = new MapLocation(-1, -1);
     public int moves = 0;
 
-    ArrayList<MapLocation> recent = new ArrayList<>(recency);
+    MapLocation[] recent = new MapLocation[recency];
 
     Direction[] cardinal = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
     Direction[] ordinal  = {Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST};
@@ -47,7 +47,7 @@ public class MovementSolver {
     public MovementSolver(RobotController rc, Controller controller) {
         this.rc = rc;
         this.controller = controller;
-        for (int i=0;i<recency;++i) recent.add(new MapLocation(-1,-1));
+        for (int i=0;i<recency;++i) recent[i] = new MapLocation(-1, -1);//recent.add(new MapLocation(-1,-1));
     }
 
     public Direction directionToGoal(MapLocation goal, boolean giveFucks) throws GameActionException {
@@ -131,12 +131,13 @@ public class MovementSolver {
         Direction dir = from.directionTo(goal);
         for (Direction d : getClosestDirections(dir)) {
             if (!isObstacle(d, from.add(d))) {
-                recent.set(index, from); index = (index + 1)%recency;
+                recent[index] = from;
+                index = (index + 1)%recency;
                 return d;
             }
         }
         // currently stuck
-        recent.set(index, from); index = (index + 1)%recency;
+        recent[index] = from; index = (index + 1)%recency;
         return Direction.CENTER;
 
     }
@@ -217,7 +218,10 @@ public class MovementSolver {
 //            }
 //        }
 
-        return !rc.canMove(dir) || rc.senseFlooding(to) || recent.contains(to);
+        for (MapLocation pos : recent) {
+            if (pos.equals(to)) return true;
+        }
+        return !rc.canMove(dir) || rc.senseFlooding(to) || rc.sensePollution(to) > PlayerConstants.MINER_POLLUTION_THRESHOLD;
 //                ||
 //                (controller.rc.getType() == RobotType.MINER &&
 //                        controller.allyHQ != null &&
@@ -226,7 +230,7 @@ public class MovementSolver {
     }
 
     boolean isObstacleDrone(Direction dir, MapLocation to) throws GameActionException {
-        return !rc.canMove(dir) || to.equals(previous);
+        return !rc.canMove(dir) || to.equals(previous) || rc.sensePollution(to) > PlayerConstants.DRONE_POLLUTION_THRESHOLD;
     }
 
     public Direction droneMoveAvoidGun(MapLocation goal) throws GameActionException {
@@ -348,7 +352,7 @@ public class MovementSolver {
             }
         }
 
-        return !rc.canMove(dir);
+        return !rc.canMove(dir) || rc.sensePollution(to) > PlayerConstants.DRONE_POLLUTION_THRESHOLD;
     }
 
     public void windowsRoam() throws GameActionException {

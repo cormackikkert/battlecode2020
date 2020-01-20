@@ -5,7 +5,8 @@ import battlecode.common.RobotType;
 public class PlayerConstants {
     // movement solver constants
     static final int GIVE_UP_THRESHOLD = 20; // How many moves before giving up and calling a drone taxi (keep in mind they are in the same soup cluster)
-
+    static public final int MINER_POLLUTION_THRESHOLD = 6000; // Just ignore blocks with this much pollution
+    static public final int DRONE_POLLUTION_THRESHOLD = 6000;
     // distance squared constants
     static final int HQ_VISION = 45;
     static final int MINER_VISION = 34;

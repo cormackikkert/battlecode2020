@@ -471,6 +471,8 @@ public class MinerController extends Controller {
             int closest = 100;
             currentSoupSquare = null;
             for (MapLocation square : rc.senseNearbySoup()) {
+                if (rc.sensePollution(square) > MINER_POLLUTION_THRESHOLD) continue;
+
                 int dist = getChebyshevDistance(rc.getLocation(), square);
                 if (dist < closest) {
                     closest = dist;
@@ -530,20 +532,20 @@ public class MinerController extends Controller {
     public void execDeposit() throws GameActionException {
         searchSurroundingsContinued();
 
+        // Look for new refinery
+        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared())) {
+            if (robot.type == RobotType.REFINERY) {
+                currentRefineryPos = robot.location;
+                break;
+            }
+        }
+
         if (currentRefineryPos == null ||
             getChebyshevDistance(rc.getLocation(), currentRefineryPos) > PlayerConstants.DISTANCE_FROM_REFINERY ||
             !canReach(currentRefineryPos) ||
                 (currentRefineryPos.equals(allyHQ) && !shouldBuildDS && !shouldBuildFC)) {
 
             currentRefineryPos = null;
-
-            // Look for new refinery
-            for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared())) {
-                if (robot.type == RobotType.REFINERY) {
-                    currentRefineryPos = robot.location;
-                    break;
-                }
-            }
 
             if (currentRefineryPos == null && rc.getTeamSoup() > RobotType.REFINERY.cost) {
                 // Build a new refinery
@@ -604,7 +606,7 @@ public class MinerController extends Controller {
             System.out.println("Going to refinery: " +  movementSolver.moves);
             if (!canReach(currentRefineryPos) || movementSolver.moves > GIVE_UP_THRESHOLD) {
                 // Build refinery
-
+                // Check to see if there is a closer refinery
                 if (!isAdjacentTo(currentSoupSquare)) {
                     for (int i = 0; i < 10 && !isAdjacentTo(currentSoupSquare); ++i) {
                         tryMove(movementSolver.directionToGoal(currentSoupSquare));

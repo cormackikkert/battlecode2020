@@ -664,7 +664,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public void killCow() throws GameActionException {
 
-        while (true) {
+        while (rc.sensePollution(rc.getLocation()) < DRONE_POLLUTION_THRESHOLD) {
             if (rc.isCurrentlyHoldingUnit()) {
                 execKill();
             } else {
