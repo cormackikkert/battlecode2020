@@ -601,16 +601,22 @@ public class MinerController extends Controller {
                 currentState = State.MINE;
             }
         } else {
-//            System.out.println("Going to refinery: " +  movementSolver.moves);
+            System.out.println("Going to refinery: " +  movementSolver.moves);
             if (!canReach(currentRefineryPos) || movementSolver.moves > GIVE_UP_THRESHOLD) {
                 // Build refinery
 
-                if (currentRefineryPos == allyHQ) {
-                    buildType = RobotType.REFINERY;
-                    currentState = State.BUILDER;
-                    buildLoc = null;
-                    execBuilder();
+                if (!isAdjacentTo(currentSoupSquare)) {
+                    for (int i = 0; i < 10 && !isAdjacentTo(currentSoupSquare); ++i) {
+                        tryMove(movementSolver.directionToGoal(currentSoupSquare));
+                        Clock.yield();
+                    }
                 }
+
+                buildType = RobotType.REFINERY;
+                currentState = State.BUILDER;
+                buildLoc = null;
+                execBuilder();
+
                 movementSolver.moves = 0;
                 currentState = State.MINE;
                 return;
