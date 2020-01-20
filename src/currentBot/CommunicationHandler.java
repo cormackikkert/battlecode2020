@@ -324,7 +324,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return null;
     }
 
-    public boolean sendFailVertical() throws GameActionException {
+    boolean failV = false;
+    public void sendFailVertical() throws GameActionException {
+        if (failV) return;
         int[] message = new int[7];
         message[0] = rc.getRoundNum();
         message[6] = CommunicationType.FAILVERTICAL.ordinal();
@@ -332,12 +334,13 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found vert");
-            return true;
+            failV = true;
         }
-        return false;
     }
 
-    public boolean sendFailHorizontal() throws GameActionException {
+    boolean failH = false;
+    public void sendFailHorizontal() throws GameActionException {
+        if (failH) return;
         int[] message = new int[7];
         message[0] = rc.getRoundNum();
         message[6] = CommunicationType.FAILHORIZONTAL.ordinal();
@@ -345,12 +348,13 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found hori");
-            return true;
+            failH =true;
         }
-        return false;
     }
 
-    public boolean sendFailRotational() throws GameActionException {
+    boolean failR = false;
+    public void sendFailRotational() throws GameActionException {
+        if (failR) return;
         int[] message = new int[7];
         message[0] = rc.getRoundNum();
         message[6] = CommunicationType.FAILROTATIONAL.ordinal();
@@ -358,9 +362,8 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found hori");
-            return true;
+            failR = true;
         }
-        return false;
     }
 
     int turnF = 1;
@@ -379,18 +382,21 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
                 if (message[6] == CommunicationType.FAILHORIZONTAL.ordinal() && controller.ghostH) {
                     controller.ghostH = false;
                     controller.ghostsKilled++;
+                    failH = true;
                     System.out.println("not horizontal symmetry");
                 }
 
                 if (message[6] == CommunicationType.FAILVERTICAL.ordinal() && controller.ghostV) {
                     controller.ghostV = false;
                     controller.ghostsKilled++;
+                    failV = true;
                     System.out.println("not vertical symmetry");
                 }
 
                 if (message[6] == CommunicationType.FAILROTATIONAL.ordinal() && controller.ghostR) {
                     controller.ghostR = false;
                     controller.ghostsKilled++;
+                    failR = true;
                     System.out.println("not rotational symmetry");
                 }
             }
