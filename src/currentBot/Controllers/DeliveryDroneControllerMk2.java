@@ -185,13 +185,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
             // Half drones explore
             // slowly turn back into other modes
-            // currentState = State.WANDER;
-            if (!hasExplored) {
-                currentState = State.EXPLORE;
-                hasExplored = true;
-            } else {
-                currentState = State.DEFEND;
-            }
+             currentState = State.WANDER;
+//            if (!hasExplored) {
+//                currentState = State.EXPLORE;
+//                hasExplored = true;
+//            } else {
+//                currentState = State.DEFEND;
+//            }
 //
 //            if (rc.getID() % 1 == 0) {
 //                if (!hasExplored) {

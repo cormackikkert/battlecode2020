@@ -78,6 +78,7 @@ public class MinerController extends Controller {
     Integer[][] buildMap = null; // Stores what buildings have been built and where
     int lastChecked[][] = null;
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
+    boolean[][] dontCheckThisSoup; // really dumb water soup we cant reach
 
     SoupCluster currentSoupCluster; // Soup cluster the miner goes to
     MapLocation currentSoupSquare; // Soup square the miner mines
@@ -145,6 +146,7 @@ public class MinerController extends Controller {
         buildMap = new Integer[rc.getMapHeight()][rc.getMapWidth()];
         visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
         lastChecked   = new int[rc.getMapHeight()][rc.getMapWidth()];
+        dontCheckThisSoup = new boolean[rc.getMapHeight()][rc.getMapWidth()];
 
         compressedHeight = rc.getMapHeight() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapHeight() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
@@ -486,6 +488,7 @@ public class MinerController extends Controller {
             currentSoupSquare = null;
             for (MapLocation square : rc.senseNearbySoup()) {
                 if (rc.sensePollution(square) > MINER_POLLUTION_THRESHOLD) continue;
+                if (dontCheckThisSoup[square.y][square.x]) continue;
 
                 int dist = getChebyshevDistance(rc.getLocation(), square);
                 if (dist < closest) {
@@ -510,15 +513,16 @@ public class MinerController extends Controller {
             }
             if (!isAdjacentTo(currentSoupSquare)) {
                 if (rc.senseFlooding(currentSoupSquare)) {
-                    if (rc.senseElevation(currentSoupSquare) >= rc.senseElevation(rc.getLocation()) - PlayerConstants.BOTHER_DIGGING)
-                    // Landscaper case
-                    communicationHandler.askClearSoupFlood(currentSoupCluster);
-                    buildType = RobotType.DESIGN_SCHOOL;
-                    currentState = State.BUILDER;
-                    buildLoc = null;
-                    execBuilder();
-
-
+                    if (rc.senseElevation(currentSoupSquare) >= rc.senseElevation(rc.getLocation()) - PlayerConstants.BOTHER_DIGGING) {
+                        dontCheckThisSoup[currentSoupSquare.y][currentSoupSquare.x] = true;
+                    } else {
+                        // Landscaper case
+                        communicationHandler.askClearSoupFlood(currentSoupCluster);
+                        buildType = RobotType.DESIGN_SCHOOL;
+                        currentState = State.BUILDER;
+                        buildLoc = null;
+                        execBuilder();
+                    }
                 } else if (!canReach(currentSoupSquare)) {
                     // Drone case
                     getHitchHike(rc.getLocation(), currentSoupSquare);
@@ -529,6 +533,7 @@ public class MinerController extends Controller {
 
         if (!isAdjacentTo(currentSoupSquare)) {
             if (movementSolver.moves > PlayerConstants.GIVE_UP_THRESHOLD) {
+                dontCheckThisSoup[currentSoupSquare.y][currentSoupSquare.x] = true;
                 currentSoupSquare = null;
                 movementSolver.moves = 0;
             }
@@ -1065,7 +1070,8 @@ public class MinerController extends Controller {
         MapLocation landscaperLocation = currentReq.landscaperPos;
 
         if (!mapLocation.isAdjacentTo(landscaperLocation)) {
-            tryMove(movementSolver.directionToGoal(landscaperLocation));
+            getHitchHike(rc.getLocation(), currentReq.landscaperPos);
+//            tryMove(movementSolver.directionToGoal(landscaperLocation));
         } else {
             elevateRoleStart++;
             int highestNextElevation = 0;

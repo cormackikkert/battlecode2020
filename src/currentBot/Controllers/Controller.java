@@ -607,7 +607,7 @@ public abstract class Controller {
         boolean shouldMove = false;
 
         for (RobotInfo enemy : enemies) {
-            if (isAdjacentTo(enemy.getLocation())) {
+            if (enemy.type == RobotType.DELIVERY_DRONE && isAdjacentTo(enemy.getLocation())) {
                 shouldMove = true;
             }
         }
@@ -621,7 +621,7 @@ public abstract class Controller {
 
             boolean isGood = true;
             for (RobotInfo enemy : enemies) {
-                if (getChebyshevDistance(pos, enemy.getLocation()) <= 1) isGood = false;
+                if (enemy.type == RobotType.DELIVERY_DRONE && getChebyshevDistance(pos, enemy.getLocation()) <= 1) isGood = false;
             }
             if (isGood && tryMove(dir)) return;
         }
