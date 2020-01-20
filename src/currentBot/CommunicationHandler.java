@@ -415,7 +415,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
+    boolean asked = false;
     public void askClearSoupFlood(SoupCluster cluster) throws GameActionException {
+        if (asked) return;
         if (cluster == null) return;
         int[] message = bluePrint(CLEAR_FLOOD);
         message[1] = cluster.x1;
@@ -426,6 +428,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
+            asked = true;
         }
     }
 
