@@ -93,12 +93,12 @@ public class HQController extends Controller {
                 if (!seenBlocks[y][x]) continue;
                 int x1 = x * BLOCK_SIZE; int y1 = y * BLOCK_SIZE;
 
-                /*
+
                 rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x1, y1 + BLOCK_SIZE - 1), 255, 0, 0);
                 rc.setIndicatorLine(new MapLocation(x1, y1), new MapLocation(x1 + BLOCK_SIZE - 1, y1), 255, 0, 0);
                 rc.setIndicatorLine(new MapLocation(x1 + BLOCK_SIZE - 1, y1 + BLOCK_SIZE - 1), new MapLocation(x1, y1 + BLOCK_SIZE - 1), 255, 0, 0);
                 rc.setIndicatorLine(new MapLocation(x1 + BLOCK_SIZE - 1, y1 + BLOCK_SIZE - 1), new MapLocation(x1 + BLOCK_SIZE - 1, y1), 255, 0, 0);
-                */
+
             }
         }
 
