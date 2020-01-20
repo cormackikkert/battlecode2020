@@ -30,11 +30,12 @@ public class DesignSchoolController extends Controller {
     }
 
     public void run() throws GameActionException {
-        if ((rc.getTeamSoup() > Math.min(400, ex) + PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) && (builtLandscapers < (DEFEND + HELP))) {
+//        int soupRequirements = Math.min(400, ex) + PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER);
+        if ((rc.getTeamSoup() > Math.min(500, ex) + PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)) && (builtLandscapers < (DEFEND + HELP))) {
             for (Direction dir : Direction.allDirections()) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {
                     int id = rc.senseRobotAtLocation(location.add(dir)).getID();
-                    // ex += 100;  // we need to build landscapers faster early game
+                    ex += 100;  // we need to build landscapers faster early game
                     if (builtLandscapers < DEFEND) {
                         communicationHandler.landscapeDefend(id);
                     } else {

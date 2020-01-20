@@ -472,6 +472,8 @@ public abstract class Controller {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode)) continue;
                 if (visited[nnode.y][nnode.x]) continue;
+                if (getChebyshevDistance(allyHQ, nnode) <= 1) continue;
+
                 if (rc.getRoundNum() > PlayerConstants.FLIP_TO_LATTICE && (nnode.x + nnode.y) % 2 == 1) continue;
                 while (containsWater[nnode.y][nnode.x] == null) {
                     if (!rc.isReady()) Clock.yield();
