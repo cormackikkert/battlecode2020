@@ -491,6 +491,7 @@ public class MinerController extends Controller {
             boolean containsWaterTile = true;
             boolean existsSoupTile = false;
             for (MapLocation square : rc.senseNearbySoup()) {
+                if (!rc.canSenseLocation(square)) continue;
                 if (rc.sensePollution(square) > MINER_POLLUTION_THRESHOLD) continue;
                 existsSoupTile = true;
                 boolean surroundedByWater = false;
@@ -1330,8 +1331,20 @@ public class MinerController extends Controller {
         Clock.yield();
 
         boolean confirmed = false;
+        boolean hasBeenPickedUp = false;
+        int lastRound = rc.getRoundNum() - 1;
         // Wait for ACK
         for (int i = 0; i < 64 / BLOCK_SIZE + 10; ++i) {
+            avoidDrone();
+            if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
+                    isAdjacentToWater(rc.getLocation())) {
+                avoidWater();
+            }
+
+            if (rc.getRoundNum() - 1 != lastRound) {
+                // we have been picked up early
+                hasBeenPickedUp = false;
+            }
             for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
                 int[] mess = tx.getMessage();
                 if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_ACK) {
@@ -1342,14 +1355,16 @@ public class MinerController extends Controller {
                     }
                 }
             }
+            lastRound = rc.getRoundNum();
             Clock.yield();
         }
         if (!confirmed) {
             System.out.println("Didnt get ACK");
             return;
         }
-        int lastRound = rc.getRoundNum() - 1;
-        while (true) {
+
+        for (int i = 0; i < 80 && !hasBeenPickedUp; ++i) {
+            System.out.println(rc.getRoundNum() + " " +  lastRound);
             if (rc.getRoundNum() - 1 == lastRound) {
                 lastRound = rc.getRoundNum();
 
@@ -1361,11 +1376,13 @@ public class MinerController extends Controller {
 
                 Clock.yield();
             } else {
-                break;
+                hasBeenPickedUp = true;
             }
         }
 
-        if (rc.getLocation().equals(oldPos) || getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 5) {
+        if (!hasBeenPickedUp) return;
+
+        if (hasBeenPickedUp && (rc.getLocation().equals(oldPos) || getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 5)) {
             currentSoupCluster.size = 0;
 //            System.out.println("This cluster is finished");
             communicationHandler.sendCluster(currentSoupCluster);

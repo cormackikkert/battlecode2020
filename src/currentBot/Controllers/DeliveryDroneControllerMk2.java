@@ -108,6 +108,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         hqInfo(); // includes scanning robots
         scanNetGuns();
         solveGhostHq();
+        updateReqs();
+
         communicationHandler.solveEnemyHQLocWithGhosts();
 //        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
@@ -120,7 +122,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
         System.out.println("I am a " + currentState + " " + sudoku);
 
-        if (currentState == State.TAXI) {
+        if (currentState == State.TAXI && currentReq != null) {
             // Like this cuz we don't want to execKill on our own miners
             execTaxi();
 //            if (rc.getRoundNum() >= ELEVATE_TIME) {
@@ -178,10 +180,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 currentState = State.DEFEND;
                 return;
             }
-        }
-
-        if (rc.getRoundNum() < 800) {
-            updateReqs();
         }
 
         System.out.println("assigning role, enemy hq is "+enemyHQ);
