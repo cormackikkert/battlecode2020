@@ -215,10 +215,7 @@ public class MinerController extends Controller {
                 !shouldBuildDS && !shouldBuildFC) {
             currentState = State.BUILDER;
 
-            if (rc.getRoundNum() > 1000 & Math.random() > 0.7)
-                buildType = RobotType.FULFILLMENT_CENTER;
-            else
-                buildType = RobotType.VAPORATOR;
+            buildType = RobotType.VAPORATOR;
             buildLoc = null;
         }
 
@@ -592,7 +589,7 @@ public class MinerController extends Controller {
             if (currentRefineryPos == null && rc.getTeamSoup() > RobotType.REFINERY.cost) {
                 // Build a new refinery
                 while (currentRefineryPos == null) {
-//                    System.out.println("I am looking for a place to build a refinery");
+                    System.out.println("I am looking for a place to build a refinery");
                     for (Direction dir : Direction.allDirections()) {
                         if (getChebyshevDistance(allyHQ, rc.getLocation().add(dir)) <= 2) continue;
                         if (tryBuild(RobotType.REFINERY, dir)) {
@@ -600,6 +597,12 @@ public class MinerController extends Controller {
                             currentRefineryPos = rc.getLocation().add(dir);
                             break;
                         }
+                    }
+
+                    if (currentRefineryPos == null) {
+                        // Couldn't build a refinery
+                        currentRefineryPos = allyHQ;
+                        break;
                     }
 
                     while (!rc.isReady()) Clock.yield();
@@ -761,6 +764,8 @@ public class MinerController extends Controller {
                 currentState = State.MINE;
                 usedDrone = true;
                 currentRefineryPos = null;
+                shouldBuildDS = true;
+                shouldBuildFC = true;
 
                 searchSurroundingsSoup();
 

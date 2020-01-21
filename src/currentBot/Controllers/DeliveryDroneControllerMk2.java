@@ -714,12 +714,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
 //                    currentState = State.DEFEND;
                     communicationHandler.sendCluster(foundSoupCluster);
                     // If there are no clusters for team miners, have be a taxi
-
-                    if (soupClusters.size() == 1) {
-                        if (Math.random() > 0.5)
-                            currentState = State.WANDER;
-                        else
-                            currentState = State.DEFEND;
+                    if (!foundSoupCluster.containsWaterSoup) {
+                        currentState = State.WANDER;
                     }
                     return foundSoupCluster;
                 }
