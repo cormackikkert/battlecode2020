@@ -57,7 +57,7 @@ public class HQController extends Controller {
             }
         }
         totalSoup = 0;
-        for (SoupCluster soupCluster : soupClusters) totalSoup += soupCluster.size;
+        for (SoupCluster soupCluster : soupClusters) totalSoup += soupCluster.crudeSoup;
 
         lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
@@ -142,7 +142,7 @@ public class HQController extends Controller {
         }
 
         if ((totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
-                totalMiners < totalSoup / PlayerConstants.AREA_PER_MINER) &&
+                totalMiners < totalSoup / PlayerConstants.SOUP_PER_MINER) &&
                         rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum()) &&
             rc.getRoundNum() < 450 - 10) {
 

@@ -121,13 +121,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
         System.out.println("I am a " + currentState + " " + sudoku);
 
         if (currentState == State.TAXI) {
+            System.out.println("yes definitly a taxi");
             // Like this cuz we don't want to execKill on our own miners
-            if (rc.getRoundNum() >= ELEVATE_TIME) {
-                currentState = State.DEFENDLATEGAME;
-            } else {
-                execTaxi();
-                return;
-            }
+            execTaxi();
+//            if (rc.getRoundNum() >= ELEVATE_TIME) {
+//                currentState = State.DEFENDLATEGAME;
+//            } else {
+//                execTaxi();
+//                return;
+//            }
+            return;
         }
 
         if (!rc.isCurrentlyHoldingUnit()) {
@@ -894,14 +897,15 @@ public class DeliveryDroneControllerMk2 extends Controller {
                         && rc.canSenseLocation(rc.getLocation().add(direction))
                         && !rc.senseFlooding(rc.getLocation().add(direction))
                 ) {
-                    System.out.println("drop unit "+direction);
                     rc.dropUnit(direction);
                     assignRole();
                     return;
                 }
 
-                if (rc.canSenseLocation(currentReq.goal) && rc.senseFlooding(currentReq.goal) && rc.isCurrentlyHoldingUnit()) {
+                if (currentReq.goal.equals(currentReq.pos) && rc.canSenseLocation(currentReq.goal) && rc.senseFlooding(currentReq.goal) && rc.isCurrentlyHoldingUnit()) {
                     currentState = State.TAXI2;
+                } else {
+                    currentReq.goal = currentReq.pos;
                 }
 
                 /*
@@ -950,6 +954,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execTaxi2() throws GameActionException {
+        System.out.println("Here in taxi 2");
         if (!rc.isCurrentlyHoldingUnit()) {
             assignRole();
             return;

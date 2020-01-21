@@ -1323,14 +1323,28 @@ public class MinerController extends Controller {
             System.out.println("Didnt get ACK");
             return;
         }
-        while (rc.getLocation() == oldPos) Clock.yield();
+        int lastRound = rc.getRoundNum() - 1;
+        while (true) {
+            if (rc.getRoundNum() - 1 == lastRound) {
+                lastRound = rc.getRoundNum();
+                Clock.yield();
+            } else {
+                break;
+            }
+        }
 
-        usedDrone = true;
-        shouldBuildDS = false;
-        shouldBuildFC = false;
-        currentRefineryPos = null;
-        currentSoupSquare = null;
-
+        if (rc.getLocation().equals(oldPos) || getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 5) {
+            currentSoupCluster.size = 0;
+//            System.out.println("This cluster is finished");
+            communicationHandler.sendCluster(currentSoupCluster);
+            currentState = State.SEARCHURGENT;
+        } else {
+            usedDrone = true;
+            shouldBuildDS = false;
+            shouldBuildFC = false;
+            currentRefineryPos = null;
+            currentSoupSquare = null;
+        }
     }
 
     void updateReqs() throws GameActionException {
