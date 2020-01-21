@@ -79,6 +79,7 @@ public class MinerController extends Controller {
     int lastChecked[][] = null;
     boolean[][] searchedForSoupCluster = null; // Have we already checked if this node should be in a soup cluster
     boolean[][] dontCheckThisSoup; // really dumb water soup we cant reach
+    boolean[][] cantBuildHere;
 
     SoupCluster currentSoupCluster; // Soup cluster the miner goes to
     MapLocation currentSoupSquare; // Soup square the miner mines
@@ -148,6 +149,7 @@ public class MinerController extends Controller {
         visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
         lastChecked   = new int[rc.getMapHeight()][rc.getMapWidth()];
         dontCheckThisSoup = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+        cantBuildHere = new boolean[rc.getMapHeight()][rc.getMapWidth()];
 
         compressedHeight = rc.getMapHeight() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapHeight() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
@@ -634,7 +636,8 @@ public class MinerController extends Controller {
             if (rc.canDepositSoup(rc.getLocation().directionTo(currentRefineryPos))) {
                 rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
 
-                if (currentRefineryPos.equals(allyHQ)) {
+                if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 100) &&
+                    !cantBuildHere[rc.getLocation().y][rc.getLocation().x]) {
                     if (shouldBuildDS) {
                         System.out.println("Building DS");
                         buildType = RobotType.DESIGN_SCHOOL;
@@ -642,6 +645,7 @@ public class MinerController extends Controller {
                         buildLoc = null;
                         return;
                     }
+
                     if (shouldBuildFC) {
                         System.out.println("Building FC");
                         buildType = RobotType.FULFILLMENT_CENTER;
@@ -664,11 +668,19 @@ public class MinerController extends Controller {
                         Clock.yield();
                     }
                 }
-
-                buildType = RobotType.REFINERY;
-                currentState = State.BUILDER;
-                buildLoc = null;
-                execBuilder();
+                if (!cantBuildHere[rc.getLocation().y][rc.getLocation().x]) {
+                    if (rc.getRoundNum() > 450 && currentRefineryPos.equals(allyHQ)) {
+                        // lol idk what goes here (miner is kinda screwed)
+                        Clock.yield();
+                    } else {
+                        getHitchHike(rc.getLocation(), currentRefineryPos);
+                    }
+                } else {
+                    buildType = RobotType.REFINERY;
+                    currentState = State.BUILDER;
+                    buildLoc = null;
+                    execBuilder();
+                }
 
                 movementSolver.moves = 0;
                 currentState = State.MINE;
@@ -800,6 +812,7 @@ public class MinerController extends Controller {
 
         int crudeSoup = 0;
         int size = 0;
+        int waterSize = 0;
         boolean containsWaterSoup = false;
 
         int x1 = pos.x;
@@ -826,6 +839,8 @@ public class MinerController extends Controller {
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
             ++size;
+            waterSize += (containsWater[current.y][current.x] != null &&
+                    containsWater[current.y][current.x]) ? 1 : 0;
 
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
@@ -857,7 +872,6 @@ public class MinerController extends Controller {
                 crudeSoup += (soupCount[neighbour.y][neighbour.x] == null) ? 0 : soupCount[neighbour.y][neighbour.x];
                 containsWaterSoup |= (containsWater[neighbour.y][neighbour.x] != null &&
                         containsWater[neighbour.y][neighbour.x]);
-
                 if (soupCount[neighbour.y][neighbour.x] > 0 || (buildMap[neighbour.y][neighbour.x] != null && buildMap[neighbour.y][neighbour.x] == RobotType.REFINERY.ordinal())) {
                     queue.add(neighbour);
                     searchedForSoupCluster[neighbour.y][neighbour.x] = true;
@@ -867,7 +881,7 @@ public class MinerController extends Controller {
 
 //        System.out.println("Found: " + size);
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, containsWaterSoup);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, waterSize);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 
@@ -933,6 +947,12 @@ public class MinerController extends Controller {
 
         if (!isAdjacentTo(buildLoc)) {
             System.out.println("Moving closer");
+            if (!canReach(buildLoc) || movementSolver.moves > GIVE_UP_THRESHOLD) {
+                currentState = State.MINE;
+                cantBuildHere[rc.getLocation().y][rc.getLocation().x] = true;
+                execMine();
+                return;
+            }
             tryMove(movementSolver.directionToGoal(buildLoc));
         } else {
             if (buildType == null) {
@@ -1301,7 +1321,7 @@ public class MinerController extends Controller {
     }
 
     public void getHitchHike(MapLocation pos, MapLocation goal) throws GameActionException {
-        HitchHike req = new HitchHike(pos, goal);
+        HitchHike req = new HitchHike(pos, goal, rc.getID());
         MapLocation oldPos = rc.getLocation();
         while (true) {
             if (communicationHandler.sendHitchHikeRequest(req))
@@ -1332,6 +1352,13 @@ public class MinerController extends Controller {
         while (true) {
             if (rc.getRoundNum() - 1 == lastRound) {
                 lastRound = rc.getRoundNum();
+
+                avoidDrone();
+                if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
+                        isAdjacentToWater(rc.getLocation())) {
+                    avoidWater();
+                }
+
                 Clock.yield();
             } else {
                 break;

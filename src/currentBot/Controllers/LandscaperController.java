@@ -11,6 +11,8 @@ import java.util.Map;
 
 import static currentBot.Controllers.PlayerConstants.*;
 
+// Search surroundings Soup doesnt work (its an easy fix just cant be bothered)
+
 public class LandscaperController extends Controller {
 
     public enum State {
@@ -704,7 +706,7 @@ public class LandscaperController extends Controller {
 
 //        System.out.println("Found: " + size);
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, containsWaterSoup);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, 0);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 

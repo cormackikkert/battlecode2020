@@ -584,6 +584,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         int crudeSoup = 0;
         int size = 0;
         boolean containsWaterSoup = false;
+        int waterSize = 0;
 
         int x1 = pos.x;
         int x2 = pos.x;
@@ -603,7 +604,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
 //            System.out.println("sensor radius "+rc.getCurrentSensorRadiusSquared());
 
             MapLocation current = queue.poll();
-            System.out.println("Inspecting " + current);
+//            System.out.println("Inspecting " + current + " : " + ((containsWater[current.y][current.x] != null &&
+//                    containsWater[current.y][current.x]) ? 1 : 0));
             if (buildMap[current.y][current.x] != null && buildMap[current.y][current.x] == RobotType.REFINERY.ordinal()) {
                 refineryPos = current;
             }
@@ -622,10 +624,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
             // so we don't do it again
 
             ++size;
+            waterSize += (containsWater[current.y][current.x] != null &&
+                    containsWater[current.y][current.x]) ? 1 : 0;
 
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
-                if (!onTheMap(neighbour)) continue;
+//                System.out.println("testing: " + neighbour + " " + searchedForSoupCluster[neighbour.y][neighbour.x]);
+                if (!rc.onTheMap(neighbour)) continue;
                 if (searchedForSoupCluster[neighbour.y][neighbour.x]) continue;
 
                 // If you cant tell whether neighbour has soup or not move closer to it
@@ -655,7 +660,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                         containsWater[neighbour.y][neighbour.x]);
 
 
-                if (Math.abs(elevationHeight[neighbour.y][neighbour.x] - elevationHeight[current.y][current.x]) > 3) continue;
+
+//                if (Math.abs(elevationHeight[neighbour.y][neighbour.x] - elevationHeight[current.y][current.x]) > 3) continue;
 
                 if (soupCount[neighbour.y][neighbour.x] > 0 || (buildMap[neighbour.y][neighbour.x] != null && buildMap[neighbour.y][neighbour.x] == RobotType.REFINERY.ordinal())) {
                     queue.add(neighbour);
@@ -666,7 +672,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         if (occupiedByEnemy && size < PlayerConstants.CONTEST_SOUP_CLUSTER_SIZE) return null;
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, containsWaterSoup);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, waterSize);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 
@@ -709,12 +715,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     SoupCluster foundSoupCluster = determineCluster(sensePos);
 
                     if (foundSoupCluster == null) break;
-                    System.out.println("Found cluster: " + foundSoupCluster.toStringPos());
+                    System.out.println("Found cluster: " + foundSoupCluster.toStringPos() + " " + foundSoupCluster.size + " " + foundSoupCluster.waterSize);
                     soupClusters.add(foundSoupCluster);
 //                    currentState = State.DEFEND;
                     communicationHandler.sendCluster(foundSoupCluster);
                     // If there are no clusters for team miners, have be a taxi
-                    if (!foundSoupCluster.containsWaterSoup) {
+                    if (foundSoupCluster.size - foundSoupCluster.waterSize >= 5) {
+                        // miners will want to taxi here
                         currentState = State.WANDER;
                     }
                     return foundSoupCluster;
@@ -865,6 +872,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public void execTaxi() throws GameActionException {
         if (rc.isCurrentlyHoldingUnit()) {
+            System.out.println("Here: " + currentReq.pos + " "  + currentReq.goal);
             for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
                 if (robot.type == RobotType.NET_GUN) {
                     if (getDistanceSquared(currentReq.goal, robot.getLocation()) < 24) {
@@ -872,6 +880,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                         for (Direction dir : Direction.allDirections()) {
                             if (rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir))) {
                                 rc.dropUnit(dir);
+                                currentReq = null;
+                                currentState = State.WANDER;
                                 break;
                             }
                         }
@@ -883,26 +893,54 @@ public class DeliveryDroneControllerMk2 extends Controller {
             if (!isAdjacentTo(currentReq.goal)) {
                 tryMove(movementSolver.directionToGoal(currentReq.goal));
             } else {
-                for (MapLocation pos : rc.senseNearbySoup()) {
-                    if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null) {
-                        currentReq.goal = pos;
-                    }
-                } // potentially changes the goal to not be adjacent anymore
                 Direction direction = rc.getLocation().directionTo(currentReq.goal);
                 if (rc.canDropUnit(direction)
                         && rc.canSenseLocation(rc.getLocation().add(direction))
                         && !rc.senseFlooding(rc.getLocation().add(direction))
                 ) {
                     rc.dropUnit(direction);
-                    assignRole();
+                    currentReq = null;
+                    currentState = State.WANDER;
+//                    /assignRole();
                     return;
                 }
 
-                if (currentReq.goal.equals(currentReq.pos) && rc.canSenseLocation(currentReq.goal) && rc.senseFlooding(currentReq.goal) && rc.isCurrentlyHoldingUnit()) {
-                    currentState = State.TAXI2;
-                } else {
-                    currentReq.goal = currentReq.pos;
+                // Wait till spot is free again (normally a unit moves)
+                RobotInfo used = rc.senseRobotAtLocation(currentReq.goal);
+                if (used != null && (used.getType() == RobotType.MINER ||
+                        used.getType() == RobotType.LANDSCAPER ||
+                        used.getType() == RobotType.DELIVERY_DRONE)) {
+                    for (int i = 0; i < 10 && !rc.canDropUnit(direction); ++i) Clock.yield();
+                    if (rc.canDropUnit(direction)) {
+                        rc.dropUnit(direction);
+                        currentReq = null;
+                        currentState = State.WANDER;
+                        return;
+                    }
                 }
+
+                // Place on surrounding tiles
+                for (Direction dir : Direction.allDirections()) {
+                    MapLocation target = currentReq.goal.add(dir);
+                    if (rc.canSenseLocation(target) && rc.senseFlooding(target)) continue;
+                    while (!isAdjacentTo(target) && movementSolver.moves < GIVE_UP_THRESHOLD) {
+                        while (!rc.isReady()) Clock.yield();
+                        tryMove(movementSolver.directionToGoal(target));
+                    }
+                    if (!isAdjacentTo(target)) continue;
+                    while (!rc.isReady()) Clock.yield();
+                    if (rc.canSenseLocation(target) && rc.senseFlooding(target)) continue;
+                    if (rc.canDropUnit(rc.getLocation().directionTo(target))) {
+                        rc.dropUnit(rc.getLocation().directionTo(target));
+                        currentReq = null;
+                        currentState = State.WANDER;
+                        return;
+                    }
+                }
+
+                // Wow we cant catch a break
+                currentState = State.TAXI2;
+                return;
 
                 /*
                 // TODO: deal with edge of world
@@ -931,21 +969,21 @@ public class DeliveryDroneControllerMk2 extends Controller {
                  */
             }
         } else {
-            System.out.println("gonna pick up " + currentReq.pos);
-            if (!isAdjacentTo(currentReq.pos)) {
-                tryMove(movementSolver.directionToGoal(currentReq.pos));
-            } else {
-                RobotInfo robot = rc.senseRobotAtLocation(currentReq.pos);
-                boolean found = false;
-                if (robot != null && rc.canPickUpUnit(robot.ID)) {
-                    rc.pickUpUnit(robot.ID);
-                    found = true;
+            if (rc.canSenseRobot(currentReq.reqID)) {
+                if (!rc.canPickUpUnit(currentReq.reqID)) {
+                    tryMove(movementSolver.directionToGoal(rc.senseRobot(currentReq.reqID).getLocation()));
+                } else {
+                    rc.pickUpUnit(currentReq.reqID);
                 }
-                if (!found) {
+            } else {
+                if (isAdjacentTo(currentReq.pos)) {
                     currentReq = null;
+                    currentState = State.WANDER;
+                    return;
+                } else {
+                    tryMove(movementSolver.directionToGoal(currentReq.pos));
                 }
             }
-
         }
     }
 
@@ -959,6 +997,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         for (Direction dir : Direction.allDirections()) {
             if (rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir))) {
                 rc.dropUnit(dir);
+                currentReq = null;
+                currentState = State.WANDER;
                 assignRole();
                 break;
             }

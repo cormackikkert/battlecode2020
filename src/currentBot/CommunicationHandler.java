@@ -115,7 +115,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int y1 = message[1] % (1 << 8); message[1] >>= 8;
         int x1 = message[1] % (1 << 8); message[1] >>= 8;
 
-        return new SoupCluster(x1, y1, x2, y2, message[2], message[3], message[4] == 1);
+        return new SoupCluster(x1, y1, x2, y2, message[2], message[3], message[4]);
     }
 
     public boolean sendMapBlocks(MapLocation[] blocks) throws GameActionException {
@@ -145,20 +145,19 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         message[2] = req.pos.y;
         message[3] = req.goal.x;
         message[4] = req.goal.y;
+        message[5] = req.reqID;
 
         encode(message);
 
-        if (rc.canSubmitTransaction(message, 1)) {
-            rc.submitTransaction(message, 1);
-            return true;
-        }
-        return false;
+        while (!rc.canSubmitTransaction(message, 1)) Clock.yield();
+        rc.submitTransaction(message, 1);
+        return true;
     }
 
     public HitchHike getHitchHikeRequest(int[] message) throws GameActionException {
         decode(message);
         return new HitchHike(new MapLocation(message[1], message[2]),
-                new MapLocation(message[3], message[4]));
+                new MapLocation(message[3], message[4]), message[5]);
     }
     public boolean sendHitchHikeAck(HitchHike req) throws GameActionException {
         int[] message = bluePrint(CommunicationType.HITCHHIKE_ACK);
@@ -168,21 +167,20 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         message[3] = req.goal.x;
         message[4] = req.goal.y;
         message[5] = req.droneID;
+        message[6] = req.reqID;
 
         encode(message);
 
-        if (rc.canSubmitTransaction(message, 1)) {
-            rc.submitTransaction(message, 1);
-            return true;
-        }
-        return false;
+        while (!rc.canSubmitTransaction(message, 1)) Clock.yield();
+        rc.submitTransaction(message, 1);
+        return true;
     }
 
     public HitchHike getHitchHikeAck(int[] message) throws GameActionException {
         decode(message);
         return new HitchHike(new MapLocation(message[1], message[2]),
                 new MapLocation(message[3], message[4]),
-                message[5]);
+                message[6], message[5]);
     }
 
     public MapLocation[] getMapBlocks(int[] message) {

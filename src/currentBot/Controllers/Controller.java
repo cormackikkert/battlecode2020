@@ -464,7 +464,7 @@ public abstract class Controller {
         queue.add(rc.getLocation());
         visited[rc.getLocation().y][rc.getLocation().x] = true;
         searchSurroundingsContinued();
-
+        MapLocation lastResort = null;
         for (int i = 0; i < 30 && !queue.isEmpty(); i++) {
             System.out.println("Searching for build tile");
             MapLocation node = queue.poll();
@@ -475,7 +475,7 @@ public abstract class Controller {
                 if (visited[nnode.y][nnode.x]) continue;
 
 
-                if (rc.getRoundNum() > PlayerConstants.FLIP_TO_LATTICE && (nnode.x + nnode.y) % 2 == 1) continue;
+
                 while (containsWater[nnode.y][nnode.x] == null) {
                     if (!rc.isReady()) Clock.yield();
                     if (tryMove(movementSolver.directionToGoal(nnode))) {
@@ -511,13 +511,16 @@ public abstract class Controller {
                 if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
 
                 if (rc.senseRobotAtLocation(nnode) == null &&
-                    getChebyshevDistance(nnode, allyHQ) > 2) return nnode;
+                    getChebyshevDistance(nnode, allyHQ) > 2) {
+                    if ((nnode.x + nnode.y) % 2 == 0) return nnode;
+                    else if (lastResort == null) lastResort = nnode;
+                }
                 queue.add(nnode);
                 visited[nnode.y][nnode.x] = true;
             }
 
         }
-        return null;
+        return lastResort;
     }
 
     public void commitSudoku() throws GameActionException {

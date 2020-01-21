@@ -7,16 +7,19 @@ public class HitchHike {
     public MapLocation goal;
     public int droneID = -1;
     public int roundNum;
+    public int reqID;
     public boolean confirmed = false;
 
-    public HitchHike(MapLocation pos, MapLocation goal) {
+    public HitchHike(MapLocation pos, MapLocation goal, int reqID) {
         this.pos = pos;
         this.goal = goal;
+        this.reqID = reqID;
     }
 
-    public HitchHike(MapLocation pos, MapLocation goal, int droneID) {
+    public HitchHike(MapLocation pos, MapLocation goal, int reqID, int droneID) {
         this.pos = pos;
         this.goal = goal;
+        this.reqID = reqID;
         this.droneID = droneID;
     }
 

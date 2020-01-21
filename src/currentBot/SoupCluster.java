@@ -16,9 +16,10 @@ public class SoupCluster {
     public int height;
     public int size;
     public int crudeSoup;
+    public int waterSize = 0;
     public boolean containsWaterSoup;
 
-    public SoupCluster(int x1, int y1, int x2, int y2, int size, int crudeSoup, boolean containsWaterSoup) {
+    public SoupCluster(int x1, int y1, int x2, int y2, int size, int crudeSoup, int waterSize) {
         this.x1 = x1;
         this.y1 = y1;
         this.x2 = x2;
@@ -31,7 +32,8 @@ public class SoupCluster {
         height = y2 - y1 + 1;
         this.size = size;
         this.crudeSoup = crudeSoup;
-        this.containsWaterSoup = containsWaterSoup;
+        this.containsWaterSoup = (waterSize > 0);
+        this.waterSize = waterSize;
     }
 
     public SoupCluster(int x1, int y1, int x2, int y2) {
