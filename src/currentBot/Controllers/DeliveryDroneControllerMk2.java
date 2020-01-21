@@ -121,7 +121,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
         System.out.println("I am a " + currentState + " " + sudoku);
 
         if (currentState == State.TAXI) {
-            System.out.println("yes definitly a taxi");
             // Like this cuz we don't want to execKill on our own miners
             execTaxi();
 //            if (rc.getRoundNum() >= ELEVATE_TIME) {
@@ -164,27 +163,31 @@ public class DeliveryDroneControllerMk2 extends Controller {
         /*
             Role assignment depending on turn. Early game defend, late game attack.
          */
+
+        if (currentReq != null) {
+            currentState = State.TAXI;
+            return;
+        }
+
         if (currentState == State.WANDERLATE) {
             return;
         }
 
-        if (isBeingRushed && rc.getRoundNum() < 800) {
-            currentState = State.DEFEND;
-            return;
+        if (isBeingRushed && rc.getRoundNum() < 500) {
+            if (rc.getID() % 2 == 0) {
+                currentState = State.DEFEND;
+                return;
+            }
         }
 
         if (rc.getRoundNum() < 800) {
             updateReqs();
-            if (currentReq != null) {
-                currentState = State.TAXI;
-                return;
-            }
         }
 
         System.out.println("assigning role, enemy hq is "+enemyHQ);
         if (rc.getRoundNum() > 1600 && enemyHQ != null && !defendLateGameShield) {
             currentState = State.ATTACKLATEGAME;
-        } else if (rc.getRoundNum() > 800) {
+        } else if (rc.getRoundNum() > 1400 && communicationHandler.receiveLandscapersOnWall() == 8) {
             currentState = State.DEFENDLATEGAME;
         } else {
             currentState = State.DEFEND;
@@ -871,8 +874,15 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execTaxi() throws GameActionException {
+
+        // Deal with landscaper being placed when travelling
+        int landScapers = communicationHandler.receiveLandscapersOnWall();
+        if (landScapers == 8 && currentReq.goal.equals(allyHQ)) {
+            currentReq.goal = currentReq.pos;
+        }
+
         if (rc.isCurrentlyHoldingUnit()) {
-            System.out.println("Here: " + currentReq.pos + " "  + currentReq.goal);
+//            System.out.println("Here: " + currentReq.pos + " "  + currentReq.goal);
             for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
                 if (robot.type == RobotType.NET_GUN) {
                     if (getDistanceSquared(currentReq.goal, robot.getLocation()) < 24) {
@@ -890,9 +900,15 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     }
                 }
             }
-            if (!isAdjacentTo(currentReq.goal)) {
+
+            boolean getCloser = (currentReq.goal.equals(allyHQ) && rc.getRoundNum() > 500) ?
+                    getChebyshevDistance(rc.getLocation(), currentReq.goal) > 2 : !rc.getLocation().isAdjacentTo(currentReq.goal);
+            if (getCloser) {
+//                System.out.println(1);
                 tryMove(movementSolver.directionToGoal(currentReq.goal));
+                // Deal with landscaper being placed when travelling
             } else {
+//                System.out.println(2);
                 Direction direction = rc.getLocation().directionTo(currentReq.goal);
                 if (rc.canDropUnit(direction)
                         && rc.canSenseLocation(rc.getLocation().add(direction))
@@ -905,6 +921,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     return;
                 }
 
+//                System.out.println(1);
+//                System.out.println(3);
                 // Wait till spot is free again (normally a unit moves)
                 RobotInfo used = rc.senseRobotAtLocation(currentReq.goal);
                 if (used != null && (used.getType() == RobotType.MINER ||
@@ -919,11 +937,14 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     }
                 }
 
+//                System.out.println(2);
+//                System.out.println(4);
                 // Place on surrounding tiles
                 for (Direction dir : Direction.allDirections()) {
+                    if (dir == Direction.CENTER) continue;
                     MapLocation target = currentReq.goal.add(dir);
                     if (rc.canSenseLocation(target) && rc.senseFlooding(target)) continue;
-                    while (!isAdjacentTo(target) && movementSolver.moves < GIVE_UP_THRESHOLD) {
+                    while (!isAdjacentTo(target) && movementSolver.moves < 10) {
                         while (!rc.isReady()) Clock.yield();
                         tryMove(movementSolver.directionToGoal(target));
                     }
@@ -937,7 +958,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                         return;
                     }
                 }
-
+                System.out.println(5);
                 // Wow we cant catch a break
                 currentState = State.TAXI2;
                 return;

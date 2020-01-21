@@ -49,11 +49,18 @@ public class LandscaperController extends Controller {
 
     public LandscaperController(RobotController rc) {
         getInfo(rc);
+        int landscapersOnWall;
         try {
-            communicationHandler.receiveLandscapeRole();
-        } catch (GameActionException e) {
-            e.printStackTrace();
+            landscapersOnWall = communicationHandler.receiveLandscapersOnWall();
+        } catch (Exception e) {
+                landscapersOnWall = 0;
         }
+
+        if (landscapersOnWall < 8)
+            currentState = State.PROTECTHQ;
+        else
+            currentState = State.KILLUNITS;
+
 
 //        int defenders = 0;
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
@@ -215,7 +222,11 @@ public class LandscaperController extends Controller {
                 return;
             }
             // otherwise go to HQ
-            goToLocationToDeposit(allyHQ);
+            if (getChebyshevDistance(rc.getLocation(), allyHQ) > 10) {
+                getHitchHike(rc.getLocation(), allyHQ);
+            } else {
+                goToLocationToDeposit(allyHQ);
+            }
             return;
         }
         // robot is currently on HQ wall
@@ -1029,4 +1040,50 @@ public class LandscaperController extends Controller {
         return false;
     }
 
+
+    public void getHitchHike(MapLocation pos, MapLocation goal) throws GameActionException {
+        HitchHike req = new HitchHike(pos, goal, rc.getID());
+        MapLocation oldPos = rc.getLocation();
+        while (true) {
+            if (communicationHandler.sendHitchHikeRequest(req))
+                break;
+        }
+        Clock.yield();
+
+        boolean confirmed = false;
+        // Wait for ACK
+        for (int i = 0; i < 64 / GRID_BLOCK_SIZE + 10; ++i) {
+            for (Transaction tx : rc.getBlock(rc.getRoundNum() - 1)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_ACK) {
+                    HitchHike ack = communicationHandler.getHitchHikeAck(mess);
+//                    System.out.println("Found ack: " + ack.pos + " " + ack.goal + " " + pos + " " + goal);
+                    if (ack.pos.equals(pos) && ack.goal.equals(goal)) {
+                        confirmed = true;
+                    }
+                }
+            }
+            Clock.yield();
+        }
+        if (!confirmed) {
+            System.out.println("Didnt get ACK");
+            return;
+        }
+        int lastRound = rc.getRoundNum() - 1;
+        while (true) {
+            if (rc.getRoundNum() - 1 == lastRound) {
+                lastRound = rc.getRoundNum();
+
+                avoidDrone();
+                if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
+                        isAdjacentToWater(rc.getLocation())) {
+                    avoidWater();
+                }
+
+                Clock.yield();
+            } else {
+                break;
+            }
+        }
+    }
 }

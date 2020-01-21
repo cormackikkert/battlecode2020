@@ -22,6 +22,8 @@ public class HQController extends Controller {
     int cap = 100000;
     boolean haveWallAround = false;
 
+    int landscapersOnWall = 0;
+
     public HQController(RobotController rc) {
         this.allyHQ = rc.getLocation();
         getInfo(rc);
@@ -30,6 +32,19 @@ public class HQController extends Controller {
         compressedHeight = rc.getMapHeight() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapHeight() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         seenBlocks = new boolean[compressedHeight][compressedWidth];
+    }
+
+    void sendLandscapersOnWall() throws GameActionException {
+        int landscapers = 0;
+        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
+            if (robot.type == RobotType.LANDSCAPER && getChebyshevDistance(robot.getLocation(), rc.getLocation()) == 1) {
+                landscapers++;
+            }
+        }
+        if (landscapers != landscapersOnWall) {
+            communicationHandler.sendLandscapersOnWall(landscapers);
+        }
+        landscapersOnWall = landscapers;
     }
 
     void updateClusters() throws GameActionException {
@@ -65,6 +80,8 @@ public class HQController extends Controller {
     public void run() throws GameActionException {
         communicationHandler.receiveTooMuchDie();
         communicationHandler.receivePLUSONE();
+        sendLandscapersOnWall(); // note only sends when it changes dw about soup consumption
+
         if (!sudokuSent && campOutside >= PlayerConstants.WAIT_FRIENDS_BEFORE_SUDOKU) {
             communicationHandler.sendSudoku();
             sudokuSent = true;

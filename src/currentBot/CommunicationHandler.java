@@ -37,7 +37,8 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         TOO_MUCH_DIE,
         STOP_SUDOKU,
         ASK_COMPANY,
-        ASK_COMPANY_ACK
+        ASK_COMPANY_ACK,
+        LANDSCAPERS_ON_WALL
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -720,6 +721,37 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         decode(message);
         return new Company(new MapLocation(message[1], message[2]), message[3]);
     }
+
+    public boolean sendLandscapersOnWall(int count) throws GameActionException {
+        int[] message = bluePrint(LANDSCAPERS_ON_WALL);
+
+        message[1] = count;
+
+        encode(message);
+
+        while (!rc.canSubmitTransaction(message, 1)) Clock.yield();
+        rc.submitTransaction(message, 1);
+        return true;
+    }
+
+    int lastRoundChecked = 1;
+    int lastRes = 0;
+    public int receiveLandscapersOnWall() throws GameActionException {
+        for (int i = rc.getRoundNum() - 1; i >= lastRoundChecked; --i) {
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+                if (identify(message) == LANDSCAPERS_ON_WALL) {
+                    decode(message);
+                    lastRes = message[1];
+                    lastRoundChecked = i + 1;
+                    return message[1];
+                }
+            }
+        }
+        lastRoundChecked = rc.getRoundNum();
+        return lastRes;
+    }
+
 //
 //    int turnBC = 1;
 //    public void beCompany() throws GameActionException {
