@@ -189,6 +189,7 @@ public class MinerController extends Controller {
         solveGhostHq();
         updateReqs();
         commitSudoku(); // if stuck
+        evacuate(); // go to a different soup cluster
 
         communicationHandler.solveEnemyHQLocWithGhosts();
 
@@ -827,6 +828,66 @@ public class MinerController extends Controller {
 
     }
 
+    public void evacuate() throws GameActionException {
+        if (currentSoupCluster == null) return;
+        if (currentSoupCluster.elevation < GameConstants.getWaterLevel(rc.getRoundNum() + 100)) {
+            currentSoupCluster.size = 0;
+            communicationHandler.sendCluster(currentSoupCluster);
+
+            updateClusters();
+
+            int totalSoupSquares = 0;
+
+            SoupCluster nextBest = soupClusters.get(0);
+            for (SoupCluster soupCluster : soupClusters) {
+                if (soupCluster.elevation > GameConstants.getWaterLevel(rc.getRoundNum() + 300))
+                    totalSoupSquares += soupCluster.size;
+                else {
+                    if (soupCluster.elevation > nextBest.elevation) nextBest = soupCluster;
+                }
+            }
+
+            if (totalSoupSquares == 0) {
+                if (nextBest != null) {
+                    currentSoupCluster = nextBest;
+                    return;
+                }
+
+                // TODO: something better
+                soupClusters = waterClusters;
+                if (waterClusters.size() == 0 && rc.getRoundNum() > 500 && !builtFC) {
+                    while (!rc.isReady()) Clock.yield();
+                    for (Direction dir : Direction.allDirections()) {
+                        if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, dir)) {
+                            rc.buildRobot(RobotType.FULFILLMENT_CENTER, dir);
+                            builtFC = true;
+                        }
+                    }
+                }
+                return;
+            }
+
+            int v = this.rc.getID() % totalSoupSquares;
+            int behind = 0;
+            for (SoupCluster soupCluster : soupClusters) {
+                if (v < behind + soupCluster.size) {
+                    currentSoupCluster = soupCluster;
+                    break;
+                }
+                behind += soupCluster.size;
+            }
+
+            if (currentSoupCluster == null && rc.getRoundNum() > 800) {
+                this.buildType = RobotType.FULFILLMENT_CENTER;
+                this.buildLoc = null;
+                currentState = State.BUILDER;
+                execBuilder();
+                return;
+                // Explore time
+                // System.out.println("YASSS");
+            }
+        }
+    }
     public SoupCluster determineCluster(MapLocation pos) throws GameActionException {
         /*
             Performs BFS to determine size of cluster
