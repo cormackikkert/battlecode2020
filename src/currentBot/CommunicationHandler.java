@@ -329,10 +329,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     boolean failV = false;
     public void sendFailVertical() throws GameActionException {
         if (failV) return;
-        int[] message = new int[7];
-        message[0] = rc.getRoundNum();
-        message[6] = CommunicationType.FAILVERTICAL.ordinal();
-        encode(message);
+        int[] message = bluePrint(FAILVERTICAL);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found vert");
@@ -343,10 +340,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     boolean failH = false;
     public void sendFailHorizontal() throws GameActionException {
         if (failH) return;
-        int[] message = new int[7];
-        message[0] = rc.getRoundNum();
-        message[6] = CommunicationType.FAILHORIZONTAL.ordinal();
-        encode(message);
+        int[] message = bluePrint(FAILHORIZONTAL);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found hori");
@@ -357,10 +351,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     boolean failR = false;
     public void sendFailRotational() throws GameActionException {
         if (failR) return;
-        int[] message = new int[7];
-        message[0] = rc.getRoundNum();
-        message[6] = CommunicationType.FAILROTATIONAL.ordinal();
-        encode(message);
+        int[] message = bluePrint(FAILROTATIONAL);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found rotate");
@@ -379,23 +370,22 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
             Transaction[] transactions = rc.getBlock(i);
             for (Transaction transaction : transactions) {
                 int[] message= transaction.getMessage();
-                decode(message);
 
-                if (message[6] == CommunicationType.FAILHORIZONTAL.ordinal() && controller.ghostH) {
+                if (identify(message) == FAILHORIZONTAL && controller.ghostH) {
                     controller.ghostH = false;
                     controller.ghostsKilled++;
                     failH = true;
                     System.out.println("not horizontal symmetry");
                 }
 
-                if (message[6] == CommunicationType.FAILVERTICAL.ordinal() && controller.ghostV) {
+                if (identify(message) == FAILVERTICAL && controller.ghostV) {
                     controller.ghostV = false;
                     controller.ghostsKilled++;
                     failV = true;
                     System.out.println("not vertical symmetry");
                 }
 
-                if (message[6] == CommunicationType.FAILROTATIONAL.ordinal() && controller.ghostR) {
+                if (identify(message) == FAILROTATIONAL && controller.ghostR) {
                     controller.ghostR = false;
                     controller.ghostsKilled++;
                     failR = true;

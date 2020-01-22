@@ -318,9 +318,12 @@ public class LandscaperController extends Controller {
         if (rc.getLocation().isAdjacentTo(enemyHQ)) {
             if (rc.getDirtCarrying() == 0) {
                 for (Direction direction : directions) {
-                    if (rc.canDigDirt(direction)) {
+                    if (rc.canDigDirt(direction) && rc.senseRobotAtLocation(rc.getLocation().add(direction)).getType() != RobotType.HQ) {
                         rc.digDirt(direction);
+                        System.out.println("digging to kill "+direction);
                         break;
+                    } else {
+                        System.out.println("cannot dig to kill "+direction);
                     }
                 }
             }

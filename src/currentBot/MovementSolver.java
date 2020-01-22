@@ -179,11 +179,21 @@ public class MovementSolver {
         twoback = previous;
         previous = from;
 
+        if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.WANDERLATE) {
+            return dir;
+        }
+
         System.out.println(twoback+" "+previous+" "+rc.getLocation().add(dir));
-        if (rc.getLocation().add(dir).equals(twoback)) {
+        if (rc.getLocation().add(dir).equals(twoback) && rc.getRoundNum() < 1800) {
             System.out.println("stuck");
-            ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
-            if (rc.isCurrentlyHoldingUnit() && ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI) {
+            if (rc.getRoundNum() > 1800) {
+                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACKLATEGAME;
+            } else {
+                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
+            }
+            if (rc.isCurrentlyHoldingUnit() &&
+                    ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI &&
+                    ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.WANDERLATE) {
                 ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
             }
             if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.TAXI && !rc.isCurrentlyHoldingUnit()) {
