@@ -329,6 +329,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public void sendFailVertical() throws GameActionException {
         if (failV) return;
         int[] message = bluePrint(FAILVERTICAL);
+        encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found vert");
@@ -340,6 +341,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public void sendFailHorizontal() throws GameActionException {
         if (failH) return;
         int[] message = bluePrint(FAILHORIZONTAL);
+        encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found hori");
@@ -351,6 +353,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     public void sendFailRotational() throws GameActionException {
         if (failR) return;
         int[] message = bluePrint(FAILROTATIONAL);
+        encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
             System.out.println("send message for fail found rotate");
