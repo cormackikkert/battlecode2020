@@ -29,6 +29,8 @@ public class FulfillmentCenterController extends Controller {
 
     public FulfillmentCenterController(RobotController rc) {
         getInfo(rc);
+        // Probably built one before
+        if (rc.getRoundNum() > 500) ex = 400;
     }
 
     public void run() throws GameActionException {
@@ -61,7 +63,7 @@ public class FulfillmentCenterController extends Controller {
         }
 
         if (netGunNearby) {
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 boolean isSafe = true;
                 for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
                     if (enemy.type == RobotType.NET_GUN) {

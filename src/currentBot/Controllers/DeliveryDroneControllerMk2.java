@@ -77,11 +77,14 @@ public class DeliveryDroneControllerMk2 extends Controller {
         compressedWidth = rc.getMapWidth() / PlayerConstants.GRID_BLOCK_SIZE + ((rc.getMapWidth() % PlayerConstants.GRID_BLOCK_SIZE == 0) ? 0 : 1);
         seenBlocks = new boolean[compressedHeight][compressedWidth];
 
-        if (rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent()).length > 0)
-            isBeingRushed = true;
+
 
         System.out.println("Getting info");
         getInfo(rc);
+
+        if (rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent()).length > 0 &&
+                getChebyshevDistance(rc.getLocation(), allyHQ) <= 5)
+            isBeingRushed = true;
     }
 
     public void searchSurroundingsContinued() throws GameActionException {
@@ -508,7 +511,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         System.out.println("executing kill");
         MapLocation loc = rc.getLocation();
         MapLocation kill;
-        for (Direction direction : Direction.allDirections()) {
+        for (Direction direction : getDirections()) {
 //            System.out.println("trying to kill in direction "+direction+" at "+loc);
             kill = loc.add(direction);
             if (rc.canSenseLocation(kill) && rc.senseFlooding(kill)) {
@@ -560,7 +563,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     public void execKill2() throws GameActionException {
         MapLocation loc = rc.getLocation();
         MapLocation kill;
-        for (Direction direction : Direction.allDirections()) {
+        for (Direction direction : getDirections()) {
             kill = loc.add(direction);
             if (rc.canSenseLocation(kill) && rc.senseFlooding(kill)) {
                 if (!rc.isReady()) Clock.yield();
@@ -732,7 +735,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 totalElevation += (elevationHeight[current.y][current.x] != null) ? elevationHeight[current.y][current.x] : 0;
 
 
-            for (Direction delta : Direction.allDirections()) {
+            for (Direction delta : getDirections()) {
                 MapLocation neighbour = current.add(delta);
 //                System.out.println("testing: " + neighbour + " " + searchedForSoupCluster[neighbour.y][neighbour.x]);
                 if (!rc.onTheMap(neighbour)) continue;
@@ -969,7 +972,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             if (visited[node.y][node.x]) continue;
             visited[node.y][node.x] = true;
 
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 MapLocation nnode = node.add(dir).add(dir);
                 if (!onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
                 stack.push(nnode);
@@ -995,7 +998,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (robot.type == RobotType.NET_GUN) {
                     if (getDistanceSquared(currentReq.goal, robot.getLocation()) < 24) {
                         // There is a netgun in the way rip
-                        for (Direction dir : Direction.allDirections()) {
+                        for (Direction dir : getDirections()) {
                             if (rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir))) {
                                 rc.dropUnit(dir);
                                 currentReq = null;
@@ -1053,7 +1056,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 //                System.out.println(2);
 //                System.out.println(4);
                 // Place on surrounding tiles
-                for (Direction dir : Direction.allDirections()) {
+                for (Direction dir : getDirections()) {
                     if (dir == Direction.CENTER) continue;
                     MapLocation target = currentReq.goal.add(dir);
                     if (rc.canSenseLocation(target) && rc.senseFlooding(target)) continue;
@@ -1085,7 +1088,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                         while (true) {
                             tryMove(movementSolver.directionToGoal(rc.getLocation().add(dir)));
                             while (!rc.isReady()) Clock.yield();
-                            for (Direction d : Direction.allDirections()) {
+                            for (Direction d : getDirections()) {
                                 if (rc.canDropUnit(d) && !rc.senseFlooding(rc.getLocation().add(d))) {
                                     rc.dropUnit(d);
                                     break drop;
@@ -1131,7 +1134,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        for (Direction dir : Direction.allDirections()) {
+        for (Direction dir : getDirections()) {
             if (rc.canDropUnit(dir) && !rc.senseFlooding(rc.getLocation().add(dir))) {
                 rc.dropUnit(dir);
                 currentReq = null;

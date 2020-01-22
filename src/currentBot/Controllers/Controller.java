@@ -324,7 +324,7 @@ public abstract class Controller {
         while (!queue.isEmpty()) {
             MapLocation node = queue.poll();
 
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode)) continue;
                 if (visited[nnode.y][nnode.x]) continue;
@@ -443,14 +443,14 @@ public abstract class Controller {
     }
 
     public MapLocation getNearestBuildTile() throws GameActionException {
-//        for (Direction dir :  Direction.allDirections()) {
+//        for (Direction dir :  getDirections()) {
 //            MapLocation pos = rc.getLocation().add(dir);
 //            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
 //                getChebyshevDistance(pos, allyHQ) >= 2 &&
 //                    (pos.x + pos.y) % 2 == 0)
 //                return pos;
 //        }
-//        for (Direction dir :  Direction.allDirections()) {
+//        for (Direction dir :  getDirections()) {
 //            MapLocation pos = rc.getLocation().add(dir);
 //            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
 //                    getChebyshevDistance(pos, allyHQ) >= 2)
@@ -469,7 +469,7 @@ public abstract class Controller {
             System.out.println("Searching for build tile");
             MapLocation node = queue.poll();
 
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode)) continue;
                 if (visited[nnode.y][nnode.x]) continue;
@@ -528,7 +528,7 @@ public abstract class Controller {
             while (!rc.isReady()) Clock.yield();
 
             boolean isStuck = true;
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 if (rc.canMove(dir) && getChebyshevDistance(rc.getLocation().add(dir), allyHQ) >= 2) {
                     isStuck = false;
                 }
@@ -552,7 +552,7 @@ public abstract class Controller {
             if (soupCount[node.y][node.x] == null ||
                     soupCount[node.y][node.x] > 0) return node;
 
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 MapLocation nnode = node.add(dir);
                 if (!onTheMap(nnode)) continue;
                 if (visited[nnode.y][nnode.x]) continue;
@@ -615,7 +615,7 @@ public abstract class Controller {
     }
 
     void avoidWater() throws GameActionException {
-        for (Direction dir : Direction.allDirections()) {
+        for (Direction dir : getDirections()) {
             if (!isAdjacentToWater(rc.getLocation().add(dir)) && tryMove(dir)) {
 //                System.out.println("YEEHAW");
                 return;
@@ -638,7 +638,7 @@ public abstract class Controller {
 
         System.out.println("Rip have to avoid drone");
 
-        for (Direction dir : Direction.allDirections()) {
+        for (Direction dir : getDirections()) {
             MapLocation pos = rc.getLocation().add(dir);
 
             boolean isGood = true;
@@ -650,7 +650,7 @@ public abstract class Controller {
     }
 
     boolean isAdjacentToWater(MapLocation pos) throws GameActionException {
-        for (Direction dir : Direction.allDirections()) {
+        for (Direction dir : getDirections()) {
             if (rc.canSenseLocation(pos.add(dir)) && rc.senseFlooding(pos.add(dir))) return true;
         }
         return false;
@@ -762,6 +762,33 @@ public abstract class Controller {
                     netGuns.remove(mapLocation);
                 }
             }
+        }
+    }
+    Direction[] getDirections() {
+        if (rc.getLocation().x < rc.getMapWidth() / 2) {
+            return new Direction[]{
+                    Direction.CENTER,
+                    Direction.NORTHWEST,
+                    Direction.WEST,
+                    Direction.SOUTHWEST,
+                    Direction.SOUTH,
+                    Direction.SOUTHEAST,
+                    Direction.EAST,
+                    Direction.NORTHEAST,
+                    Direction.NORTH
+            };
+        } else {
+            return new Direction[]{
+                    Direction.NORTH,
+                    Direction.NORTHEAST,
+                    Direction.EAST,
+                    Direction.SOUTHEAST,
+                    Direction.SOUTH,
+                    Direction.SOUTHWEST,
+                    Direction.WEST,
+                    Direction.NORTHWEST,
+                    Direction.CENTER
+            };
         }
     }
 }

@@ -191,7 +191,7 @@ public class MinerController extends Controller {
         commitSudoku(); // if stuck
         evacuate(); // go to a different soup cluster
 
-        for (Direction dir : Direction.allDirections()) {
+        for (Direction dir : getDirections()) {
             System.out.println(dir);
         }
 
@@ -498,7 +498,7 @@ public class MinerController extends Controller {
                 if (rc.sensePollution(square) > MINER_POLLUTION_THRESHOLD) continue;
 
                 boolean surroundedByWater = true;
-                for (Direction dir : Direction.allDirections()) {
+                for (Direction dir : getDirections()) {
                     if (rc.canSenseLocation(square.add(dir)) && !rc.senseFlooding(square.add(dir))) surroundedByWater = false;
                 }
 
@@ -578,55 +578,58 @@ public class MinerController extends Controller {
     public void execDeposit() throws GameActionException {
         searchSurroundingsContinued();
 
+
         if (currentRefineryPos == null ||
             getChebyshevDistance(rc.getLocation(), currentRefineryPos) > PlayerConstants.DISTANCE_FROM_REFINERY ||
                 (currentRefineryPos.equals(allyHQ) && ((!shouldBuildDS && !shouldBuildFC) || usedDrone))) {
 
-            MapLocation oldRefPos = currentRefineryPos;
-            currentRefineryPos = null;
-
-            // Look for new refinery
-            for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared())) {
-                if (robot.type == RobotType.REFINERY) {
-                    if (oldRefPos != null && oldRefPos.equals(robot.location)) continue;
-                    if (currentRefineryPos == null ||
-                        getChebyshevDistance(rc.getLocation(), robot.location) < getChebyshevDistance(rc.getLocation(), currentRefineryPos)) {
-                        currentRefineryPos = robot.location;
-                    }
-                }
-            }
-
-            System.out.println("Found closest refinery");
-
-            if (currentRefineryPos != null && getChebyshevDistance(rc.getLocation(), oldRefPos) <= getChebyshevDistance(rc.getLocation(), currentRefineryPos)) {
+            if (!(currentRefineryPos != null && currentRefineryPos.equals(allyHQ) && (shouldBuildDS || shouldBuildFC))) {
+                MapLocation oldRefPos = currentRefineryPos;
                 currentRefineryPos = null;
-            }
 
-            if (currentRefineryPos == null && rc.getTeamSoup() > RobotType.REFINERY.cost) {
-                // Build a new refinery
-                while (currentRefineryPos == null) {
-                    System.out.println("I am looking for a place to build a refinery");
-                    for (Direction dir : Direction.allDirections()) {
-                        if (getChebyshevDistance(allyHQ, rc.getLocation().add(dir)) <= 2) continue;
-                        if (tryBuild(RobotType.REFINERY, dir)) {
-//                            communicationHandler.transmitNewRefinery();
-                            currentRefineryPos = rc.getLocation().add(dir);
-                            break;
+                // Look for new refinery
+                for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared())) {
+                    if (robot.type == RobotType.REFINERY) {
+                        if (oldRefPos != null && oldRefPos.equals(robot.location)) continue;
+                        if (currentRefineryPos == null ||
+                                getChebyshevDistance(rc.getLocation(), robot.location) < getChebyshevDistance(rc.getLocation(), currentRefineryPos)) {
+                            currentRefineryPos = robot.location;
                         }
                     }
-
-                    if (currentRefineryPos == null) {
-                        // Couldn't build a refinery
-                        currentRefineryPos = allyHQ;
-                        break;
-                    }
-
-                    while (!rc.isReady()) Clock.yield();
-                    tryMove(movementSolver.directionToGoal(rc.getLocation().add(allyHQ.directionTo(rc.getLocation()))));
-                    Clock.yield();
                 }
-            } else if (currentRefineryPos == null) {
-                currentRefineryPos = allyHQ;
+
+                System.out.println("Found closest refinery");
+
+                if (currentRefineryPos != null && getChebyshevDistance(rc.getLocation(), oldRefPos) <= getChebyshevDistance(rc.getLocation(), currentRefineryPos)) {
+                    currentRefineryPos = null;
+                }
+
+                if (currentRefineryPos == null && rc.getTeamSoup() > RobotType.REFINERY.cost) {
+                    // Build a new refinery
+                    while (currentRefineryPos == null) {
+                        System.out.println("I am looking for a place to build a refinery");
+                        for (Direction dir : getDirections()) {
+                            if (getChebyshevDistance(allyHQ, rc.getLocation().add(dir)) <= 2) continue;
+                            if (tryBuild(RobotType.REFINERY, dir)) {
+//                            communicationHandler.transmitNewRefinery();
+                                currentRefineryPos = rc.getLocation().add(dir);
+                                break;
+                            }
+                        }
+
+                        if (currentRefineryPos == null) {
+                            // Couldn't build a refinery
+                            currentRefineryPos = allyHQ;
+                            break;
+                        }
+
+                        while (!rc.isReady()) Clock.yield();
+                        tryMove(movementSolver.directionToGoal(rc.getLocation().add(allyHQ.directionTo(rc.getLocation()))));
+                        Clock.yield();
+                    }
+                } else if (currentRefineryPos == null) {
+                    currentRefineryPos = allyHQ;
+                }
             }
         }
 
@@ -650,8 +653,8 @@ public class MinerController extends Controller {
             if (rc.canDepositSoup(rc.getLocation().directionTo(currentRefineryPos))) {
                 rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
 
-                if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 100) &&
-                    !cantBuildHere[rc.getLocation().y][rc.getLocation().x]) {
+                if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 100) ||
+                        (currentRefineryPos.equals(allyHQ))) {
                     if (shouldBuildDS) {
                         System.out.println("Building DS");
                         buildType = RobotType.DESIGN_SCHOOL;
@@ -718,7 +721,7 @@ public class MinerController extends Controller {
         // Decide which cluster each miner goes to by using ID's
         // So each cluster has the number of miners proportional to its size
 
-        for (Direction dir : Direction.allDirections()) {
+        for (Direction dir : getDirections()) {
             if (!rc.canSenseLocation(rc.getLocation().add(dir))) continue;
             if (rc.senseSoup(rc.getLocation().add(dir)) > 0 && rc.canMineSoup(dir)) {
                 currentState = State.MINE;
@@ -753,7 +756,7 @@ public class MinerController extends Controller {
                 soupClusters = waterClusters;
                 if (waterClusters.size() == 0 && rc.getRoundNum() > 500 && !builtFC) {
                     while (!rc.isReady()) Clock.yield();
-                    for (Direction dir : Direction.allDirections()) {
+                    for (Direction dir : getDirections()) {
                         if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, dir)) {
                             rc.buildRobot(RobotType.FULFILLMENT_CENTER, dir);
                             builtFC = true;
@@ -861,7 +864,7 @@ public class MinerController extends Controller {
                 soupClusters = waterClusters;
                 if (waterClusters.size() == 0 && rc.getRoundNum() > 500 && !builtFC) {
                     while (!rc.isReady()) Clock.yield();
-                    for (Direction dir : Direction.allDirections()) {
+                    for (Direction dir : getDirections()) {
                         if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, dir)) {
                             rc.buildRobot(RobotType.FULFILLMENT_CENTER, dir);
                             builtFC = true;
@@ -945,7 +948,7 @@ public class MinerController extends Controller {
             else
                 totalElevation += (elevationHeight[current.y][current.x] != null) ? elevationHeight[current.y][current.x] : 0;
 
-            for (Direction delta : Direction.allDirections()) {
+            for (Direction delta : getDirections()) {
                 MapLocation neighbour = current.add(delta);
                 if (!inRange(neighbour.y, 0, rc.getMapHeight()) || !inRange(neighbour.x, 0, rc.getMapWidth())) continue;
                 if (searchedForSoupCluster[neighbour.y][neighbour.x]) continue;
@@ -1084,7 +1087,7 @@ public class MinerController extends Controller {
                 }
             }
 
-            if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
+            if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType, usedDrone)) {
                 if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc)) ||
                         (rc.senseRobotAtLocation(buildLoc) != null && rc.senseRobotAtLocation(buildLoc).type == buildType)) {
                     if (this.buildType == RobotType.DESIGN_SCHOOL) shouldBuildDS = false;
@@ -1169,7 +1172,7 @@ public class MinerController extends Controller {
 
             // Build design school near enemy HQ
             if (!tryBuild(RobotType.DELIVERY_DRONE, rc.getLocation().directionTo(enemyHQ))) {
-                for (Direction dir : Direction.allDirections()) {
+                for (Direction dir : getDirections()) {
                     if (tryBuild(RobotType.DESIGN_SCHOOL, dir)) break;
                 }
             }
@@ -1207,7 +1210,7 @@ public class MinerController extends Controller {
             if (visited[node.y][node.x]) continue;
             visited[node.y][node.x] = true;
 
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 MapLocation nnode = node.add(dir).add(dir);
                 if (!rc.onTheMap(nnode) || visited[nnode.y][nnode.x]) continue;
 
@@ -1401,7 +1404,7 @@ public class MinerController extends Controller {
 
             if (pos.distanceSquaredTo(node) < targetDistance) return true;
 
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 MapLocation nnode = node.add(dir);
                 if (!rc.onTheMap(nnode)) continue;
                 if (!rc.canSenseLocation(nnode)) continue;
