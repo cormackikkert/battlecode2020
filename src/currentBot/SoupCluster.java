@@ -18,8 +18,8 @@ public class SoupCluster {
     public int crudeSoup;
     public int waterSize = 0;
     public boolean containsWaterSoup;
-
-    public SoupCluster(int x1, int y1, int x2, int y2, int size, int crudeSoup, int waterSize) {
+    public int elevation = 0;
+    public SoupCluster(int x1, int y1, int x2, int y2, int size, int crudeSoup, int waterSize, int elevation) {
         this.x1 = x1;
         this.y1 = y1;
         this.x2 = x2;
@@ -34,6 +34,7 @@ public class SoupCluster {
         this.crudeSoup = crudeSoup;
         this.containsWaterSoup = (waterSize > 0);
         this.waterSize = waterSize;
+        this.elevation = elevation;
     }
 
     public SoupCluster(int x1, int y1, int x2, int y2) {

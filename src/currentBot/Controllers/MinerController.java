@@ -1,10 +1,8 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
-import com.sun.org.apache.bcel.internal.generic.LAND;
 import currentBot.*;
 
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Stack;
 
@@ -728,11 +726,23 @@ public class MinerController extends Controller {
             updateClusters();
 
             int totalSoupSquares = 0;
+
+            SoupCluster nextBest = soupClusters.get(0);
             for (SoupCluster soupCluster : soupClusters) {
-                totalSoupSquares += soupCluster.size;
+                if (soupCluster.elevation > GameConstants.getWaterLevel(rc.getRoundNum() + 300))
+                    totalSoupSquares += soupCluster.size;
+                else {
+                    if (soupCluster.elevation > nextBest.elevation) nextBest = soupCluster;
+                }
             }
 
             if (totalSoupSquares == 0) {
+                if (nextBest != null) {
+                    currentSoupCluster = nextBest;
+                    return;
+                }
+
+                // TODO: something better
                 soupClusters = waterClusters;
                 if (waterClusters.size() == 0 && rc.getRoundNum() > 500 && !builtFC) {
                     while (!rc.isReady()) Clock.yield();
@@ -832,6 +842,8 @@ public class MinerController extends Controller {
         int waterSize = 0;
         boolean containsWaterSoup = false;
 
+        int totalElevation = 0; // Used for finding mean elevation
+
         int x1 = pos.x;
         int x2 = pos.x;
         int y1 = pos.y;
@@ -856,8 +868,12 @@ public class MinerController extends Controller {
             // We keep searching instead of returning to mark each cell as checked
             // so we don't do it again
             ++size;
-            waterSize += (containsWater[current.y][current.x] != null &&
-                    containsWater[current.y][current.x]) ? 1 : 0;
+
+            // Dont count elevation of water tiles as we won't be stepping there
+            if (containsWater[current.y][current.x] != null &&
+                    containsWater[current.y][current.x]) waterSize += 1;
+            else
+                totalElevation += (elevationHeight[current.y][current.x] != null) ? elevationHeight[current.y][current.x] : 0;
 
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
@@ -898,7 +914,7 @@ public class MinerController extends Controller {
 
 //        System.out.println("Found: " + size);
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, waterSize);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, waterSize, totalElevation / size);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 

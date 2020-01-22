@@ -95,7 +95,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
         message[3] = cluster.crudeSoup;
 
-        message[4] = cluster.containsWaterSoup ? 1 : 0;
+        message[4] = cluster.waterSize;
+
+        message[5] = cluster.elevation;
 
         //System.out.println("BEFORE: " + message[2]);
         encode(message);
@@ -116,7 +118,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int y1 = message[1] % (1 << 8); message[1] >>= 8;
         int x1 = message[1] % (1 << 8); message[1] >>= 8;
 
-        return new SoupCluster(x1, y1, x2, y2, message[2], message[3], message[4]);
+        return new SoupCluster(x1, y1, x2, y2, message[2], message[3], message[4], message[5]);
     }
 
     public boolean sendMapBlocks(MapLocation[] blocks) throws GameActionException {

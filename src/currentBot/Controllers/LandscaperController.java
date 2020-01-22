@@ -717,7 +717,8 @@ public class LandscaperController extends Controller {
 
 //        System.out.println("Found: " + size);
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, 0);
+        // This isn't used (hopefully)
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, 0, 0);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 

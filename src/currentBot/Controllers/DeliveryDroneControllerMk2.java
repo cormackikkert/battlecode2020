@@ -593,6 +593,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         int y2 = pos.y;
 
         boolean occupiedByEnemy = false;
+        int totalElevation = 0;
 
         // Incase the enemy has already occupied this spot
         MapLocation refineryPos = null;
@@ -625,8 +626,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
             // so we don't do it again
 
             ++size;
-            waterSize += (containsWater[current.y][current.x] != null &&
-                    containsWater[current.y][current.x]) ? 1 : 0;
+            // Dont count elevation of water tiles as we won't be stepping there
+            if (containsWater[current.y][current.x] != null &&
+                    containsWater[current.y][current.x]) waterSize += 1;
+            else
+                totalElevation += (elevationHeight[current.y][current.x] != null) ? elevationHeight[current.y][current.x] : 0;
+
 
             for (Direction delta : Direction.allDirections()) {
                 MapLocation neighbour = current.add(delta);
@@ -673,7 +678,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         if (occupiedByEnemy && size < PlayerConstants.CONTEST_SOUP_CLUSTER_SIZE) return null;
 
-        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, waterSize);
+        SoupCluster found = new SoupCluster(x1, y1, x2, y2, size, crudeSoup, waterSize, totalElevation / size);
 
 //        System.out.println("Finished finding cluster: " + found.size);
 
