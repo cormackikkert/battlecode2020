@@ -1,25 +1,24 @@
-package currentBot;
+package whyPermutator;
 
-import battlecode.common.MapLocation;
+public class RingQueue<T> {
+    // Thanks jerry
+    // https://github.com/j-mao/battlecode-2019/blob/master/newstart/DankQueue.java
 
-public class RingQueueMapLocation {
-    // Java handles array of generics weirdly so I just remade this class
-
-    public MapLocation[] buf;
+    public T[] buf;
     public int l;
     public int r;
     public int ln;
 
-    public RingQueueMapLocation() {
+    public RingQueue() {
         ln = 10000;
-        buf = new MapLocation[ln];
+        buf = (T[]) new Object[ln];
         l = 0;
         r = 0;
     }
 
-    public RingQueueMapLocation(int maxlen) {
+    public RingQueue(int maxlen) {
         ln = maxlen + 5;
-        buf = new MapLocation[ln];
+        buf = (T[]) new Object[ln];
         l = 0;
         r = 0;
     }
@@ -36,7 +35,7 @@ public class RingQueueMapLocation {
         return (r - l + ln) % ln;
     }
 
-    public boolean add(MapLocation e) {
+    public boolean add(T e) {
         if ((r + 1) % ln == l) {
             return false;
         }
@@ -45,7 +44,7 @@ public class RingQueueMapLocation {
         return true;
     }
 
-    public boolean addFront(MapLocation e) {
+    public boolean addFront(T e) {
         int newl = l-1;
         if (newl == -1) newl = ln-1;
         if (newl == r) return false;
@@ -54,18 +53,18 @@ public class RingQueueMapLocation {
         return true;
     }
 
-    public MapLocation peek() {
+    public T peek() {
         if (l == r) {
             return null;
         }
         return buf[l];
     }
 
-    public MapLocation poll() {
+    public T poll() {
         if (l == r) {
             return null;
         }
-        MapLocation v = buf[l];
+        T v = buf[l];
         l = (l + 1) % ln;
         return v;
     }

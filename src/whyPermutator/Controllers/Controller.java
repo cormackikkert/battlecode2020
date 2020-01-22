@@ -1,4 +1,4 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 /*
     So I thought we would do a controller thing like this:
@@ -6,13 +6,12 @@ package currentBot.Controllers;
 */
 
 import battlecode.common.*;
-import currentBot.CommunicationHandler;
-import currentBot.MapBlock;
-import currentBot.MovementSolver;
-import currentBot.RingQueue;
+import whyPermutator.CommunicationHandler;
+import whyPermutator.MapBlock;
+import whyPermutator.MovementSolver;
+import whyPermutator.RingQueue;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 

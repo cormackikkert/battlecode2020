@@ -1,12 +1,12 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 import battlecode.common.*;
-import currentBot.*;
+import whyPermutator.*;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-import static currentBot.Controllers.PlayerConstants.*;
+import static whyPermutator.Controllers.PlayerConstants.*;
 
 // Search surroundings Soup doesnt work (its an easy fix just cant be bothered)
 

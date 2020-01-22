@@ -1,12 +1,12 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 import battlecode.common.Direction;
 import battlecode.common.GameActionException;
 import battlecode.common.RobotController;
 import battlecode.common.RobotType;
 
-public class VaporatorController extends Controller {
-    public VaporatorController(RobotController rc) {
+public class RefineryController extends Controller {
+    public RefineryController(RobotController rc) {
         this.rc = rc;
     }
 

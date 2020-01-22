@@ -1,12 +1,11 @@
-package currentBot;
+package whyPermutator;
 
 import battlecode.common.*;
-import currentBot.Controllers.Controller;
-import currentBot.Controllers.DeliveryDroneControllerMk2;
-import currentBot.Controllers.LandscaperController;
-import currentBot.Controllers.MinerController;
+import whyPermutator.Controllers.Controller;
+import whyPermutator.Controllers.DeliveryDroneControllerMk2;
+import whyPermutator.Controllers.LandscaperController;
 
-import static currentBot.CommunicationHandler.CommunicationType.*;
+import static whyPermutator.CommunicationHandler.CommunicationType.*;
 
 public class CommunicationHandler { // TODO : conserve bytecode by storing turn of last received message
     public static final int MESSAGE_COST = 1;

@@ -1,14 +1,14 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 import battlecode.common.*;
-import currentBot.*;
+import whyPermutator.*;
 
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.Stack;
 
-import static currentBot.Controllers.PlayerConstants.*;
+import static whyPermutator.Controllers.PlayerConstants.*;
 
 /**
  * New strategy since 14/01/2020:

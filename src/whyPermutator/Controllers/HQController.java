@@ -1,12 +1,10 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 import battlecode.common.*;
-import currentBot.CommunicationHandler;
-import currentBot.SoupCluster;
+import whyPermutator.CommunicationHandler;
+import whyPermutator.SoupCluster;
 
 import java.util.LinkedList;
-
-import static currentBot.Controllers.PlayerConstants.START_BUILD_WALL;
 
 public class HQController extends Controller {
     boolean locationSent = false;
