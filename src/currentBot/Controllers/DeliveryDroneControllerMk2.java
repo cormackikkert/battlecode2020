@@ -116,6 +116,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
         updateReqs();
 
         communicationHandler.solveEnemyHQLocWithGhosts();
+
+        System.out.println("a6");
+
 //        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
         if (currentState != State.TAXI2) {
@@ -734,6 +737,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
                 int usedMoves = 0; // remove infinite loops
                 while (soupCount[neighbour.y][neighbour.x] == null) {
+                    if (rc.canSenseLocation(neighbour) && rc.sensePollution(neighbour) > DRONE_POLLUTION_THRESHOLD) break;
                     if (usedMoves > 10) {
                         usedMoves = -1; // lazy flag
                         break;
@@ -813,10 +817,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
 //                    currentState = State.DEFEND;
                     communicationHandler.sendCluster(foundSoupCluster);
                     // If there are no clusters for team miners, have be a taxi
-                    if (foundSoupCluster.size - foundSoupCluster.waterSize >= 5) {
+                    if (foundSoupCluster.elevation > GameConstants.getWaterLevel(rc.getRoundNum() + 300)) {
                         // miners will want to taxi here
                         currentState = State.WANDER;
                     }
+                    System.out.println(foundSoupCluster.elevation + " " + GameConstants.getWaterLevel(rc.getRoundNum() + 100) + " " + currentState);
                     return foundSoupCluster;
                 }
             }

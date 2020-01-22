@@ -191,10 +191,6 @@ public class MinerController extends Controller {
         commitSudoku(); // if stuck
         evacuate(); // go to a different soup cluster
 
-        for (Direction dir : getDirections()) {
-            System.out.println(dir);
-        }
-
         communicationHandler.solveEnemyHQLocWithGhosts();
 
         updateClusters();
@@ -213,7 +209,7 @@ public class MinerController extends Controller {
             avoidWater();
         }
 
-        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
+//        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
 
         if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
                 rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR) &&
@@ -469,7 +465,7 @@ public class MinerController extends Controller {
 
             If soup cluster is finished, tell everyone else and go to another one
          */
-        System.out.println("Doing mining stuff " + currentSoupSquare);
+//        System.out.println("Doing mining stuff " + currentSoupSquare);
 
         updateClusters();
 
@@ -517,6 +513,7 @@ public class MinerController extends Controller {
             }
 
             if (currentSoupSquare == null) {
+                System.out.println("didnt find a new soup square");
                 currentState = State.SEARCHURGENT;
 
                 if (containsWaterTile) {
@@ -539,6 +536,7 @@ public class MinerController extends Controller {
                         currentSoupCluster.size = 0;
 //            System.out.println("This cluster is finished");
                         communicationHandler.sendCluster(currentSoupCluster);
+                        currentState = State.SEARCHURGENT;
                     }
                 }
                 // Reset variables
@@ -581,7 +579,9 @@ public class MinerController extends Controller {
 
         if (currentRefineryPos == null ||
             getChebyshevDistance(rc.getLocation(), currentRefineryPos) > PlayerConstants.DISTANCE_FROM_REFINERY ||
-                (currentRefineryPos.equals(allyHQ) && ((!shouldBuildDS && !shouldBuildFC) || usedDrone))) {
+                (currentRefineryPos.equals(allyHQ) && ((!shouldBuildDS && !shouldBuildFC) || usedDrone)) ||
+                (rc.canSenseLocation(currentRefineryPos) && (rc.senseRobotAtLocation(currentRefineryPos) == null ||
+                        rc.senseRobotAtLocation(currentRefineryPos).type != RobotType.REFINERY))) {
 
             if (!(currentRefineryPos != null && currentRefineryPos.equals(allyHQ) && (shouldBuildDS || shouldBuildFC))) {
                 MapLocation oldRefPos = currentRefineryPos;
@@ -721,12 +721,14 @@ public class MinerController extends Controller {
         // Decide which cluster each miner goes to by using ID's
         // So each cluster has the number of miners proportional to its size
 
-        for (Direction dir : getDirections()) {
-            if (!rc.canSenseLocation(rc.getLocation().add(dir))) continue;
-            if (rc.senseSoup(rc.getLocation().add(dir)) > 0 && rc.canMineSoup(dir)) {
-                currentState = State.MINE;
-                execMine();
-                return;
+        if (rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 100)) {
+            for (Direction dir : getDirections()) {
+                if (!rc.canSenseLocation(rc.getLocation().add(dir))) continue;
+                if (rc.senseSoup(rc.getLocation().add(dir)) > 0 && rc.canMineSoup(dir)) {
+                    currentState = State.MINE;
+                    execMine();
+                    return;
+                }
             }
         }
         if (currentSoupCluster == null) {
@@ -737,9 +739,11 @@ public class MinerController extends Controller {
 
             int totalSoupSquares = 0;
 
+            if (soupClusters.size() == 0) return;
+
             SoupCluster nextBest = soupClusters.get(0);
             for (SoupCluster soupCluster : soupClusters) {
-                if (soupCluster.elevation > GameConstants.getWaterLevel(rc.getRoundNum() + 300))
+                if (soupCluster.elevation > GameConstants.getWaterLevel(rc.getRoundNum() + 100))
                     totalSoupSquares += soupCluster.size;
                 else {
                     if (soupCluster.elevation > nextBest.elevation) nextBest = soupCluster;
@@ -769,6 +773,8 @@ public class MinerController extends Controller {
             int v = this.rc.getID() % totalSoupSquares;
             int behind = 0;
             for (SoupCluster soupCluster : soupClusters) {
+                if (soupCluster.elevation <= GameConstants.getWaterLevel(rc.getRoundNum() + 400)) continue;
+
                 if (v < behind + soupCluster.size) {
                     currentSoupCluster = soupCluster;
                     break;
@@ -806,29 +812,44 @@ public class MinerController extends Controller {
             searchSurroundingsContinued();
             System.out.println("can I make it? " + rc.getLocation() + " " + currentSoupCluster.closest(rc.getLocation()));
             if (!canReach(currentSoupCluster.middle) && !currentSoupCluster.contains(rc.getLocation())) {
-                rc.setIndicatorDot(rc.getLocation(), 255, 0, 0);
-                System.out.println("Asking for assistance");
-                getHitchHike(rc.getLocation(), currentSoupCluster.middle);
-                System.out.println("landed");
-                if (getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 5) {
-                    currentSoupCluster.size = 0;
-                    communicationHandler.sendCluster(currentSoupCluster);
+                // dumb case
+                System.out.println("here");
+                if (rc.canSenseLocation(currentSoupCluster.middle) &&
+                        (rc.senseFlooding(currentSoupCluster.middle) || rc.sensePollution(currentSoupCluster.middle) > MINER_POLLUTION_THRESHOLD)) {
+                    if (rc.senseNearbySoup().length == 0) {
+                        currentSoupCluster.size = 0;
+                        currentSoupCluster = null;
+                        currentState = State.SEARCHURGENT;
+                    } else {
+                        currentState = State.MINE;
+                    }
                 } else {
-                    currentState = State.MINE;
-                    usedDrone = true;
-                    currentRefineryPos = null;
-                    shouldBuildDS = true;
-                    shouldBuildFC = true;
-                    searchSurroundingsSoup();
+                    rc.setIndicatorDot(rc.getLocation(), 255, 0, 0);
+                    System.out.println("Asking for assistance");
+                    getHitchHike(rc.getLocation(), currentSoupCluster.middle);
+                    System.out.println("landed");
+                    if (getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 5) {
+                        currentSoupCluster.size = 0;
+                        communicationHandler.sendCluster(currentSoupCluster);
+                        currentSoupCluster = null;
+                        currentState = State.SEARCHURGENT;
+                    } else {
+                        currentState = State.MINE;
+                        usedDrone = true;
+                        currentRefineryPos = null;
+                        shouldBuildDS = true;
+                        shouldBuildFC = true;
+                        searchSurroundingsSoup();
+                    }
                 }
 
             } else {
-                System.out.println(3);
+                System.out.println(3 + " - " + rc.canSenseLocation(currentSoupCluster.middle));
 //                System.out.println("true");
             }
 
         } else {
-            System.out.println(4);
+            System.out.println(4 + " " + currentSoupSquare);
             currentState = State.MINE;
             execMine();
         }
@@ -837,62 +858,30 @@ public class MinerController extends Controller {
 
     public void evacuate() throws GameActionException {
         if (currentSoupCluster == null) return;
-        if (currentSoupCluster.elevation < GameConstants.getWaterLevel(rc.getRoundNum() + 100)) {
+        if (rc.getRoundNum() < 300) return;
+        System.out.println("Evacuate: " + currentSoupCluster.toStringPos() + " - " + currentSoupCluster.elevation + " " + GameConstants.getWaterLevel(rc.getRoundNum() + 200));
+
+        if (rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 100)) {
+            if (!rc.getLocation().equals(currentSoupCluster.closest(rc.getLocation()))) return;
+
+            SoupCluster oldSoupCluster = currentSoupCluster;
+
             currentSoupCluster.size = 0;
-            communicationHandler.sendCluster(currentSoupCluster);
+            soupClusters.remove(currentSoupCluster);
 
             updateClusters();
 
-            int totalSoupSquares = 0;
+            currentState = State.SEARCHURGENT;
 
-            SoupCluster nextBest = soupClusters.get(0);
-            for (SoupCluster soupCluster : soupClusters) {
-                if (soupCluster.elevation > GameConstants.getWaterLevel(rc.getRoundNum() + 300))
-                    totalSoupSquares += soupCluster.size;
-                else {
-                    if (soupCluster.elevation > nextBest.elevation) nextBest = soupCluster;
-                }
+            currentSoupCluster = null;
+            if (soupClusters.size() > 0) {
+                currentSoupCluster = soupClusters.get(0);
+                for (SoupCluster sc : soupClusters)
+                if (sc.elevation > currentSoupCluster.elevation &&
+                        sc.elevation >= GameConstants.getWaterLevel(rc.getRoundNum() + 2000)) currentSoupCluster = sc;
             }
 
-            if (totalSoupSquares == 0) {
-                if (nextBest != null) {
-                    currentSoupCluster = nextBest;
-                    return;
-                }
-
-                // TODO: something better
-                soupClusters = waterClusters;
-                if (waterClusters.size() == 0 && rc.getRoundNum() > 500 && !builtFC) {
-                    while (!rc.isReady()) Clock.yield();
-                    for (Direction dir : getDirections()) {
-                        if (rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, dir)) {
-                            rc.buildRobot(RobotType.FULFILLMENT_CENTER, dir);
-                            builtFC = true;
-                        }
-                    }
-                }
-                return;
-            }
-
-            int v = this.rc.getID() % totalSoupSquares;
-            int behind = 0;
-            for (SoupCluster soupCluster : soupClusters) {
-                if (v < behind + soupCluster.size) {
-                    currentSoupCluster = soupCluster;
-                    break;
-                }
-                behind += soupCluster.size;
-            }
-
-            if (currentSoupCluster == null && rc.getRoundNum() > 800) {
-                this.buildType = RobotType.FULFILLMENT_CENTER;
-                this.buildLoc = null;
-                currentState = State.BUILDER;
-                execBuilder();
-                return;
-                // Explore time
-                // System.out.println("YASSS");
-            }
+            System.out.println(currentSoupCluster.toStringPos());
         }
     }
     public SoupCluster determineCluster(MapLocation pos) throws GameActionException {
@@ -1545,7 +1534,7 @@ public class MinerController extends Controller {
                 }
             }
         }
-        System.out.println("Current req: " + currentReq);
+//        System.out.println("Current req: " + currentReq);
         lastRoundReqs = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
 }

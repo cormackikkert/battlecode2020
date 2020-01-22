@@ -93,6 +93,7 @@ public abstract class Controller {
     Direction[] ordinal = {directions[1], directions[3], directions[5], directions[7]};
 
     public void getInfo(RobotController rc) {
+        System.out.println("getInfo");
         mapX = rc.getMapWidth();
         mapY = rc.getMapHeight();
         ALLY = rc.getTeam();
@@ -102,8 +103,11 @@ public abstract class Controller {
         this.movementSolver = new MovementSolver(rc, this);
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
+        System.out.println(1);
         getSpawnBase();
+        System.out.println(2);
         getHQInfo();
+        System.out.println("done");
     }
 
     boolean tryBuild(RobotType type, Direction dir) throws GameActionException {
