@@ -530,12 +530,14 @@ public class MinerController extends Controller {
                     currentState = State.SEARCHURGENT;
                 } else {
                     // Communicate that the soup cluster is finished
-                    currentSoupCluster.size = 0;
+                    if (currentSoupCluster != null) {
+                        currentSoupCluster.size = 0;
 //            System.out.println("This cluster is finished");
-                    communicationHandler.sendCluster(currentSoupCluster);
+                        communicationHandler.sendCluster(currentSoupCluster);
+                    }
                 }
                 // Reset variables
-                soupClusters.remove(currentSoupCluster);
+                if (currentSoupCluster != null) soupClusters.remove(currentSoupCluster);
                 currentSoupCluster = null;
                 currentSoupSquare = null;
                 //execSearchUrgent();
@@ -800,14 +802,17 @@ public class MinerController extends Controller {
                 System.out.println("Asking for assistance");
                 getHitchHike(rc.getLocation(), currentSoupCluster.middle);
                 System.out.println("landed");
-                currentState = State.MINE;
-                usedDrone = true;
-                currentRefineryPos = null;
-                shouldBuildDS = true;
-                shouldBuildFC = true;
-
-                searchSurroundingsSoup();
-
+                if (getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 5) {
+                    currentSoupCluster.size = 0;
+                    communicationHandler.sendCluster(currentSoupCluster);
+                } else {
+                    currentState = State.MINE;
+                    usedDrone = true;
+                    currentRefineryPos = null;
+                    shouldBuildDS = true;
+                    shouldBuildFC = true;
+                    searchSurroundingsSoup();
+                }
 
             } else {
                 System.out.println(3);
