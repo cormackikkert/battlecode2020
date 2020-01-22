@@ -11,15 +11,15 @@ public class FulfillmentCenterController extends Controller {
     static final int PRODUCTION_CAP = Integer.MAX_VALUE; // spam drones
 
     // favourable spawn directions
-    Direction[] n = {Direction.NORTH, Direction.NORTHWEST, Direction.NORTHEAST};
-    Direction[] e = {Direction.EAST, Direction.NORTHEAST, Direction.SOUTHEAST};
-    Direction[] s = {Direction.SOUTH, Direction.SOUTHEAST, Direction.SOUTHWEST};
-    Direction[] w = {Direction.WEST, Direction.SOUTHWEST, Direction.NORTHWEST};
+    static Direction[] n = {Direction.NORTH, Direction.NORTHWEST, Direction.NORTHEAST};
+    static Direction[] e = {Direction.EAST, Direction.NORTHEAST, Direction.SOUTHEAST};
+    static Direction[] s = {Direction.SOUTH, Direction.SOUTHEAST, Direction.SOUTHWEST};
+    static Direction[] w = {Direction.WEST, Direction.SOUTHWEST, Direction.NORTHWEST};
 
-    Direction[] ne = {Direction.NORTHEAST, Direction.NORTH, Direction.EAST};
-    Direction[] se = {Direction.SOUTHEAST, Direction.EAST, Direction.SOUTH};
-    Direction[] sw = {Direction.SOUTHWEST, Direction.SOUTH, Direction.WEST};
-    Direction[] nw = {Direction.NORTHWEST, Direction.WEST, Direction.NORTH};
+    static Direction[] ne = {Direction.NORTHEAST, Direction.NORTH, Direction.EAST};
+    static Direction[] se = {Direction.SOUTHEAST, Direction.EAST, Direction.SOUTH};
+    static Direction[] sw = {Direction.SOUTHWEST, Direction.SOUTH, Direction.WEST};
+    static Direction[] nw = {Direction.NORTHWEST, Direction.WEST, Direction.NORTH};
 
     int sent = 0;
     int counter = 0;

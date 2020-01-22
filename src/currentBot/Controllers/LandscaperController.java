@@ -24,7 +24,8 @@ public class LandscaperController extends Controller {
         ROAM,
         REMOVE_WATER,
         KILLUNITS, // Kills units around HQ
-        ELEVATE_BUILDING
+        ELEVATE_BUILDING,
+        DESTROY_WALL // also can kill hq
     }
     public State currentState = State.REMOVE_WATER;
     public SoupCluster currentSoupCluster; // build wall around this
@@ -98,6 +99,19 @@ public class LandscaperController extends Controller {
         scanNetGuns();
         communicationHandler.solveEnemyHQLocWithGhosts();
 
+        if (enemyHQ != null) {
+            if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8)) {
+                currentState = State.DESTROY_WALL; // also kills hq
+            }
+        } else {
+            for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
+                if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
+                    enemyHQ = robotInfo.location;
+                    currentState = State.DESTROY_WALL; // also kills hq
+                }
+            }
+        }
+
         System.out.println("I am a " + currentState.toString());
         switch (currentState) {
             case PROTECTHQ: execProtectHQ();      break;
@@ -106,6 +120,7 @@ public class LandscaperController extends Controller {
             case REMOVE_WATER: execRemoveWater(); break;
             case KILLUNITS: execKillUnits();      break;
             case ELEVATE_BUILDING: execElevate(); break;
+            case DESTROY_WALL: execDestroyWall(); break;
 //            case ROAM: movementSolver.windowsRoam(); break;
         }
     }
@@ -250,6 +265,52 @@ public class LandscaperController extends Controller {
             while (!rc.canDepositDirt(nextDir)) Clock.yield();
             rc.depositDirt(nextDir);
             if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
+        }
+    }
+
+    public void execDestroyWall() throws GameActionException {
+        if (rc.getLocation().isAdjacentTo(enemyHQ)) {
+            if (rc.getDirtCarrying() == 0) {
+                for (Direction direction : directions) {
+                    if (rc.canDigDirt(direction)) {
+                        rc.digDirt(direction);
+                    }
+                }
+            }
+
+            if (rc.getDirtCarrying() > 0) {
+                if (rc.canDepositDirt(rc.getLocation().directionTo(enemyHQ))) {
+                    rc.depositDirt(rc.getLocation().directionTo(enemyHQ));
+                }
+            }
+        }
+
+        else if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8)) {
+            if (rc.getDirtCarrying() == 0) {
+                Direction direction = rc.getLocation().directionTo(enemyHQ);
+                Direction[] dig;
+                switch (direction) {
+                    case NORTH: dig = FulfillmentCenterController.n; break;
+                    case NORTHWEST: dig = FulfillmentCenterController.nw; break;
+                    case WEST: dig = FulfillmentCenterController.w; break;
+                    case SOUTHWEST: dig = FulfillmentCenterController.sw; break;
+                    case SOUTH: dig = FulfillmentCenterController.s; break;
+                    case SOUTHEAST: dig = FulfillmentCenterController.se; break;
+                    case EAST: dig = FulfillmentCenterController.e; break;
+                    default: dig = FulfillmentCenterController.ne; break;
+                }
+                for (Direction dir : dig) {
+                    if (rc.canDigDirt(dir)) {
+                        rc.digDirt(dir);
+                    }
+                }
+            }
+
+            if (rc.getDirtCarrying() > 0) {
+                if (rc.canDepositDirt(Direction.CENTER)) {
+                    rc.depositDirt(Direction.CENTER);
+                }
+            }
         }
     }
 
