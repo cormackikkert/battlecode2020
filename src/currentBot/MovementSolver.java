@@ -157,17 +157,20 @@ public class MovementSolver {
         }
         ++moves;
         Direction dir = from.directionTo(goal);
+        boolean assigned = false;
         RobotInfo[] enemies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
         for (Direction d : getClosestDirections(dir)) {
             if (!isDroneObstacleAvoidGun(d, from.add(d), enemies)) {
                 recent[index] = from;
                 index = (index + 1)%recency;
                 dir = d;
+                assigned = true;
+                break;
             }
         }
         // currently stuck
         recent[index] = from; index = (index + 1)%recency;
-        dir = Direction.CENTER;
+        if (!assigned) dir = Direction.CENTER;
 
         // move away from enemy HQ if within range of their net gun
         if (controller.enemyHQ != null && from.isWithinDistanceSquared(controller.enemyHQ, NET_GUN_RANGE)) {
