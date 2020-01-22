@@ -1,6 +1,7 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
+import com.sun.org.apache.bcel.internal.generic.LAND;
 import currentBot.*;
 
 import java.util.Deque;
@@ -57,6 +58,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     boolean hasExplored = false;
     boolean isBeingRushed = false;
     HitchHike currentReq = null;
+    public boolean taxiFail = false;
 
     public DeliveryDroneControllerMk2(RobotController rc) {
         this.random.setSeed(rc.getID());
@@ -146,19 +148,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 case TAXI: execTaxi();                      break;
                 case ATTACKLATEGAME: execAttackLateGame();  break;
                 case DEFENDLATEGAME: execDefendLateGame();  break;
-                case WANDERLATE: execWanderPatrol2();        break;
+                case WANDERLATE: execWanderPatrol2();        break; // picking up ally landscapers
             }
         } else {
-            if (currentState == State.TAXI) {
-                execTaxi();
-            } else if (currentState == State.TAXI2) {
-                execTaxi2();
-            } else {
-                if (currentState == State.STUCKKILL) {
-                    execKill2 ();
-                } else {
-                    execKill();
-                }
+            switch (currentState) {
+                case TAXI:  execTaxi();           break;
+                case TAXI2:  execTaxi2();           break;
+                case WANDERLATE:  execWanderPatrol2();           break;
+                case STUCKKILL: execKill2();                break;
+                case ATTACKLATEGAME: execAttackLateGame();  break;
+                default: execKill();
             }
         }
     }
@@ -169,14 +168,23 @@ public class DeliveryDroneControllerMk2 extends Controller {
             Role assignment depending on turn. Early game defend, late game attack.
          */
 
-        if (currentReq != null) {
+        if (currentState == State.WANDERLATE && rc.isCurrentlyHoldingUnit() && rc.getRoundNum() >= 1900) {
+            currentState = State.ATTACKLATEGAME;
+            return;
+        }
+
+        if (defendLateGameShield) {
+            return;
+        }
+
+        if (currentReq != null && rc.getRoundNum() < 1400) {
             currentState = State.TAXI;
             return;
         }
 
-        if (currentState == State.WANDERLATE) {
-            return;
-        }
+//        if (currentState == State.WANDERLATE) {
+//            return;
+//        }
 
         if (isBeingRushed && rc.getRoundNum() < 500) {
             if (rc.getID() % 2 == 0) {
@@ -186,8 +194,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
 
         System.out.println("assigning role, enemy hq is "+enemyHQ);
-        if (rc.getRoundNum() > 1600 && enemyHQ != null && !defendLateGameShield) {
+        if (rc.getRoundNum() > 1900 && enemyHQ != null && !defendLateGameShield) {
             currentState = State.ATTACKLATEGAME;
+        } else         if (rc.getRoundNum() > 1600 && enemyHQ != null && !defendLateGameShield) {
+            currentState = State.WANDERLATE;
         } else if (rc.getRoundNum() > 1400 && communicationHandler.receiveLandscapersOnWall() == 8) {
             currentState = State.DEFENDLATEGAME;
         } else {
@@ -320,8 +330,39 @@ public class DeliveryDroneControllerMk2 extends Controller {
         movementSolver.windowsRoam();
     }
 
+    MapLocation landSloc = null;
     public void execWanderPatrol2() throws GameActionException {
-        movementSolver.windowsRoam();
+        if (landSloc != null) {
+            if (rc.canSenseLocation(landSloc) &&
+                    (rc.senseRobotAtLocation(landSloc) == null ||
+                            rc.senseRobotAtLocation(landSloc).getTeam() != ALLY)) {
+                landSloc = null;
+            }
+
+            if (rc.getLocation().isAdjacentTo(landSloc)) {
+                if (rc.senseRobotAtLocation(landSloc) != null && rc.senseRobotAtLocation(landSloc).getType() == RobotType.LANDSCAPER) {
+                    tryPickUpUnit(rc.senseRobotAtLocation(landSloc));
+                } else {
+                    landSloc = null;
+                }
+            }
+        }
+
+        if (!rc.isCurrentlyHoldingUnit() && landSloc == null) {
+            for (RobotInfo robotInfo : allies) {
+                if (robotInfo.getType() == RobotType.LANDSCAPER) {
+                    if (!robotInfo.getLocation().isWithinDistanceSquared(allyHQ, 8)) {
+                        landSloc = robotInfo.getLocation();
+                    }
+                }
+            }
+        }
+
+        if (landSloc == null) {
+            movementSolver.windowsRoam();
+        } else {
+            tryMove(movementSolver.directionToGoal(landSloc));
+        }
     }
 
     public void execDefendLateGame() throws GameActionException {
@@ -346,41 +387,80 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
     }
 
+    public int turnReceiveSudoku = 0;
+    public int WAIT_DUMP = 300;
+    public int WAIT_KILL = 200; // in case map is very large
+    boolean enemyPickUp = false;
     public void execAttackLateGame() throws GameActionException {
-//        System.out.println("enemyHQ is "+enemyHQ);
         if (enemyHQ == null) {
             currentState = State.DEFENDLATEGAME;
             execDefendLateGame();
         }
-//        System.out.println("enemyHQ is "+enemyHQ);
+        MapLocation mapLocation = rc.getLocation();
 
-        int landscapers = 0;
-        for (RobotInfo enemy : enemies) {
-            if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID()) && enemy.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RANGE)) {
-                landscapers++;
+        scanRobots();
+        if (!rc.isCurrentlyHoldingUnit()) {
+            for (RobotInfo enemy : enemies) {
+                if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID()) && enemy.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RANGE)) {
+                    rc.pickUpUnit(enemy.getID());
+                    enemyPickUp = true;
+                    return;
+                }
+            }
+        } else {
+            if (!enemyPickUp) {
+                for (Direction direction : directions) {
+                    if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseRobotAtLocation(mapLocation.add(direction)) == null
+                            && rc.canDropUnit(direction) && mapLocation.add(direction).isAdjacentTo(enemyHQ)) {
+                        rc.dropUnit(direction);
+                        System.out.println("drop unit 408 ally");
+                    }
+                }
+            } else {
+                for (Direction direction : directions) {
+                    if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseFlooding(mapLocation.add(direction))
+                            && rc.canDropUnit(direction)) {
+                        rc.dropUnit(direction);
+                        System.out.println("drop unit 408 enemy");
+                    }
+                }
             }
         }
-//        System.out.println("enemyHQ is "+enemyHQ);
 
-//        if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8) && landscapers <= ENEMY_LANDSCAPER_ALIVE) {
-//            communicationHandler.tooMuchDie();
-//        }
+        int carriers = 0;
+        scanRobots();
 
-        for (RobotInfo enemy : enemies) { // doing this separately is intended
-            if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID()) && enemy.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RANGE)) {
-                rc.pickUpUnit(enemy.getID());
-                return;
+        for (RobotInfo ally : allies) {
+            if (ally.getType() == RobotType.DELIVERY_DRONE && ally.isCurrentlyHoldingUnit()) {
+                carriers++;
             }
         }
-//        System.out.println("enemyHQ is "+enemyHQ);
+        System.out.println(carriers);
 
         communicationHandler.receiveSudoku();
 
-//        communicationHandler.receiveTooMuchDie();
         if (sudoku) {
-            System.out.println("sudoku to "+enemyHQ);
-            tryMove(movementSolver.directionToGoal(enemyHQ, false));
+            System.out.println("sudoku to " + enemyHQ);
+            if (
+                    (rc.isCurrentlyHoldingUnit() && rc.getRoundNum() > Math.max(1900 + WAIT_DUMP, turnReceiveSudoku + WAIT_DUMP))
+            ||
+                    (!rc.isCurrentlyHoldingUnit() && rc.getRoundNum() > Math.max(1900 + WAIT_KILL, turnReceiveSudoku + WAIT_KILL))
+            ) {
+                tryMove(movementSolver.directionToGoal(enemyHQ, false));
+            } else {
+                camp();
+            }
+
         } else {
+            if (carriers > 8 && rc.getID() % 2 == 0 && rc.isCurrentlyHoldingUnit()) {
+                for (Direction direction : directions) {
+                    if (rc.canDropUnit(direction)) {
+                        rc.dropUnit(direction);
+                        System.out.println("droppppped");
+                        break;
+                    }
+                }
+            }
             camp();
         }
     }
@@ -425,6 +505,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (!rc.isReady()) Clock.yield();
                 if (rc.canDropUnit(direction)) {
                     rc.dropUnit(direction);
+                    System.out.println("drop unit 482");
                     return;
                 } else {
                     System.out.println(rc.canDropUnit(direction));
@@ -443,6 +524,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             System.out.println("dropping in water tile");
             if (rc.canDropUnit(rc.getLocation().directionTo(nearestWaterTile))) {
                 rc.dropUnit(rc.getLocation().directionTo(nearestWaterTile));
+                System.out.println("drop unit 502");
                 nearestWaterTile = null; // look for different water tile next time
             }
         }
@@ -473,6 +555,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (!rc.isReady()) Clock.yield();
                 if (rc.canDropUnit(direction)) {
                     rc.dropUnit(direction);
+                    System.out.println("drop unit 532");
                     return;
                 }
             }
@@ -524,7 +607,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     void updateReqs() throws GameActionException {
-        for (int i = lastRoundReqs; i < rc.getRoundNum(); ++i) {
+        if (taxiFail) return;
+            for (int i = lastRoundReqs; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
                 if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_REQUEST) {
@@ -782,6 +866,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         System.out.println("type now: " + currentState);
         while (true) {
+            if (rc.getRoundNum() > 1000) {
+                currentState = State.DEFENDLATEGAME;
+                execDefendLateGame();
+                break;
+            }
+
             if (stack.isEmpty()) {
                 LinkedList<MapLocation> starts = new LinkedList<>();
                 System.out.println("finding start point");
@@ -1001,6 +1091,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
                  */
             }
         } else {
+            if (rc.getRoundNum() > 1400) {
+                currentState = State.WANDERLATE;
+            }
             if (rc.canSenseRobot(currentReq.reqID)) {
                 if (!rc.canPickUpUnit(currentReq.reqID)) {
                     tryMove(movementSolver.directionToGoal(rc.senseRobot(currentReq.reqID).getLocation()));
