@@ -191,6 +191,10 @@ public class MinerController extends Controller {
         commitSudoku(); // if stuck
         evacuate(); // go to a different soup cluster
 
+        for (Direction dir : Direction.allDirections()) {
+            System.out.println(dir);
+        }
+
         communicationHandler.solveEnemyHQLocWithGhosts();
 
         updateClusters();

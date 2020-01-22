@@ -99,6 +99,20 @@ public class LandscaperController extends Controller {
         scanNetGuns();
         communicationHandler.solveEnemyHQLocWithGhosts();
 
+        // search for enemy units to kill
+        boolean existsEnemyBuilding = false;
+        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+            if (robot.type == RobotType.FULFILLMENT_CENTER ||
+                    robot.type == RobotType.DESIGN_SCHOOL ||
+                    robot.type == RobotType.NET_GUN) existsEnemyBuilding = true;
+        }
+
+        // keep track of old state
+        if (!(currentState == State.PROTECTHQ && rc.getRoundNum() > START_BUILD_WALL) && existsEnemyBuilding) {
+            execKillUnits();
+            return;
+        }
+
         if (enemyHQ != null) {
             if (rc.getLocation().isWithinDistanceSquared(enemyHQ, 8)) {
                 currentState = State.DESTROY_WALL; // also kills hq
@@ -218,6 +232,7 @@ public class LandscaperController extends Controller {
     final int numWallers = 8;
     final int roundToLevelWall = 450;
     public void execProtectHQ() throws GameActionException {
+
         if (allyHQ == null)
             allyHQ = communicationHandler.receiveAllyHQLoc();
         int walled = 0;
@@ -311,6 +326,10 @@ public class LandscaperController extends Controller {
                     rc.depositDirt(Direction.CENTER);
                 }
             }
+        }
+
+        else {
+            tryMove(movementSolver.directionToGoal(enemyHQ));
         }
     }
 
