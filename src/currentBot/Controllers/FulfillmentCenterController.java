@@ -29,6 +29,8 @@ public class FulfillmentCenterController extends Controller {
 
     public FulfillmentCenterController(RobotController rc) {
         getInfo(rc);
+        // Probably built one before
+        if (rc.getRoundNum() > 500) ex = 400;
     }
 
     public void run() throws GameActionException {

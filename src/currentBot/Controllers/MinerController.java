@@ -1087,7 +1087,7 @@ public class MinerController extends Controller {
                 }
             }
 
-            if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType)) {
+            if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(this.buildType, usedDrone)) {
                 if (tryBuild(this.buildType, rc.getLocation().directionTo(buildLoc)) ||
                         (rc.senseRobotAtLocation(buildLoc) != null && rc.senseRobotAtLocation(buildLoc).type == buildType)) {
                     if (this.buildType == RobotType.DESIGN_SCHOOL) shouldBuildDS = false;

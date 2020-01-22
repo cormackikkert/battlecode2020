@@ -80,6 +80,17 @@ public class PlayerConstants {
         }
     }
 
+    static int buildSoupRequirements(RobotType buildType, boolean usedDrone) {
+        switch (buildType) {
+            case DESIGN_SCHOOL:
+            case FULFILLMENT_CENTER:
+                return 500;
+            default:
+                return PlayerConstants.buildSoupRequirements(buildType);
+        }
+    }
+
+
     static int minerSoupRequirements(int builtMiners, int round) {
         if (builtMiners < PlayerConstants.INSTA_BUILD_MINERS) {
             return RobotType.MINER.cost;
