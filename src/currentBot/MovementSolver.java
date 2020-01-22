@@ -156,19 +156,18 @@ public class MovementSolver {
             for (int i = 0; i < recency;++i) recent[i] = new MapLocation(-1, -1);
         }
         ++moves;
-
         Direction dir = from.directionTo(goal);
-        int changes = 0;
-        // while obstacle ahead, keep rotating
-        while (isDroneObstacleAvoidGun(dir, from.add(dir), controller.enemies)) {
-            dir = rc.getID() % 4 == 0 ? dir.rotateLeft() : dir.rotateRight();
-            changes++;
-            // if blocked in every direction, stop rotating
-            if (changes > 8) {
-                dir = Direction.CENTER;
-                break;
+        RobotInfo[] enemies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
+        for (Direction d : getClosestDirections(dir)) {
+            if (!isDroneObstacleAvoidGun(d, from.add(d), enemies)) {
+                recent[index] = from;
+                index = (index + 1)%recency;
+                dir = d;
             }
         }
+        // currently stuck
+        recent[index] = from; index = (index + 1)%recency;
+        dir = Direction.CENTER;
 
         // move away from enemy HQ if within range of their net gun
         if (controller.enemyHQ != null && from.isWithinDistanceSquared(controller.enemyHQ, NET_GUN_RANGE)) {
