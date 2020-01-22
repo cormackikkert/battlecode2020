@@ -1,4 +1,4 @@
-package currentBot;
+package whyPermutator;
 
 import battlecode.common.MapLocation;
 import battlecode.common.RobotController;

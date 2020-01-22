@@ -1,15 +1,14 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 import battlecode.common.*;
-import com.sun.org.apache.bcel.internal.generic.LAND;
-import currentBot.*;
+import whyPermutator.*;
 
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.Stack;
 
-import static currentBot.Controllers.PlayerConstants.*;
+import static whyPermutator.Controllers.PlayerConstants.*;
 
 /**
  * New strategy since 14/01/2020:
@@ -171,6 +170,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
             Role assignment depending on turn. Early game defend, late game attack.
          */
 
+        if (currentState == State.ATTACK && rc.getRoundNum() > 1900 && enemyHQ != null && !defendLateGameShield) {
+            currentState = State.ATTACKLATEGAME;
+            return;
+        }
+
         if (currentState == State.WANDERLATE && rc.isCurrentlyHoldingUnit() && rc.getRoundNum() >= 1900) {
             currentState = State.ATTACKLATEGAME;
             return;
@@ -305,6 +309,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 tryMove(enemyHQ.directionTo(rc.getLocation()));
             } else if (rc.getLocation().isWithinDistanceSquared(enemyHQ, CAMPING_RADIUS)) {
                 System.out.println("camping outside enemy hq");
+                if (rc.getRoundNum() > 1800) {
+                    currentState = DeliveryDroneControllerMk2.State.ATTACKLATEGAME;
+                }
+                Clock.yield();
             } else {
                 System.out.println("moving directly to enemy hq");
                 tryMove(movementSolver.droneDirectionToGoal(enemyHQ));
@@ -407,6 +415,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (enemy.type == RobotType.LANDSCAPER && rc.canPickUpUnit(enemy.getID()) && enemy.getLocation().isWithinDistanceSquared(enemyHQ, NET_GUN_RANGE)) {
                     rc.pickUpUnit(enemy.getID());
                     enemyPickUp = true;
+                    System.out.println("pick up enemy 411");
                     return;
                 }
             }
@@ -414,9 +423,18 @@ public class DeliveryDroneControllerMk2 extends Controller {
             if (!enemyPickUp) {
                 for (Direction direction : directions) {
                     if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseRobotAtLocation(mapLocation.add(direction)) == null
-                            && rc.canDropUnit(direction) && mapLocation.add(direction).isAdjacentTo(enemyHQ)) {
+                            && rc.canDropUnit(direction) && mapLocation.add(direction).isAdjacentTo(enemyHQ) && !rc.senseFlooding(mapLocation.add(direction))) {
                         rc.dropUnit(direction);
-                        System.out.println("drop unit 408 ally");
+                    }
+                }
+
+                if (mapLocation.isWithinDistanceSquared(enemyHQ, 8)) {
+                    // if cant drop next to enemy HQ
+                    for (Direction direction : directions) {
+                        if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseRobotAtLocation(mapLocation.add(direction)) == null
+                                && rc.canDropUnit(direction) && !rc.senseFlooding(mapLocation.add(direction))) {
+                            rc.dropUnit(direction);
+                        }
                     }
                 }
             } else {
@@ -424,21 +442,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseFlooding(mapLocation.add(direction))
                             && rc.canDropUnit(direction)) {
                         rc.dropUnit(direction);
-                        System.out.println("drop unit 408 enemy");
                     }
                 }
             }
         }
 
-        int carriers = 0;
-        scanRobots();
 
-        for (RobotInfo ally : allies) {
-            if (ally.getType() == RobotType.DELIVERY_DRONE && ally.isCurrentlyHoldingUnit()) {
-                carriers++;
-            }
-        }
-        System.out.println(carriers);
 
         communicationHandler.receiveSudoku();
 
@@ -455,7 +464,23 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
 
         } else {
-            if (carriers > 8 && rc.getID() % 2 == 0 && rc.isCurrentlyHoldingUnit()) {
+
+            camp();
+        }
+    }
+
+    public void camp() throws GameActionException {
+        if (rc.isCurrentlyHoldingUnit()) {
+            int carriers = 0;
+            scanRobots();
+
+            for (RobotInfo ally : allies) {
+                if (ally.getType() == RobotType.DELIVERY_DRONE && ally.isCurrentlyHoldingUnit()) {
+                    carriers++;
+                }
+            }
+            System.out.println(carriers);
+            if (carriers > 3 && random.nextInt(2) == 0 && rc.isCurrentlyHoldingUnit()) {
                 for (Direction direction : directions) {
                     if (rc.canDropUnit(direction)) {
                         rc.dropUnit(direction);
@@ -464,11 +489,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     }
                 }
             }
-            camp();
         }
-    }
-
-    public void camp() throws GameActionException {
         if (enemyHQ == null) {
             currentState = State.WANDERLATE;
         }
@@ -559,6 +580,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (rc.canDropUnit(direction)) {
                     rc.dropUnit(direction);
                     System.out.println("drop unit 532");
+                    currentState = State.WANDERLATE;
                     return;
                 }
             }

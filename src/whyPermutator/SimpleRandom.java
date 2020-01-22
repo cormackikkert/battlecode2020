@@ -1,4 +1,4 @@
-package currentBot;
+package whyPermutator;
 
 // ty again https://github.com/j-mao/battlecode-2019/blob/master/newstart/SimpleRandom.java
 public class SimpleRandom {

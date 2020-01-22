@@ -1,9 +1,9 @@
-package currentBot;
+package whyPermutator;
 
 import battlecode.common.Clock;
 import battlecode.common.GameActionException;
 import battlecode.common.RobotController;
-import currentBot.Controllers.*;
+import whyPermutator.Controllers.*;
 
 public class RobotPlayer {
     private static Controller myController;

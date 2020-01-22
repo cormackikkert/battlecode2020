@@ -1,10 +1,8 @@
-package currentBot;
+package whyPermutator;
 import battlecode.common.*;
-import currentBot.Controllers.Controller;
-import currentBot.Controllers.DeliveryDroneControllerMk2;
-import currentBot.Controllers.PlayerConstants;
-
-import java.util.ArrayList;
+import whyPermutator.Controllers.Controller;
+import whyPermutator.Controllers.DeliveryDroneControllerMk2;
+import whyPermutator.Controllers.PlayerConstants;
 
 import static battlecode.common.RobotType.HQ;
 
@@ -181,18 +179,28 @@ public class MovementSolver {
         twoback = previous;
         previous = from;
 
-//        System.out.println(twoback+" "+previous+" "+rc.getLocation().add(dir));
-//        if (rc.getLocation().add(dir).equals(twoback)) {
-//            System.out.println("stuck");
-//            ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
-//            if (rc.isCurrentlyHoldingUnit() && ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI) {
-//                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
-//            }
-//            if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.TAXI && !rc.isCurrentlyHoldingUnit()) {
-//                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.DEFENDLATEGAME;
-//                ((DeliveryDroneControllerMk2) controller).taxiFail = true;
-//            }
-//        }
+        if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.WANDERLATE) {
+            return dir;
+        }
+
+        System.out.println(twoback+" "+previous+" "+rc.getLocation().add(dir));
+        if (rc.getLocation().add(dir).equals(twoback) && rc.getRoundNum() < 1800) {
+            System.out.println("stuck");
+            if (rc.getRoundNum() > 1800) {
+                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACKLATEGAME;
+            } else {
+                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
+            }
+            if (rc.isCurrentlyHoldingUnit() &&
+                    ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI &&
+                    ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.WANDERLATE) {
+                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
+            }
+            if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.TAXI && !rc.isCurrentlyHoldingUnit()) {
+                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.DEFENDLATEGAME;
+                ((DeliveryDroneControllerMk2) controller).taxiFail = true;
+            }
+        }
 
         return dir;
     }

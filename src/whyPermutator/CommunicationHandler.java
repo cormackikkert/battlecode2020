@@ -1,12 +1,11 @@
-package currentBot;
+package whyPermutator;
 
 import battlecode.common.*;
-import currentBot.Controllers.Controller;
-import currentBot.Controllers.DeliveryDroneControllerMk2;
-import currentBot.Controllers.LandscaperController;
-import currentBot.Controllers.MinerController;
+import whyPermutator.Controllers.Controller;
+import whyPermutator.Controllers.DeliveryDroneControllerMk2;
+import whyPermutator.Controllers.LandscaperController;
 
-import static currentBot.CommunicationHandler.CommunicationType.*;
+import static whyPermutator.CommunicationHandler.CommunicationType.*;
 
 public class CommunicationHandler { // TODO : conserve bytecode by storing turn of last received message
     public static final int MESSAGE_COST = 1;
@@ -329,9 +328,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     boolean failV = false;
     public void sendFailVertical() throws GameActionException {
         if (failV) return;
-        int[] message = new int[7];
-        message[0] = rc.getRoundNum();
-        message[6] = CommunicationType.FAILVERTICAL.ordinal();
+        int[] message = bluePrint(FAILVERTICAL);
         encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
@@ -343,9 +340,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     boolean failH = false;
     public void sendFailHorizontal() throws GameActionException {
         if (failH) return;
-        int[] message = new int[7];
-        message[0] = rc.getRoundNum();
-        message[6] = CommunicationType.FAILHORIZONTAL.ordinal();
+        int[] message = bluePrint(FAILHORIZONTAL);
         encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
@@ -357,9 +352,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     boolean failR = false;
     public void sendFailRotational() throws GameActionException {
         if (failR) return;
-        int[] message = new int[7];
-        message[0] = rc.getRoundNum();
-        message[6] = CommunicationType.FAILROTATIONAL.ordinal();
+        int[] message = bluePrint(FAILROTATIONAL);
         encode(message);
         if (rc.canSubmitTransaction(message, MESSAGE_COST)) {
             rc.submitTransaction(message, MESSAGE_COST);
@@ -379,23 +372,22 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
             Transaction[] transactions = rc.getBlock(i);
             for (Transaction transaction : transactions) {
                 int[] message= transaction.getMessage();
-                decode(message);
 
-                if (message[6] == CommunicationType.FAILHORIZONTAL.ordinal() && controller.ghostH) {
+                if (identify(message) == FAILHORIZONTAL && controller.ghostH) {
                     controller.ghostH = false;
                     controller.ghostsKilled++;
                     failH = true;
                     System.out.println("not horizontal symmetry");
                 }
 
-                if (message[6] == CommunicationType.FAILVERTICAL.ordinal() && controller.ghostV) {
+                if (identify(message) == FAILVERTICAL && controller.ghostV) {
                     controller.ghostV = false;
                     controller.ghostsKilled++;
                     failV = true;
                     System.out.println("not vertical symmetry");
                 }
 
-                if (message[6] == CommunicationType.FAILROTATIONAL.ordinal() && controller.ghostR) {
+                if (identify(message) == FAILROTATIONAL && controller.ghostR) {
                     controller.ghostR = false;
                     controller.ghostsKilled++;
                     failR = true;

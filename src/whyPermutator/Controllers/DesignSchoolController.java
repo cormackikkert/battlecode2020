@@ -1,8 +1,8 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 import battlecode.common.*;
 
-import static currentBot.Controllers.PlayerConstants.*;
+import static whyPermutator.Controllers.PlayerConstants.*;
 
 public class DesignSchoolController extends Controller {
 

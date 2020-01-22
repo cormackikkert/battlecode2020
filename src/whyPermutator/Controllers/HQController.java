@@ -1,12 +1,10 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 import battlecode.common.*;
-import currentBot.CommunicationHandler;
-import currentBot.SoupCluster;
+import whyPermutator.CommunicationHandler;
+import whyPermutator.SoupCluster;
 
 import java.util.LinkedList;
-
-import static currentBot.Controllers.PlayerConstants.START_BUILD_WALL;
 
 public class HQController extends Controller {
     boolean locationSent = false;
@@ -89,11 +87,11 @@ public class HQController extends Controller {
         communicationHandler.receivePLUSONE();
         sendLandscapersOnWall(); // note only sends when it changes dw about soup consumption
 
-        if (!sudokuSent && campOutside >= PlayerConstants.WAIT_FRIENDS_BEFORE_SUDOKU) {
-            communicationHandler.sendSudoku();
-            sudokuSent = true;
-            System.out.println("attack time");
-        }
+//        if (!sudokuSent && campOutside >= PlayerConstants.WAIT_FRIENDS_BEFORE_SUDOKU) {
+//            communicationHandler.sendSudoku();
+//            sudokuSent = true;
+//            System.out.println("attack time");
+//        }
 
         communicationHandler.solveEnemyHQLocWithGhosts();
 
@@ -157,7 +155,7 @@ public class HQController extends Controller {
             }
         }
 
-        if (rc.getRoundNum() > 2000 && !sudokuSent) {
+        if (rc.getRoundNum() > 1900 && !sudokuSent) {
             communicationHandler.sendSudoku();
             sudokuSent = true;
         }

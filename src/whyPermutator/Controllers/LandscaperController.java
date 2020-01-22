@@ -1,15 +1,12 @@
-package currentBot.Controllers;
+package whyPermutator.Controllers;
 
 import battlecode.common.*;
-import com.sun.org.apache.bcel.internal.generic.LAND;
-import currentBot.*;
+import whyPermutator.*;
 
-import java.security.AllPermission;
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.Map;
 
-import static currentBot.Controllers.PlayerConstants.*;
+import static whyPermutator.Controllers.PlayerConstants.*;
 
 // Search surroundings Soup doesnt work (its an easy fix just cant be bothered)
 
@@ -318,9 +315,12 @@ public class LandscaperController extends Controller {
         if (rc.getLocation().isAdjacentTo(enemyHQ)) {
             if (rc.getDirtCarrying() == 0) {
                 for (Direction direction : directions) {
-                    if (rc.canDigDirt(direction)) {
+                    if (rc.canDigDirt(direction) && rc.senseRobotAtLocation(rc.getLocation().add(direction)).getType() != RobotType.HQ) {
                         rc.digDirt(direction);
+                        System.out.println("digging to kill "+direction);
                         break;
+                    } else {
+                        System.out.println("cannot dig to kill "+direction);
                     }
                 }
             }
