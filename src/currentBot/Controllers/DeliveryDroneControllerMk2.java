@@ -57,6 +57,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     boolean hasExplored = false;
     boolean isBeingRushed = false;
     HitchHike currentReq = null;
+    public boolean taxiFail = false;
 
     public DeliveryDroneControllerMk2(RobotController rc) {
         this.random.setSeed(rc.getID());
@@ -521,7 +522,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     void updateReqs() throws GameActionException {
-        for (int i = lastRoundReqs; i < rc.getRoundNum(); ++i) {
+        if (taxiFail) return;
+            for (int i = lastRoundReqs; i < rc.getRoundNum(); ++i) {
             for (Transaction tx : rc.getBlock(i)) {
                 int[] mess = tx.getMessage();
                 if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_REQUEST) {

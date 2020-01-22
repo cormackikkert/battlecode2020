@@ -175,15 +175,23 @@ public class MovementSolver {
             dir = controller.enemyHQ.directionTo(from);
         }
 
+
+        twoback = previous;
+        previous = from;
+
+        System.out.println(twoback+" "+previous+" "+rc.getLocation().add(dir));
         if (rc.getLocation().add(dir).equals(twoback)) {
+            System.out.println("stuck");
             ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
             if (rc.isCurrentlyHoldingUnit() && ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI) {
                 ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
             }
+            if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.TAXI && !rc.isCurrentlyHoldingUnit()) {
+                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.DEFENDLATEGAME;
+                ((DeliveryDroneControllerMk2) controller).taxiFail = true;
+            }
         }
-
-        twoback = previous;
-        previous = from;
+        
         return dir;
     }
 

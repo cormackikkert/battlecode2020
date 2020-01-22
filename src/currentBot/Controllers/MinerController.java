@@ -1305,6 +1305,10 @@ public class MinerController extends Controller {
                 for (Direction direction : directions) {
                     if (rc.canSenseLocation(mapLocation.add(direction))
                             && rc.senseElevation(mapLocation.add(direction)) > ELEVATE_ENOUGH - 5) {
+                        if (vaporatorsBuilt % 3 == 0) {
+                            buildType = RobotType.FULFILLMENT_CENTER;
+                            vaporatorsBuilt = 0;
+                        }
                         if (tryBuild(buildType, direction)) {
                             if (buildType == RobotType.VAPORATOR) {
                                 vaporatorsBuilt++;
