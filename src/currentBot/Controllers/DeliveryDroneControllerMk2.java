@@ -779,6 +779,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         System.out.println("type now: " + currentState);
         while (true) {
+            if (rc.getRoundNum() > 1000) {
+                currentState = State.DEFENDLATEGAME;
+                execDefendLateGame();
+                break;
+            }
+
             if (stack.isEmpty()) {
                 LinkedList<MapLocation> starts = new LinkedList<>();
                 System.out.println("finding start point");
