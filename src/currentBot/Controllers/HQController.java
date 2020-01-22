@@ -12,7 +12,7 @@ public class HQController extends Controller {
     boolean locationSent = false;
 
     int totalMiners;
-    int totalSoup = 0;
+//    int totalSoup = 0;
     int lastRound = 1;
     LinkedList<SoupCluster> soupClusters = new LinkedList<>();
 
@@ -23,6 +23,9 @@ public class HQController extends Controller {
     boolean haveWallAround = false;
 
     int landscapersOnWall = 0;
+
+    int totalCrudeSoup = 0;
+    int totalSoupArea = 0;
 
     public HQController(RobotController rc) {
         this.allyHQ = rc.getLocation();
@@ -71,8 +74,12 @@ public class HQController extends Controller {
                 }
             }
         }
-        totalSoup = 0;
-        for (SoupCluster soupCluster : soupClusters) totalSoup += soupCluster.crudeSoup;
+        totalSoupArea = 0;
+        totalCrudeSoup = 0;
+        for (SoupCluster soupCluster : soupClusters) {
+            totalSoupArea += soupCluster.size;
+            totalCrudeSoup += soupCluster.crudeSoup;
+        }
 
         lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
@@ -139,7 +146,6 @@ public class HQController extends Controller {
         }
 
         updateClusters();
-        System.out.println(totalSoup);
 
         if (!haveWallAround) {
 
@@ -157,8 +163,8 @@ public class HQController extends Controller {
         }
 
         if ((totalMiners < PlayerConstants.INSTA_BUILD_MINERS ||
-                totalMiners < totalSoup / PlayerConstants.SOUP_PER_MINER) &&
-                        rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum()) &&
+                totalMiners < Math.min(totalSoupArea / PlayerConstants.AREA_PER_MINER, totalCrudeSoup / PlayerConstants.SOUP_PER_MINER) &&
+                        rc.getTeamSoup() > PlayerConstants.minerSoupRequirements(totalMiners, rc.getRoundNum())) &&
             rc.getRoundNum() < 450 - 10) {
 
             for (Direction dir : directions) {
