@@ -150,6 +150,13 @@ public class MovementSolver {
     public Direction droneDirectionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
         if (!rc.isReady()) Clock.yield();
 
+        if (!goal.equals(lastGoal)) {
+            lastGoal = goal;
+            moves = 0;
+            for (int i = 0; i < recency;++i) recent[i] = new MapLocation(-1, -1);
+        }
+        ++moves;
+
         Direction dir = from.directionTo(goal);
         int changes = 0;
         // while obstacle ahead, keep rotating

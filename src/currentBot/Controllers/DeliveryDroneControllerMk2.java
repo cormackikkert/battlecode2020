@@ -898,12 +898,17 @@ public class DeliveryDroneControllerMk2 extends Controller {
                                 break;
                             }
                         }
+                        currentState = State.TAXI2;
 //                        // Hopefully doesn't get here (kill miner). unfortunately it does sometimes get here
 //                        rc.dropUnit(Direction.CENTER);
                     }
                 }
             }
-
+            System.out.println("here: " + movementSolver.moves);
+            if (movementSolver.moves > getChebyshevDistance(currentReq.pos, currentReq.goal) + GIVE_UP_THRESHOLD) {
+                currentState = State.TAXI2;
+                return;
+            }
             boolean getCloser = (currentReq.goal.equals(allyHQ) && rc.getRoundNum() > 500) ?
                     getChebyshevDistance(rc.getLocation(), currentReq.goal) > 2 : !rc.getLocation().isAdjacentTo(currentReq.goal);
             if (getCloser) {
