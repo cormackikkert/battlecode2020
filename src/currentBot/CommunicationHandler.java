@@ -2,6 +2,7 @@ package currentBot;
 
 import battlecode.common.*;
 import currentBot.Controllers.Controller;
+import currentBot.Controllers.DeliveryDroneControllerMk2;
 import currentBot.Controllers.LandscaperController;
 import currentBot.Controllers.MinerController;
 
@@ -629,6 +630,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     int turnS = 1;
     public void receiveSudoku() throws GameActionException {
+        if (controller.sudoku = true) return;
         for (int i = turnS
              ; i < rc.getRoundNum(); i++) {
             turnS++;
@@ -637,6 +639,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
                 if (identify(message) == ALL_ATTACK) {
                     controller.sudoku = true;
+                    ((DeliveryDroneControllerMk2) controller).turnReceiveSudoku = turnS;
                 }
             }
         }

@@ -191,7 +191,7 @@ public class MovementSolver {
                 ((DeliveryDroneControllerMk2) controller).taxiFail = true;
             }
         }
-        
+
         return dir;
     }
 

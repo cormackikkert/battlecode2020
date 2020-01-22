@@ -25,7 +25,8 @@ public class LandscaperController extends Controller {
         REMOVE_WATER,
         KILLUNITS, // Kills units around HQ
         ELEVATE_BUILDING,
-        DESTROY_WALL // also can kill hq
+        DESTROY_WALL, // also can kill hq,
+        ELEVATE_SELF;
     }
     public State currentState = State.REMOVE_WATER;
     public SoupCluster currentSoupCluster; // build wall around this
@@ -135,7 +136,31 @@ public class LandscaperController extends Controller {
             case KILLUNITS: execKillUnits();      break;
             case ELEVATE_BUILDING: execElevate(); break;
             case DESTROY_WALL: execDestroyWall(); break;
+            case ELEVATE_SELF: execElevateSelf(); break;
 //            case ROAM: movementSolver.windowsRoam(); break;
+        }
+    }
+
+    public void execElevateSelf() throws GameActionException {
+        MapLocation location = rc.getLocation();
+        if (rc.getDirtCarrying() == 0) {
+            for (Direction direction : directions) {
+                MapLocation location1 = location.add(direction);
+                if (rc.canSenseLocation(location1) &&
+                        (rc.senseRobotAtLocation(location1) == null ||
+                                rc.senseRobotAtLocation(location1).getTeam() != ALLY)) {
+                    if (rc.canDigDirt(direction)) {
+                        rc.digDirt(direction);
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (rc.getDirtCarrying() > 0) {
+            if (rc.canDepositDirt(Direction.CENTER)) {
+                rc.depositDirt(Direction.CENTER);
+            }
         }
     }
 
@@ -251,11 +276,17 @@ public class LandscaperController extends Controller {
                 currentState = State.REMOVE_WATER; // TODO : or assign another role
                 return;
             }
+
+            boolean almostFlood = rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum()) + 100 && rc.getRoundNum() > 1000;
+
             // otherwise go to HQ
-            if (getChebyshevDistance(rc.getLocation(), allyHQ) > 10) {
+            if (getChebyshevDistance(rc.getLocation(), allyHQ) > 10 && !almostFlood) {
                 getHitchHike(rc.getLocation(), allyHQ);
-            } else {
+            } else if (!almostFlood) {
                 goToLocationToDeposit(allyHQ);
+            } else {
+                currentState = State.ELEVATE_SELF;
+                execElevateSelf();
             }
             return;
         }
@@ -289,11 +320,13 @@ public class LandscaperController extends Controller {
                 for (Direction direction : directions) {
                     if (rc.canDigDirt(direction)) {
                         rc.digDirt(direction);
+                        break;
                     }
                 }
             }
 
             if (rc.getDirtCarrying() > 0) {
+                System.out.println("dumping on enemy hq "+rc.getLocation().directionTo(enemyHQ));
                 if (rc.canDepositDirt(rc.getLocation().directionTo(enemyHQ))) {
                     rc.depositDirt(rc.getLocation().directionTo(enemyHQ));
                 }
