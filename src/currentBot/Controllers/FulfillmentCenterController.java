@@ -55,31 +55,53 @@ public class FulfillmentCenterController extends Controller {
     }
 
     public void buildDrone() throws GameActionException {
-        Direction[] out;
-        if (enemyHQ != null && allyHQ != null) {
-            if (enemyHQ.x == allyHQ.x) {
-                out = allyHQ.x < mapX / 2 ? e : w;
-            } else if (enemyHQ.y == allyHQ.y) {
-                out = allyHQ.y < mapY / 2 ? n : s;
-            } else {
-                if (allyHQ.x < mapX / 2) {
-                    out = allyHQ.y < mapY / 2 ? ne : se;
-                } else {
-                    out = allyHQ.y < mapY / 2 ? nw : sw;
+        boolean netGunNearby = false;
+        for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+            if (enemy.type == RobotType.NET_GUN) netGunNearby = true;
+        }
+
+        if (netGunNearby) {
+            for (Direction dir : Direction.allDirections()) {
+                boolean isSafe = true;
+                for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
+                    if (enemy.type == RobotType.NET_GUN) {
+                        if (getDistanceSquared(rc.getLocation().add(dir), enemy.location) <= 24) {
+                            isSafe = false;
+                        }
+                    }
+                }
+                if (isSafe && rc.canBuildRobot(RobotType.DELIVERY_DRONE, dir)) {
+                    rc.buildRobot(RobotType.DELIVERY_DRONE, dir);
+                    return;
                 }
             }
         } else {
-            if (rc.getLocation().x < mapX / 2) {
-                out = rc.getLocation().y < mapY / 2 ? ne : se;
+            Direction[] out;
+            if (enemyHQ != null && allyHQ != null) {
+                if (enemyHQ.x == allyHQ.x) {
+                    out = allyHQ.x < mapX / 2 ? e : w;
+                } else if (enemyHQ.y == allyHQ.y) {
+                    out = allyHQ.y < mapY / 2 ? n : s;
+                } else {
+                    if (allyHQ.x < mapX / 2) {
+                        out = allyHQ.y < mapY / 2 ? ne : se;
+                    } else {
+                        out = allyHQ.y < mapY / 2 ? nw : sw;
+                    }
+                }
             } else {
-                out = rc.getLocation().y < mapY / 2 ? nw : sw;
+                if (rc.getLocation().x < mapX / 2) {
+                    out = rc.getLocation().y < mapY / 2 ? ne : se;
+                } else {
+                    out = rc.getLocation().y < mapY / 2 ? nw : sw;
+                }
             }
-        }
-        if (tryBuild(RobotType.DELIVERY_DRONE, out[counter])) {
-            counter = (counter + 1) % 3;
-        }
-        for (Direction direction : directions) {
-            tryBuild(RobotType.DELIVERY_DRONE, direction);
+            if (tryBuild(RobotType.DELIVERY_DRONE, out[counter])) {
+                counter = (counter + 1) % 3;
+            }
+            for (Direction direction : directions) {
+                tryBuild(RobotType.DELIVERY_DRONE, direction);
+            }
         }
     }
 }
