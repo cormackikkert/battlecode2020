@@ -185,8 +185,6 @@ public class MovementSolver {
         return Math.max(Math.abs(p1.x - p2.x), Math.abs(p1.y - p2.y));
     }
 
-    public void restart() {
-    }
 
     int getChebyshevDistance(MapLocation p1, MapLocation p2) {
         return Math.max(Math.abs(p1.x - p2.x), Math.abs(p1.y - p2.y));

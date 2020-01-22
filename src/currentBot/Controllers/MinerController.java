@@ -488,18 +488,18 @@ public class MinerController extends Controller {
             int closest = 100;
             currentSoupSquare = null;
 
-            boolean containsWaterTile = true;
-            boolean existsSoupTile = false;
+            boolean containsWaterTile = false;
+
             for (MapLocation square : rc.senseNearbySoup()) {
                 if (!rc.canSenseLocation(square)) continue;
                 if (rc.sensePollution(square) > MINER_POLLUTION_THRESHOLD) continue;
-                existsSoupTile = true;
-                boolean surroundedByWater = false;
+
+                boolean surroundedByWater = true;
                 for (Direction dir : Direction.allDirections()) {
                     if (rc.canSenseLocation(square.add(dir)) && !rc.senseFlooding(square.add(dir))) surroundedByWater = false;
                 }
 
-                if (surroundedByWater) {
+                if (surroundedByWater && Math.abs(rc.senseElevation(square) - rc.senseElevation(rc.getLocation())) <= BOTHER_DIGGING) {
                     containsWaterTile = true;
                     continue;
                 }
@@ -516,7 +516,7 @@ public class MinerController extends Controller {
             if (currentSoupSquare == null) {
                 currentState = State.SEARCHURGENT;
 
-                if (containsWaterTile && existsSoupTile) {
+                if (containsWaterTile) {
                     // this might be useful: if (rc.senseElevation(currentSoupSquare) >= rc.senseElevation(rc.getLocation()) - PlayerConstants.BOTHER_DIGGING) {
                     if (!communicationHandler.seenClearSoupCluster(currentSoupCluster)) {
                         communicationHandler.askClearSoupFlood(currentSoupCluster);
@@ -575,18 +575,26 @@ public class MinerController extends Controller {
 
         if (currentRefineryPos == null ||
             getChebyshevDistance(rc.getLocation(), currentRefineryPos) > PlayerConstants.DISTANCE_FROM_REFINERY ||
-            !canReach(currentRefineryPos) ||
-                (currentRefineryPos.equals(allyHQ) && ((!shouldBuildDS && !shouldBuildFC) || usedDrone || rc.getRoundNum() > 500)) ||
-                movementSolver.moves + getChebyshevDistance(rc.getLocation(), currentRefineryPos) > GIVE_UP_THRESHOLD) {
+                (currentRefineryPos.equals(allyHQ) && ((!shouldBuildDS && !shouldBuildFC) || usedDrone))) {
 
+            MapLocation oldRefPos = currentRefineryPos;
             currentRefineryPos = null;
 
             // Look for new refinery
             for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared())) {
                 if (robot.type == RobotType.REFINERY) {
-                    currentRefineryPos = robot.location;
-                    break;
+                    if (oldRefPos != null && oldRefPos.equals(robot.location)) continue;
+                    if (currentRefineryPos == null ||
+                        getChebyshevDistance(rc.getLocation(), robot.location) < getChebyshevDistance(rc.getLocation(), currentRefineryPos)) {
+                        currentRefineryPos = robot.location;
+                    }
                 }
+            }
+
+            System.out.println("Found closest refinery");
+
+            if (currentRefineryPos != null && getChebyshevDistance(rc.getLocation(), oldRefPos) <= getChebyshevDistance(rc.getLocation(), currentRefineryPos)) {
+                currentRefineryPos = null;
             }
 
             if (currentRefineryPos == null && rc.getTeamSoup() > RobotType.REFINERY.cost) {
@@ -659,10 +667,13 @@ public class MinerController extends Controller {
                 currentState = State.MINE;
             }
         } else {
-//            System.out.println("Going to refinery: " +  movementSolver.moves + " " + currentRefineryPos);
+            tryMove(movementSolver.directionToGoal(currentRefineryPos));
+            System.out.println("Going to refinery: " +  movementSolver.moves + " " + currentRefineryPos);
             if (movementSolver.moves > GIVE_UP_THRESHOLD) {
                 // Build refinery
                 // Check to see if there is a closer refinery
+
+                // Go closer to original soup square
                 if (!isAdjacentTo(currentSoupSquare)) {
                     for (int i = 0; i < 10 && !isAdjacentTo(currentSoupSquare); ++i) {
                         tryMove(movementSolver.directionToGoal(currentSoupSquare));
@@ -676,7 +687,16 @@ public class MinerController extends Controller {
                     } else {
                         getHitchHike(rc.getLocation(), currentRefineryPos);
                     }
-                } else {
+                }
+
+                boolean gotHitchHike = false;
+                for (RobotInfo robot : rc.senseNearbyRobots()) {
+                    if (robot.type == RobotType.REFINERY) {
+                        getHitchHike(rc.getLocation(), robot.location);
+                        gotHitchHike = true;
+                    }
+                }
+                if (!gotHitchHike) {
                     buildType = RobotType.REFINERY;
                     currentState = State.BUILDER;
                     buildLoc = null;
@@ -685,9 +705,7 @@ public class MinerController extends Controller {
 
                 movementSolver.moves = 0;
                 currentState = State.MINE;
-                return;
             }
-            tryMove(movementSolver.directionToGoal(currentRefineryPos));
         }
     }
     boolean builtFC = false;
@@ -751,8 +769,6 @@ public class MinerController extends Controller {
         }
 
 //        System.out.println(currentSoupCluster.middle + " " + currentSoupSquare);
-
-        movementSolver.restart();
 
         if (currentSoupCluster != null && !rc.getLocation().equals(currentSoupCluster.closest(rc.getLocation()))) {
             System.out.println(2);
@@ -948,9 +964,13 @@ public class MinerController extends Controller {
 
         if (!isAdjacentTo(buildLoc)) {
             System.out.println("Moving closer");
-            if (!canReach(buildLoc) || movementSolver.moves > GIVE_UP_THRESHOLD) {
+            if (movementSolver.moves > GIVE_UP_THRESHOLD) {
+                if (rc.onTheMap(buildLoc.add(Direction.NORTH)))
+                    getHitchHike(rc.getLocation(), buildLoc.add(Direction.NORTH));
+                else
+                    getHitchHike(rc.getLocation(), buildLoc.add(Direction.SOUTH));
                 currentState = State.MINE;
-                cantBuildHere[rc.getLocation().y][rc.getLocation().x] = true;
+//                cantBuildHere[rc.getLocation().y][rc.getLocation().x] = true;
                 execMine();
                 return;
             }
@@ -1038,7 +1058,6 @@ public class MinerController extends Controller {
 
         }
 
-        movementSolver.restart();
         while (getDistanceSquared(rc.getLocation(),candidateEnemyHQ) > 8) {
 //            System.out.println("I am searching for enemy HQ");
             tryMove(movementSolver.directionToGoal(candidateEnemyHQ));
