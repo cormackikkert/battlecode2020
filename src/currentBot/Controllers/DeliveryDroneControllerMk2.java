@@ -1,7 +1,6 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
-import com.sun.org.apache.bcel.internal.generic.LAND;
 import currentBot.*;
 
 import java.util.Deque;

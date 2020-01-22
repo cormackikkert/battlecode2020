@@ -1,13 +1,10 @@
 package currentBot.Controllers;
 
 import battlecode.common.*;
-import com.sun.org.apache.bcel.internal.generic.LAND;
 import currentBot.*;
 
-import java.security.AllPermission;
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.Map;
 
 import static currentBot.Controllers.PlayerConstants.*;
 
