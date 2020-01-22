@@ -420,9 +420,18 @@ public class DeliveryDroneControllerMk2 extends Controller {
             if (!enemyPickUp) {
                 for (Direction direction : directions) {
                     if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseRobotAtLocation(mapLocation.add(direction)) == null
-                            && rc.canDropUnit(direction) && mapLocation.add(direction).isAdjacentTo(enemyHQ)) {
+                            && rc.canDropUnit(direction) && mapLocation.add(direction).isAdjacentTo(enemyHQ) && !rc.senseFlooding(mapLocation.add(direction))) {
                         rc.dropUnit(direction);
-                        System.out.println("drop unit 408 ally");
+                    }
+                }
+
+                if (mapLocation.isWithinDistanceSquared(enemyHQ, 8)) {
+                    // if cant drop next to enemy HQ
+                    for (Direction direction : directions) {
+                        if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseRobotAtLocation(mapLocation.add(direction)) == null
+                                && rc.canDropUnit(direction) && !rc.senseFlooding(mapLocation.add(direction))) {
+                            rc.dropUnit(direction);
+                        }
                     }
                 }
             } else {
@@ -430,7 +439,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     if (rc.canSenseLocation(mapLocation.add(direction)) && rc.senseFlooding(mapLocation.add(direction))
                             && rc.canDropUnit(direction)) {
                         rc.dropUnit(direction);
-                        System.out.println("drop unit 408 enemy");
                     }
                 }
             }
