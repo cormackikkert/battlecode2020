@@ -31,7 +31,7 @@ public class DesignSchoolController extends Controller {
 
     public void run() throws GameActionException {
         if ((rc.getTeamSoup() > Math.min(400, ex) + PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)) && (builtLandscapers < (DEFEND + HELP))) {
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {
                     int id = rc.senseRobotAtLocation(location.add(dir)).getID();
                     ex += 100;
@@ -58,7 +58,7 @@ public class DesignSchoolController extends Controller {
 
     public void execDestroyEnemy() throws GameActionException {
         if (rc.getTeamSoup() > RobotType.DESIGN_SCHOOL.cost && builtLandscapers < 4) {
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {++builtLandscapers; break;}
             }
         }

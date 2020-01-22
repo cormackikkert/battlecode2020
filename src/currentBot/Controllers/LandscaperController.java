@@ -159,7 +159,7 @@ public class LandscaperController extends Controller {
 
             if (rc.getRoundNum() >= ELEVATE_SELF_IF_LONELY) {
                 if (rc.getDirtCarrying() == 0) {
-                    for (Direction dir : Direction.allDirections()) {
+                    for (Direction dir : getDirections()) {
                         MapLocation digHere = mapLocation.add(dir);
                         RobotInfo robotInfo = rc.senseRobotAtLocation(digHere);
                         if (rc.canDigDirt(dir)
@@ -187,7 +187,7 @@ public class LandscaperController extends Controller {
 
             if (rc.getDirtCarrying() == 0) {
                 System.out.println("want to dig for "+minerLocation);
-                for (Direction dir : Direction.allDirections()) {
+                for (Direction dir : getDirections()) {
                     MapLocation digHere = mapLocation.add(dir);
                     RobotInfo robotInfo = rc.senseRobotAtLocation(digHere);
                     if (rc.canDigDirt(dir)
@@ -227,7 +227,7 @@ public class LandscaperController extends Controller {
                 if (rb.type.equals(RobotType.LANDSCAPER)) walled++;
             }
         }
-        for (Direction dir : Direction.allDirections()) {
+        for (Direction dir : getDirections()) {
             if (dir == Direction.CENTER) continue;
             if (!rc.onTheMap(allyHQ.add(dir))) --maximum;
         }
@@ -296,7 +296,7 @@ public class LandscaperController extends Controller {
             if (rc.getDirtCarrying() > 0 && rc.canDepositDirt(rc.getLocation().directionTo(adjacentPos))) {
                 rc.depositDirt(rc.getLocation().directionTo(adjacentPos));
             } else {
-                for (Direction dir : Direction.allDirections()) {
+                for (Direction dir : getDirections()) {
                     MapLocation pos = rc.getLocation().add(dir);
                     RobotInfo robot = rc.senseRobotAtLocation(pos);
                     if (robot != null &&
@@ -326,7 +326,7 @@ public class LandscaperController extends Controller {
                     // Dig dirt so depositing is fast
                     Direction best = null;
                     int highest = 0;
-                    for (Direction dir : Direction.allDirections()) {
+                    for (Direction dir : getDirections()) {
                         if (dir == rc.getLocation().directionTo(allyHQ)) continue;
                         if (rc.canSenseLocation(rc.getLocation().add(dir)) &&
                                 rc.senseElevation(rc.getLocation().add(dir)) > highest &&
@@ -349,7 +349,7 @@ public class LandscaperController extends Controller {
 
             // We are already close enough to the enemy HQ
             if (rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit) {
-                for (Direction dir : Direction.allDirections()) {
+                for (Direction dir : getDirections()) {
                     if (rc.canDigDirt(dir) && !rc.getLocation().add(dir).equals(enemyHQ)) {
                         rc.digDirt(dir); break;
                     }
@@ -364,7 +364,7 @@ public class LandscaperController extends Controller {
     Direction nextDirection(MapLocation loc) throws GameActionException {
         Direction finalDir = null;
         int elevation = Integer.MAX_VALUE;
-        for (Direction d : Direction.allDirections()) {
+        for (Direction d : getDirections()) {
             MapLocation newPos = loc.add(d);
             int dist = allyHQ.distanceSquaredTo(newPos);
             if (rc.onTheMap(newPos) && dist <= 2 && dist > 0) {
@@ -693,7 +693,7 @@ public class LandscaperController extends Controller {
             // so we don't do it again
             ++size;
 
-            for (Direction delta : Direction.allDirections()) {
+            for (Direction delta : getDirections()) {
                 MapLocation neighbour = current.add(delta);
                 if (!inRange(neighbour.y, 0, rc.getMapHeight()) || !inRange(neighbour.x, 0, rc.getMapWidth())) continue;
                 if (searchedForSoupCluster[neighbour.y][neighbour.x]) continue;
@@ -814,7 +814,7 @@ public class LandscaperController extends Controller {
                     if (rc.getRoundNum() >= 1200) break;
 
                     if (rc.getDirtCarrying() == 0) {
-                        for (Direction dir : Direction.allDirections()) {
+                        for (Direction dir : getDirections()) {
                             MapLocation digHere = location.add(dir);
                             if (rc.canDigDirt(dir)
                                     && (digHere.x + digHere.y) % 2 == 1) {
@@ -834,7 +834,7 @@ public class LandscaperController extends Controller {
                 if (rc.getRoundNum() >= 1200) break;
 
                 if (rc.getDirtCarrying() == 0) {
-                    for (Direction dir : Direction.allDirections()) {
+                    for (Direction dir : getDirections()) {
                         MapLocation digHere = location.add(dir);
                         if (rc.canDigDirt(dir)
                                 && (digHere.x + digHere.y) % 2 == 1) {
@@ -858,7 +858,7 @@ public class LandscaperController extends Controller {
 
 
         boolean near = false;
-        for (Direction dir : Direction.allDirections()) {
+        for (Direction dir : getDirections()) {
             MapLocation water = location.add(dir);
             if (rc.canSenseLocation(water)
                     && rc.senseFlooding(water)
@@ -877,7 +877,7 @@ public class LandscaperController extends Controller {
 
         if (near) {
             if (rc.getDirtCarrying() == 0) {
-                for (Direction dir : Direction.allDirections()) {
+                for (Direction dir : getDirections()) {
                     MapLocation digHere = location.add(dir);
                     if (rc.canDigDirt(dir)
 //                            && !dumped[digHere.x][digHere.y]
@@ -889,7 +889,7 @@ public class LandscaperController extends Controller {
                 }
             } else {
                 MapLocation dumpHere;
-                for (Direction dir : Direction.allDirections()) {
+                for (Direction dir : getDirections()) {
                     dumpHere = location.add(dir);
                     if (rc.canDepositDirt(dir)
                             && (dumpHere.x + dumpHere.y) % 2 == 0
@@ -918,7 +918,7 @@ public class LandscaperController extends Controller {
         if (empty) {
 //            while (upup < 8) {
 //                if (rc.getDirtCarrying() == 0) {
-//                    for (Direction dir : Direction.allDirections()) {
+//                    for (Direction dir : getDirections()) {
 //                        MapLocation digHere = location.add(dir);
 //                        if (rc.canDigDirt(dir)
 ////                            && !dumped[digHere.x][digHere.y]
@@ -991,7 +991,7 @@ public class LandscaperController extends Controller {
     public void protectSelf() throws GameActionException {
         MapLocation location = rc.getLocation();
         if (rc.getDirtCarrying() == 0) {
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 MapLocation digHere = location.add(dir);
                 if (rc.canDigDirt(dir)
                         && (digHere.x + digHere.y) % 2 == 1) {
@@ -1030,7 +1030,7 @@ public class LandscaperController extends Controller {
 
             if (pos.distanceSquaredTo(node) < targetDistance) return true;
 
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 MapLocation nnode = node.add(dir);
                 if (!rc.onTheMap(nnode)) continue;
 

@@ -61,7 +61,7 @@ public class FulfillmentCenterController extends Controller {
         }
 
         if (netGunNearby) {
-            for (Direction dir : Direction.allDirections()) {
+            for (Direction dir : getDirections()) {
                 boolean isSafe = true;
                 for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
                     if (enemy.type == RobotType.NET_GUN) {
