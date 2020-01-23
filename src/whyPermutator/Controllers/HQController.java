@@ -113,6 +113,7 @@ public class HQController extends Controller {
 
     public void run() throws GameActionException {
         sendLandscapersOnWall(); // note only sends when it changes dw about soup consumption
+        //System.out.println(landscapersOnWall);
 //        sendDronesOnShield();
         hqInfo();
 

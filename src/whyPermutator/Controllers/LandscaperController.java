@@ -112,6 +112,7 @@ public class LandscaperController extends Controller {
 
         if (currentState == State.PROTECTHQ && isAdjacentTo(allyHQ) && rc.getRoundNum() >= roundToLevelWall) {
             execProtectHQ();
+            readBlocks();
             return;
         }
 
@@ -126,6 +127,7 @@ public class LandscaperController extends Controller {
         // keep track of old state
         if (!(currentState == State.PROTECTHQ && rc.getRoundNum() > START_BUILD_WALL) && existsEnemyBuilding) {
             execKillUnits();
+            readBlocks();
             return;
         }
 
@@ -153,7 +155,6 @@ public class LandscaperController extends Controller {
             tryMove(movementSolver.directionFromPoint(spawnBase));
         }
 
-        System.out.println("I am a " + currentState.toString());
         switch (currentState) {
             case PROTECTHQ: execProtectHQ();      break;
             //case PROTECTSOUP:   execProtectSoup();  break;
@@ -302,6 +303,7 @@ public class LandscaperController extends Controller {
             }
         }
         for (Direction dir : getDirections()) {
+
             if (dir == Direction.CENTER) continue;
             if (!rc.onTheMap(allyHQ.add(dir))) --maximum;
         }
@@ -324,7 +326,10 @@ public class LandscaperController extends Controller {
             }
             return;
         }
-        if (walled == maximum) {
+
+        if (landscapersOnWall == 8) {
+            System.out.println("here");
+            while (!rc.isReady()) Clock.yield();
             if (rc.getDirtCarrying() == 0) newDig();
             else newDeposit();
         } else {
