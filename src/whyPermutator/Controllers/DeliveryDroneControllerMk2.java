@@ -152,7 +152,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
                 case ATTACK:  execAttackPatrol();           break;
-                case DEFEND:  execDefendPatrol();           break;
+                case DEFEND:  execDefendLateGame();           break;
                 case WANDER:  execWanderPatrol();           break;
                 case EXPLORE: execExplore();                break;
                 case TAXI: execTaxi();                      break;
@@ -184,7 +184,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        if (currentState == State.WANDERLATE && rc.isCurrentlyHoldingUnit() && rc.getRoundNum() >= 1900) {
+        if (currentState == State.WANDERLATE
+//                && rc.isCurrentlyHoldingUnit()
+                && rc.getRoundNum() >= 1900) {
             currentState = State.ATTACKLATEGAME;
             return;
         }
@@ -400,7 +402,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             System.out.println("defend late game stay still");
             defendLateGameShield = true;
             if (rc.getLocation().isAdjacentTo(allyHQ)) {
-                rc.disintegrate(); // die so don't disrupt landscapers
+                tryMove(movementSolver.directionFromPoint(allyHQ));
             }
         }
     }

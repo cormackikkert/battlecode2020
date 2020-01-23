@@ -41,8 +41,9 @@ public class FulfillmentCenterController extends Controller {
             buildDrone();
         }
 
-        if (rc.getRoundNum() > 1700 &&
-                rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)) { // just spam at this point, no need to conserve soup
+        if (rc.getRoundNum() > 6001
+//                && rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)
+        ) { // just spam at this point, no need to conserve soup
             buildDrone();
         }
 
@@ -50,6 +51,8 @@ public class FulfillmentCenterController extends Controller {
             buildDrone();
             ex += 100;
         }
+
+
     }
 
     public void buildDrone() throws GameActionException {

@@ -127,7 +127,13 @@ public class LandscaperController extends Controller {
             //case PROTECTSOUP:   execProtectSoup();  break;
             case DESTROY:       execDestroy();    break;
             case REMOVE_WATER: execRemoveWater(); break;
-            case KILLUNITS: execKillUnits();      break;
+            case KILLUNITS:
+                if (enemyHQ == null) {
+                    execKillUnits();
+                } else {
+                    execKillUnits2();
+                }
+                break;
             case ELEVATE_BUILDING: execElevate(); break;
             case DESTROY_WALL: execDestroyWall(); break;
             case ELEVATE_SELF: execElevateSelf(); break;
@@ -269,7 +275,7 @@ public class LandscaperController extends Controller {
         }
         if (!rc.getLocation().isAdjacentTo(allyHQ)) {
             if (walled == numWallers) {  // if already have all 8 landscapers building wall
-                currentState = State.REMOVE_WATER; // TODO : or assign another role
+                currentState = State.KILLUNITS; // TODO : or assign another role
                 return;
             }
 
@@ -440,6 +446,51 @@ public class LandscaperController extends Controller {
                     rc.digDirt(best);
                 }
             }
+        }
+    }
+
+    public void execKillUnits2() throws GameActionException {
+        MapLocation mapLocation = rc.getLocation();
+        Direction move = mapLocation.directionTo(enemyHQ);
+        int roundNum = rc.getRoundNum();
+        int higherThanThis = (int) Math.min(20, GameConstants.getWaterLevel(roundNum + 100));
+
+        System.out.println(mapLocation+" "+mapLocation.add(move));
+        System.out.println(higherThanThis+" "+rc.senseElevation(mapLocation)+" "+rc.senseElevation(mapLocation.add(move)));
+
+        if (rc.senseElevation(mapLocation) < higherThanThis
+                || rc.senseElevation(mapLocation.add(move)) < higherThanThis
+                || !rc.canMove(move)
+                || rc.senseFlooding(mapLocation.add(move))) {
+            if (rc.getDirtCarrying() == 0) {
+                for (Direction direction : directions) {
+                    MapLocation location = mapLocation.add(direction);
+                    if (rc.canSenseLocation(location)
+                    && !direction.equals(move)
+                    && rc.senseElevation(location) < higherThanThis
+                    && rc.canDigDirt(direction)
+                    && (rc.senseRobotAtLocation(location) == null
+                    || rc.senseRobotAtLocation(location).getTeam() != ALLY)) {
+                        System.out.println("dig dirt in direction "+direction);
+                        rc.digDirt(direction);
+                        break;
+                    }
+                }
+            }
+
+            if (rc.senseElevation(mapLocation) >= rc.senseElevation(mapLocation.add(move)) && rc.senseElevation(mapLocation.add(move)) < higherThanThis) {
+                if (rc.canDepositDirt(move)) {
+                    rc.depositDirt(move);
+                }
+            }
+            if (rc.senseElevation(mapLocation) <= rc.senseElevation(mapLocation.add(move)) && rc.senseElevation(mapLocation) < higherThanThis){
+                if (rc.canDepositDirt(Direction.CENTER)) {
+                    rc.depositDirt(Direction.CENTER);
+                }
+            }
+        } else {
+            System.out.println("move in direction "+move);
+            rc.move(move);
         }
     }
 

@@ -84,6 +84,7 @@ public class HQController extends Controller {
 
     public void run() throws GameActionException {
         sendLandscapersOnWall(); // note only sends when it changes dw about soup consumption
+        hqInfo();
 
 //        if (!sudokuSent && campOutside >= PlayerConstants.WAIT_FRIENDS_BEFORE_SUDOKU) {
 //            communicationHandler.sendSudoku();

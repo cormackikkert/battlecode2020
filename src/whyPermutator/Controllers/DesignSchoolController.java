@@ -54,7 +54,28 @@ public class DesignSchoolController extends Controller {
             }
         }
 
+        if (rc.getRoundNum() > 450 && builtLandscapers < (DEFEND + HELP)) {
+            for (Direction dir : getDirections()) {
+                if (tryBuild(RobotType.LANDSCAPER, dir)) {
+                    int id = rc.senseRobotAtLocation(location.add(dir)).getID();
+                    ex += 100;
+                    if (builtLandscapers < DEFEND) {
+                        communicationHandler.landscapeDefend(id);
+                    } else {
+                        communicationHandler.landscapeHelp(id);
+                    }
 
+//                    // for building wall later
+//                    if (builtLandscapers < HELP) {
+//                        communicationHandler.landscapeHelp(id);
+//                    } else {
+//                        communicationHandler.landscapeDefend(id);
+//                    }
+                    ++builtLandscapers;
+                    break;
+                }
+            }
+        }
     }
 
     public void execDestroyEnemy() throws GameActionException {

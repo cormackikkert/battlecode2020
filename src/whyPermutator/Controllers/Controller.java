@@ -102,6 +102,8 @@ public abstract class Controller {
         this.movementSolver = new MovementSolver(rc, this);
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
+        int gay = 2 * Math.max(rc.getMapWidth(), rc.getMapHeight());
+        this.visited = new boolean[gay][gay];
         System.out.println(1);
         getSpawnBase();
         System.out.println("done");
@@ -255,13 +257,30 @@ public abstract class Controller {
         scanRobots();
         tryFindHomeHQLoc();
         tryFindEnemyHQLoc();
+        getHQInfo();
     }
-
+    public void getHQInfo() {
+        if (rc.getRoundNum() == 1) return;
+        if (allyHQ == null) {
+            try {
+                allyHQ = communicationHandler.receiveAllyHQLoc();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        if (enemyHQ == null) {
+            try {
+                enemyHQ = communicationHandler.receiveEnemyHQLoc();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
     public void scanRobots() throws GameActionException {
 //        enemies = rc.senseNearbyRobots();
 //        System.out.println("scan radius is "+rc.getCurrentSensorRadiusSquared()+", pollution is "+rc.sensePollution(rc.getLocation()));
-        enemies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), ENEMY);
-        allies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), ALLY);
+        enemies = rc.senseNearbyRobots(-1, ENEMY);
+        allies = rc.senseNearbyRobots(-1, ALLY);
     }
 
     public void tryFindHomeHQLoc() {
@@ -278,6 +297,7 @@ public abstract class Controller {
 
     public void tryFindEnemyHQLoc() throws GameActionException {
         if (enemyHQ != null) return;
+        System.out.println("trying to find enemy hq");
 //        System.out.println("trying to find enemy HQ out of " + enemies.length + " options"
 //        +", with sensor range "+rc.getCurrentSensorRadiusSquared());
         for (RobotInfo enemy : enemies) {

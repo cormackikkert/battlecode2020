@@ -610,4 +610,49 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 //            }
 //        }
 //    }
+
+    int turnA = 1;
+    public MapLocation receiveAllyHQLoc() throws GameActionException { // FIXME : reimplement this later
+        // TODO: use my encode and decode methods lol
+        // also fyi I put this sort of thing in my miner class so I avoid scanning
+        // the same part of the block chain multiple times
+        MapLocation out = null;
+        outer : for (int i = turnA
+                     ; i < rc.getRoundNum(); i++) {
+            turnA++;
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if (identify(message) == CommunicationType.ALLYHQ) {
+                    decode(message);
+                    out = new MapLocation(message[2], message[3]);
+                    System.out.println("received ally location");
+                    break outer;
+                }
+            }
+        }
+        return out;
+    }
+
+    int turnE = 1;
+    public MapLocation receiveEnemyHQLoc() throws GameActionException {
+        MapLocation out = null;
+        outer : for (int i = turnE
+                     ; i < rc.getRoundNum(); i++) {
+            turnE++;
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if (identify(message) == CommunicationType.ENEMYHQ) {
+                    decode(message);
+                    out = new MapLocation(message[2], message[3]);
+                    System.out.println("received enemy location "+out);
+                    break outer;
+                }
+            }
+        }
+        return out;
+    }
+
+
 }
