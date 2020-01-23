@@ -5,6 +5,8 @@ import whyPermutator.Controllers.Controller;
 import whyPermutator.Controllers.DeliveryDroneControllerMk2;
 import whyPermutator.Controllers.LandscaperController;
 
+import java.util.Arrays;
+
 import static whyPermutator.CommunicationHandler.CommunicationType.*;
 
 public class CommunicationHandler { // TODO : conserve bytecode by storing turn of last received message
@@ -45,7 +47,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         // TODO: make this not garbage (Though surely no-one actually tries to decode this)
         this.rc = rc;
         this.team = rc.getTeam();
-        teamSecret = (this.team == Team.A) ? 1129504 : 1029304;
+        teamSecret = (this.team == Team.A) ? 15642 : 23188;
     }
 
     public CommunicationHandler(RobotController rc, Controller controller) {
@@ -53,7 +55,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         this.rc = rc;
         this.controller = controller;
         this.team = rc.getTeam();
-        teamSecret = (this.team == Team.A) ? 1129504 : 1029304;
+        teamSecret = (this.team == Team.A) ? 15642 : 23188;
     }
 
     /*
@@ -63,21 +65,29 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     private int[] bluePrint(CommunicationType message) {
         System.out.println("SENDING: " + message);
         int[] arr = new int[7];
-        arr[0] = (message.ordinal() << 25);
+        arr[0] = (message.ordinal() << 17);
         return arr;
     }
 
     public void encode(int[] arr) {
         for (int i = 0; i < 7; ++i) arr[i] ^= teamSecret;
+        for (int i = 0; i < 7; ++i) arr[i] = (10 * arr[i] + (i+1));
     }
 
     public void decode(int[] arr) {
-        encode(arr);
+        for (int i = 0; i < 7; ++i) arr[i] /= 10;
+        for (int i = 0; i < 7; ++i) arr[i] ^= teamSecret;
     }
 
     public CommunicationType identify(int[] message) {
-        if (message[0] % (1 << 25) == teamSecret && message.length == 7) {
-            return CommunicationType.values()[message[0] >> 25];
+        if ((message[0] / 10) % (1 << 17) == teamSecret && message.length == 7) {
+            for (int i = 0; i < 7; ++i) {
+                if (message[i] % 10 != (i+1)) {
+                    System.out.println("Malformed: " + Arrays.toString(message));
+                    return ENEMY;
+                }
+            }
+            return CommunicationType.values()[(message[0] / 10) >> 17];
         }
         return CommunicationType.ENEMY;
     }
@@ -87,7 +97,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int[] message = bluePrint(CommunicationType.CLUSTER);
 
         for (int val : new int[] {cluster.x1, cluster.y1, cluster.x2, cluster.y2}) {
-            message[1] <<= 8;
+            message[1] <<= 7;
             message[1] += val;
         }
 
@@ -113,10 +123,10 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     public SoupCluster getCluster(int[] message) {
         decode(message);
-        int y2 = message[1] % (1 << 8); message[1] >>= 8;
-        int x2 = message[1] % (1 << 8); message[1] >>= 8;
-        int y1 = message[1] % (1 << 8); message[1] >>= 8;
-        int x1 = message[1] % (1 << 8); message[1] >>= 8;
+        int y2 = message[1] % (1 << 7); message[1] >>= 7;
+        int x2 = message[1] % (1 << 7); message[1] >>= 7;
+        int y1 = message[1] % (1 << 7); message[1] >>= 7;
+        int x1 = message[1] % (1 << 7); message[1] >>= 7;
 
         return new SoupCluster(x1, y1, x2, y2, message[2], message[3], message[4], message[5]);
     }
@@ -125,9 +135,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int[] message = bluePrint(CommunicationType.MAPBLOCKS);
         int i = 0;
         for (int row = 1; row <= 6; ++row) {
-            message[row] <<= 8;
+            message[row] <<= 7;
             message[row] |= blocks[i].x;
-            message[row] <<= 8;
+            message[row] <<= 7;
             message[row] |= blocks[i].y;
             i = (i + 1) % blocks.length;
         }
@@ -192,8 +202,8 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         MapLocation[] blocks = new MapLocation[12];
         for (int row = 1; row < 7; ++row) {
             for (int i = 0; i < 2; ++i) {
-                int y = message[row] % (1 << 8); message[row] >>= 8;
-                int x = message[row] % (1 << 8); message[row] >>= 8;
+                int y = message[row] % (1 << 7); message[row] >>= 7;
+                int x = message[row] % (1 << 7); message[row] >>= 7;
                 blocks[2*(row-1)+i] = new MapLocation(x, y);
             }
         }
