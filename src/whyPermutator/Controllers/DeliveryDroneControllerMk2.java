@@ -345,7 +345,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 return;
             }
         }
-        killCow();
+//        killCow();
         searchSurroundingsSoup();
         movementSolver.windowsRoam();
     }

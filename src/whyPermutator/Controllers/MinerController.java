@@ -213,17 +213,21 @@ public class MinerController extends Controller {
 
         buildLoc = getNearestBuildTile();
         if (buildLoc != null && rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 300)) {
-            buildType = null;
+            if (rc.getRoundNum() > 800 && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
+                buildType = null;
 
-            if (shouldBuildFC && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER, usedDrone))
-                buildType = RobotType.FULFILLMENT_CENTER;
-            else if (shouldBuildDS && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL, usedDrone))
-                buildType = RobotType.DESIGN_SCHOOL;
-            else if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
-                if (Math.random() > 0.7)
-                    buildType = RobotType.NET_GUN;
-                else
+                if (shouldBuildFC && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER, usedDrone))
+                    buildType = RobotType.FULFILLMENT_CENTER;
+                else if (shouldBuildDS && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL, usedDrone))
+                    buildType = RobotType.DESIGN_SCHOOL;
+                else if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
+                    if (Math.random() > 0.7)
+                        buildType = RobotType.NET_GUN;
+                    else
+                        buildType = RobotType.VAPORATOR;
+                } else if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
                     buildType = RobotType.VAPORATOR;
+                }
             }
 
             if (buildType != null) currentState = State.BUILDER;
@@ -554,7 +558,6 @@ public class MinerController extends Controller {
                 if (currentSoupCluster != null) soupClusters.remove(currentSoupCluster);
                 currentSoupCluster = null;
                 currentSoupSquare = null;
-                //execSearchUrgent();
                 return;
             }
             if (!isAdjacentTo(currentSoupSquare)) {
@@ -747,6 +750,7 @@ public class MinerController extends Controller {
             for (Direction dir : getDirections()) {
                 if (!rc.canSenseLocation(rc.getLocation().add(dir))) continue;
                 if (rc.senseSoup(rc.getLocation().add(dir)) > 0 && rc.canMineSoup(dir)) {
+                    currentSoupSquare = rc.getLocation().add(dir);
                     currentState = State.MINE;
                     execMine();
                     return;
@@ -754,7 +758,7 @@ public class MinerController extends Controller {
             }
         }
         if (currentSoupCluster == null) {
-            System.out.println(1);
+            System.out.println(1 + " " + soupClusters.size());
             System.out.println(currentSoupCluster);
             currentSoupSquare = null;
 
@@ -762,12 +766,12 @@ public class MinerController extends Controller {
 
             if (soupClusters.size() == 0) return;
 
-            SoupCluster nextBest = soupClusters.get(0);
+            SoupCluster nextBest = null;
             for (SoupCluster soupCluster : soupClusters) {
                 if (soupCluster.elevation > GameConstants.getWaterLevel(rc.getRoundNum() + 100))
                     totalSoupSquares += soupCluster.size;
                 else {
-                    if (soupCluster.elevation > nextBest.elevation) nextBest = soupCluster;
+                    if (nextBest == null || soupCluster.elevation > nextBest.elevation) nextBest = soupCluster;
                 }
             }
 
@@ -794,7 +798,7 @@ public class MinerController extends Controller {
             int v = this.rc.getID() % totalSoupSquares;
             int behind = 0;
             for (SoupCluster soupCluster : soupClusters) {
-                if (soupCluster.elevation <= GameConstants.getWaterLevel(rc.getRoundNum() + 400)) continue;
+                if (soupCluster.elevation <= GameConstants.getWaterLevel(rc.getRoundNum() + 100)) continue;
 
                 if (v < behind + soupCluster.size) {
                     currentSoupCluster = soupCluster;
@@ -802,6 +806,8 @@ public class MinerController extends Controller {
                 }
                 behind += soupCluster.size;
             }
+
+            if (currentSoupCluster == null) currentSoupCluster = nextBest;
 
             if (currentSoupCluster == null && rc.getRoundNum() > 800) {
                 this.buildType = RobotType.FULFILLMENT_CENTER;
@@ -870,7 +876,7 @@ public class MinerController extends Controller {
             }
 
         } else {
-            System.out.println(4 + " " + currentSoupSquare);
+            System.out.println(4 + " " + currentSoupCluster + " " + soupClusters.size());
             currentState = State.MINE;
             execMine();
         }
