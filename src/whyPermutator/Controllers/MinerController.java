@@ -167,12 +167,10 @@ public class MinerController extends Controller {
 //        else if (born == RUSH1 || born == RUSH2 || born == RUSH3) {
 //            currentState = State.RUSHBOT;
 //        }
-
-
         try {
-            enemyHQ = communicationHandler.receiveEnemyHQLoc();
+            while (born + 10 > rc.getRoundNum()) readBlocks();
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println(e.getMessage());
         }
 
         //System.out.println("Spawned: " + builtFC + " " + foundHQ + " " + PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER));// + " " + (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER)));
@@ -187,13 +185,10 @@ public class MinerController extends Controller {
         hqInfo(); // includes scanning robots
         scanNetGuns();
         solveGhostHq();
-        updateReqs();
         commitSudoku(); // if stuck
         evacuate(); // go to a different soup cluster
 
         communicationHandler.solveEnemyHQLocWithGhosts();
-
-        updateClusters();
 
         if (currentRefineryPos == allyHQ) {
             for (RobotInfo ally : allies) {
@@ -225,7 +220,6 @@ public class MinerController extends Controller {
 //            currentState = State.ELEVATE;
 //        }
 
-        updateReqs();
         if (currentReq != null) {
             execElevate();
             return;
@@ -243,6 +237,8 @@ public class MinerController extends Controller {
             case ELEVATE: execElevate();           break;
             case ELEVATE2: execElevate2();         break;
         }
+
+        readBlocks();
     }
 
     boolean containsEnoughSoup(int crudeCount) {
@@ -409,7 +405,6 @@ public class MinerController extends Controller {
             return;
         }
 
-        updateClusters();
         if (soupClusters != null) {
             currentState = State.SEARCHURGENT;
             return;
@@ -467,8 +462,6 @@ public class MinerController extends Controller {
          */
 //        System.out.println("Doing mining stuff " + currentSoupSquare);
 
-        updateClusters();
-
 //        if (rc.getRoundNum() > 100 && currentSoupCluster.size == 0) {
 //            // TODO: do something
 //        }
@@ -518,13 +511,15 @@ public class MinerController extends Controller {
 
                 if (containsWaterTile) {
                     // this might be useful: if (rc.senseElevation(currentSoupSquare) >= rc.senseElevation(rc.getLocation()) - PlayerConstants.BOTHER_DIGGING) {
-                    if (!communicationHandler.seenClearSoupCluster(currentSoupCluster)) {
-                        communicationHandler.askClearSoupFlood(currentSoupCluster);
-                        buildType = RobotType.DESIGN_SCHOOL;
-                        currentState = State.BUILDER;
-                        buildLoc = null;
-                        execBuilder();
-                    }
+
+                    communicationHandler.askClearSoupFlood(currentSoupCluster);
+//                    if (!communicationHandler.seenClearSoupCluster(currentSoupCluster)) {
+//
+//                        buildType = RobotType.DESIGN_SCHOOL;
+//                        currentState = State.BUILDER;
+//                        buildLoc = null;
+//                        execBuilder();
+//                    }
                     // go to other cluster in the mean time
                     soupClusters.remove(currentSoupCluster);
                     waterClusters.add(currentSoupCluster);
@@ -685,13 +680,13 @@ public class MinerController extends Controller {
                 if (!isAdjacentTo(currentSoupSquare)) {
                     for (int i = 0; i < 10 && !isAdjacentTo(currentSoupSquare); ++i) {
                         tryMove(movementSolver.directionToGoal(currentSoupSquare));
-                        Clock.yield();
+                        while(!rc.isReady()) readBlocks();
                     }
                 }
                 if (!cantBuildHere[rc.getLocation().y][rc.getLocation().x]) {
                     if (rc.getRoundNum() > 450 && currentRefineryPos.equals(allyHQ)) {
                         // lol idk what goes here (miner is kinda screwed)
-                        Clock.yield();
+                        while(!rc.isReady()) readBlocks();
                     } else {
                         getHitchHike(rc.getLocation(), currentRefineryPos);
                     }
@@ -735,7 +730,6 @@ public class MinerController extends Controller {
             System.out.println(1);
             System.out.println(currentSoupCluster);
             currentSoupSquare = null;
-            updateClusters();
 
             int totalSoupSquares = 0;
 
@@ -869,8 +863,6 @@ public class MinerController extends Controller {
             currentSoupCluster.size = 0;
             soupClusters.remove(currentSoupCluster);
 
-            updateClusters();
-
             currentState = State.SEARCHURGENT;
 
             currentSoupCluster = null;
@@ -954,6 +946,7 @@ public class MinerController extends Controller {
                     }
                     if (tryMove(movementSolver.directionToGoal(neighbour))) {
                         searchSurroundingsContinued();
+                        while(!rc.isReady()) readBlocks();
 
                         // Only do nothing if you need to make another move
                         // if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
@@ -982,7 +975,6 @@ public class MinerController extends Controller {
 
         // Check to see if other miners have already found this cluster
         boolean hasBeenBroadCasted = false;
-        updateClusters();
         for (SoupCluster soupCluster : soupClusters) {
             if (found.inside(soupCluster)) hasBeenBroadCasted = true;
         }
@@ -993,36 +985,6 @@ public class MinerController extends Controller {
         return found;
     }
 
-    void updateClusters() throws GameActionException {
-        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
-            for (Transaction tx : rc.getBlock(i)) {
-                int[] mess = tx.getMessage();
-                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.CLUSTER) {
-                    SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
-
-                    boolean seenBefore = false;
-                    for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
-                        if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) {
-                            alreadyFoundSoupCluster.update(broadcastedSoupCluster);
-                            seenBefore = true;
-                        }
-                    }
-
-                    if (!seenBefore) {
-                        // broadcastedSoupCluster.draw(this.rc);
-                        soupClusters.add(broadcastedSoupCluster);
-                        for (int y = broadcastedSoupCluster.y1; y <= broadcastedSoupCluster.y2; ++y) {
-                            for (int x = broadcastedSoupCluster.x1; x < broadcastedSoupCluster.x2; ++x) {
-                                searchedForSoupCluster[y][x] = true;
-                            }
-                        }
-                    }
-
-                }
-            }
-        }
-        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
-    }
 
     public void execBuilder() throws GameActionException {
 
@@ -1180,7 +1142,6 @@ public class MinerController extends Controller {
 
         while (!stack.isEmpty()) {
             MapLocation node = stack.pop();
-            updateClusters();
 
             // Broadcast what areas have been searched
             if (!seenBlocks[node.y / BLOCK_SIZE][node.x / BLOCK_SIZE]) {
@@ -1193,8 +1154,6 @@ public class MinerController extends Controller {
                     visitedBlocks = new LinkedList<>();
                 }
             }
-
-            updateSeenBlocks();
 
             if (visited[node.y][node.x]) continue;
             visited[node.y][node.x] = true;
@@ -1212,8 +1171,7 @@ public class MinerController extends Controller {
                     tryMove(movementSolver.directionToGoal(nnode));
                     searchSurroundingsSoup();
 
-                    Clock.yield();
-                    updateClusters();
+                    while(!rc.isReady()) readBlocks();
                 }
 
 
@@ -1497,44 +1455,77 @@ public class MinerController extends Controller {
         }
     }
 
-    void updateReqs() throws GameActionException {
-        for (int i = lastRoundReqs; i < rc.getRoundNum(); ++i) {
-            for (Transaction tx : rc.getBlock(i)) {
-                int[] mess = tx.getMessage();
-                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.ASK_COMPANY) {
-                    Company req = communicationHandler.getCompany(mess);
-                    req.roundNum = i;
-                    reqs.add(req);
-                }
-                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.ASK_COMPANY_ACK) {
-                    Company ack = communicationHandler.getCompanyAck(mess);
-                    if (currentReq != null) {
-                        if (currentReq.landscaperPos.equals(ack.landscaperPos)) {
-                            if (ack.minerID == rc.getID()) {
-                                currentReq.confirmed = true;
-                            } else if (!currentReq.confirmed) {
-                                currentReq = null;
-                                currentState = State.MINE;
-                            }
-                        }
-                    }
-                    reqs.removeIf(r -> r.landscaperPos.equals(ack.landscaperPos));
+
+    int lastPos = 1;
+    public void readBlocks() throws GameActionException {
+        while (lastPos < rc.getRoundNum() && Clock.getBytecodesLeft() > 500) {
+            for (Transaction t : rc.getBlock(lastPos)) {
+                int[] message = t.getMessage();
+                switch (communicationHandler.identify(message)) {
+                    case CLUSTER: processCluster(message); break;
+                    case MAPBLOCKS: processMapBlocks(message); break;
+                    case LANDSCAPERS_ON_WALL: processLandscapersOnWall(message); break;
+                    case ALLYHQ: processAllyHQLoc(message); break;
+                    case ENEMYHQ: processEnemyHQLoc(message); break;
                 }
             }
+            ++lastPos;
         }
-        if (currentReq == null) {
-            for (Company req : reqs) {
-                if ((rc.getRoundNum() - req.roundNum - 1) == getChebyshevDistance(rc.getLocation(), req.landscaperPos) / GRID_BLOCK_SIZE ||
-                        rc.getRoundNum() - req.roundNum - 1 > 64 / GRID_BLOCK_SIZE + 1) {
-                    System.out.println("I'll pick you up: " + req.toString());
-                    currentReq = req;
-                    currentReq.minerID = rc.getID();
-                    communicationHandler.sendCompanyAck(req);
-                    currentState = State.ELEVATE;
-                }
-            }
-        }
-//        System.out.println("Current req: " + currentReq);
-        lastRoundReqs = rc.getRoundNum(); // Keep track of last round we scanned the block chain
     }
+
+    public void processCluster(int[] message) {
+        SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(message);
+
+        boolean seenBefore = false;
+        for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
+            if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) {
+                alreadyFoundSoupCluster.update(broadcastedSoupCluster);
+                seenBefore = true;
+            }
+        }
+
+        if (!seenBefore) {
+            // broadcastedSoupCluster.draw(this.rc);
+            soupClusters.add(broadcastedSoupCluster);
+            for (int y = broadcastedSoupCluster.y1; y <= broadcastedSoupCluster.y2; ++y) {
+                for (int x = broadcastedSoupCluster.x1; x < broadcastedSoupCluster.x2; ++x) {
+                    searchedForSoupCluster[y][x] = true;
+                    visited[y][x] = true;
+                }
+            }
+        }
+        soupClusters.removeIf(sc -> sc.size == 0);
+    }
+
+    public void processMapBlocks(int[] message) throws GameActionException {
+        MapLocation[] blocks = communicationHandler.getMapBlocks(message);
+        for (MapLocation pos : blocks) {
+            seenBlocks[pos.y][pos.x] = true;
+
+            if (visited != null) {
+                for (int x = pos.x * BLOCK_SIZE; x < Math.min(rc.getMapWidth(), (pos.x + 1) * BLOCK_SIZE); ++x) {
+                    for (int y = pos.y * BLOCK_SIZE; y < Math.min(rc.getMapHeight(), (pos.y + 1) * BLOCK_SIZE); ++y) {
+                        visited[y][x] = true;
+                    }
+                }
+            }
+        }
+    }
+
+    int landscapersOnWall = 0;
+    public void processLandscapersOnWall(int[] message) throws GameActionException {
+        communicationHandler.decode(message);
+        landscapersOnWall = message[1];
+    }
+
+    public void processAllyHQLoc(int[] message) throws GameActionException {
+        communicationHandler.decode(message);
+        allyHQ = new MapLocation(message[2], message[3]);
+    }
+
+    public void processEnemyHQLoc(int[] message) throws GameActionException {
+        communicationHandler.decode(message);
+        enemyHQ = new MapLocation(message[2], message[3]);
+    }
+
 }

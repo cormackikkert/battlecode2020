@@ -104,8 +104,6 @@ public abstract class Controller {
         this.spawnPoint = rc.getLocation();
         System.out.println(1);
         getSpawnBase();
-        System.out.println(2);
-        getHQInfo();
         System.out.println("done");
     }
 
@@ -257,7 +255,6 @@ public abstract class Controller {
         scanRobots();
         tryFindHomeHQLoc();
         tryFindEnemyHQLoc();
-        getHQInfo();
     }
 
     public void scanRobots() throws GameActionException {
@@ -289,24 +286,6 @@ public abstract class Controller {
                 enemyHQ = enemy.getLocation();
                 communicationHandler.sendEnemyHQLoc(enemyHQ);
                 return;
-            }
-        }
-    }
-
-    public void getHQInfo() {
-        if (rc.getRoundNum() == 1) return;
-        if (allyHQ == null) {
-            try {
-                allyHQ = communicationHandler.receiveAllyHQLoc();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        if (enemyHQ == null) {
-            try {
-                enemyHQ = communicationHandler.receiveEnemyHQLoc();
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
     }
@@ -570,30 +549,6 @@ public abstract class Controller {
     public void searchSurroundingsContinued() throws GameActionException {}
 
 
-    void updateSeenBlocks() throws GameActionException {
-        int BLOCK_SIZE = PlayerConstants.GRID_BLOCK_SIZE;
-        for (int i = lrsb; i < rc.getRoundNum(); ++i) {
-            for (Transaction tx : rc.getBlock(i)) {
-                int[] mess = tx.getMessage();
-                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCKS) {
-                    MapLocation[] blocks = communicationHandler.getMapBlocks(mess);
-                    for (MapLocation pos : blocks) {
-                        seenBlocks[pos.y][pos.x] = true;
-
-                        if (visited != null) {
-                            for (int x = pos.x * BLOCK_SIZE; x < Math.min(rc.getMapWidth(), (pos.x + 1) * BLOCK_SIZE); ++x) {
-                                for (int y = pos.y * BLOCK_SIZE; y < Math.min(rc.getMapHeight(), (pos.y + 1) * BLOCK_SIZE); ++y) {
-                                    visited[y][x] = true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        lrsb = rc.getRoundNum();
-    }
-
     void updateMapBlocks() throws GameActionException {
         // For other version of miner
         for (int i = lrmb; i < rc.getRoundNum(); ++i) {
@@ -739,8 +694,6 @@ public abstract class Controller {
     abstract public void run() throws GameActionException;
 
     public void scanNetGuns() throws GameActionException {
-        communicationHandler.receiveNetGunLocations();
-
 //        System.out.println("scanning for net guns out of "+enemies.length+" enemies");
 
         for (RobotInfo robotInfo : enemies) {

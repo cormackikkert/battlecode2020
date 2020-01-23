@@ -47,12 +47,13 @@ public class LandscaperController extends Controller {
     LinkedList<SoupCluster> soupClusters = new LinkedList<>();
 
     public LandscaperController(RobotController rc) {
+        int born = rc.getRoundNum();
         getInfo(rc);
-        int landscapersOnWall;
+
         try {
-            landscapersOnWall = communicationHandler.receiveLandscapersOnWall();
+            while (rc.getRoundNum() < born + 9) readBlocks();
         } catch (Exception e) {
-                landscapersOnWall = 0;
+            System.out.println(e.getMessage());
         }
 
         if (landscapersOnWall < 8)
@@ -81,10 +82,6 @@ public class LandscaperController extends Controller {
     }
 
     public void run() throws GameActionException {
-
-        if (currentSoupCluster == null && currentState == State.REMOVE_WATER) {
-            communicationHandler.receiveClearSoupFlood();
-        }
 
 //        if (currentState != State.PROTECTHQ && rc.getRoundNum() >= ELEVATE_TIME) {
 //            currentState = State.ELEVATE_BUILDING;
@@ -136,6 +133,8 @@ public class LandscaperController extends Controller {
             case ELEVATE_SELF: execElevateSelf(); break;
 //            case ROAM: movementSolver.windowsRoam(); break;
         }
+
+        readBlocks();
     }
 
     public void execElevateSelf() throws GameActionException {
@@ -255,8 +254,8 @@ public class LandscaperController extends Controller {
     final int roundToLevelWall = 450;
     public void execProtectHQ() throws GameActionException {
 
-        if (allyHQ == null)
-            allyHQ = communicationHandler.receiveAllyHQLoc();
+        if (allyHQ == null) return;
+
         int walled = 0;
         int maximum = 8;
         if (rc.canSenseLocation(allyHQ)) {
@@ -1214,5 +1213,46 @@ public class LandscaperController extends Controller {
         }
 
         if (!hasBeenPickedUp) return;
+    }
+
+    int lastPos = 1;
+    public void readBlocks() throws GameActionException {
+        while (lastPos < rc.getRoundNum() && Clock.getBytecodesLeft() > 500) {
+            for (Transaction t : rc.getBlock(lastPos)) {
+                int[] message = t.getMessage();
+                switch (communicationHandler.identify(message)) {
+                    case LANDSCAPERS_ON_WALL: processLandscapersOnWall(message); break;
+                    case ALLYHQ: processAllyHQLoc(message); break;
+                    case ENEMYHQ: processEnemyHQLoc(message); break;
+                    case CLEAR_FLOOD: processClearFlood(message); break;
+                }
+            }
+            ++lastPos;
+        }
+    }
+
+    int landscapersOnWall = 0;
+    public void processLandscapersOnWall(int[] message) throws GameActionException {
+        communicationHandler.decode(message);
+        landscapersOnWall = message[1];
+    }
+
+    public void processAllyHQLoc(int[] message) throws GameActionException {
+        communicationHandler.decode(message);
+        allyHQ = new MapLocation(message[2], message[3]);
+    }
+
+    public void processEnemyHQLoc(int[] message) throws GameActionException {
+        communicationHandler.decode(message);
+        enemyHQ = new MapLocation(message[2], message[3]);
+    }
+
+    public void processClearFlood(int[] message) throws GameActionException {
+        SoupCluster soupCluster = new SoupCluster(message[1], message[2], message[3], message[4]);
+
+
+        currentSoupCluster = soupCluster;
+
+        if (currentState != State.PROTECTHQ) currentState = State.REMOVE_WATER;
     }
 }
