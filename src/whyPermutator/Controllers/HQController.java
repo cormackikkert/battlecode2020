@@ -54,27 +54,28 @@ public class HQController extends Controller {
         landscapersOnWall = ls;
     }
 
-    int[] dx = new int[] {-2, -2, -2, -1, 0, 1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2};
-    int[] dy = new int[] {0, 1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2, -2, -2, -2, -1};
-
-    void sendDronesOnShield() throws GameActionException {
-        int ds = 0;
-        for (int i = 0; i < 16; ++i) {
-            MapLocation newPos = new MapLocation(rc.getLocation().x + dx[i], rc.getLocation().y + dy[i]);
-            if (!rc.onTheMap(newPos)) {
-                ++ds;
-                continue;
-            }
-            if (!rc.canSenseLocation(newPos)) continue;
-            RobotInfo robot = rc.senseRobotAtLocation(newPos);
-            if (robot != null && robot.getType() == RobotType.DELIVERY_DRONE && robot.getTeam() == rc.getTeam()) ++ds;
-        }
-
-        if (ds != dronesOnShield) {
-            communicationHandler.sendDronesOnShield(ds);
-        }
-        dronesOnShield = ds;
-    }
+//    int[] dx = new int[] {-2, -2, -2, -1, 0, 1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2};
+//    int[] dy = new int[] {0, 1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2, -2, -2, -2, -1};
+//
+//    void sendDronesOnShield() throws GameActionException {
+//        int ds = 0;
+//        for (int i = 0; i < 16; ++i) {
+//            MapLocation newPos = new MapLocation(rc.getLocation().x + dx[i], rc.getLocation().y + dy[i]);
+//            if (!rc.onTheMap(newPos)) {
+//                ++ds;
+//                continue;
+//            }
+//            if (!rc.canSenseLocation(newPos)) continue;
+//            RobotInfo robot = rc.senseRobotAtLocation(newPos);
+//            if (robot != null && robot.getType() == RobotType.DELIVERY_DRONE && robot.getTeam() == rc.getTeam()) ++ds;
+//        }
+//
+//        if (ds != dronesOnShield) {
+//            communicationHandler.sendDronesOnShield(ds);
+//        }
+//        dronesOnShield = ds;
+//        System.out.println(ds);
+//    }
 
     void updateClusters() throws GameActionException {
         for (int i = lastRound; i < rc.getRoundNum(); ++i) {
@@ -112,7 +113,7 @@ public class HQController extends Controller {
 
     public void run() throws GameActionException {
         sendLandscapersOnWall(); // note only sends when it changes dw about soup consumption
-        sendDronesOnShield();
+//        sendDronesOnShield();
         hqInfo();
 
 //        if (!sudokuSent && campOutside >= PlayerConstants.WAIT_FRIENDS_BEFORE_SUDOKU) {

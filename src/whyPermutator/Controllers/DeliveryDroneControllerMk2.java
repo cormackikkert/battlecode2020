@@ -186,16 +186,16 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        if (currentState == State.ATTACK && rc.getRoundNum() > 1900 && enemyHQ != null && !defendLateGameShield) {
+        if (rc.getRoundNum() > 1900 && enemyHQ != null && !defendLateGameShield) {
             currentState = State.ATTACKLATEGAME;
             return;
         }
 
-        if ((landscapersOnWall == 8 || rc.getRoundNum() > 1500) && dronesOnShield < 16) {
-
-            currentState = State.DEFENDLATEGAME;
-            return;
-        }
+//        if ((landscapersOnWall == 8 || rc.getRoundNum() > 1500) && dronesOnShield < 16) {
+//
+//            currentState = State.DEFENDLATEGAME;
+//            return;
+//        }
 
 
         if (currentState == State.WANDERLATE
@@ -1132,7 +1132,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     case HITCHHIKE_ACK: processReqAck(message); break;
                     case MAPBLOCKS: processMapBlocks(message); break;
                     case LANDSCAPERS_ON_WALL: processLandscapersOnWall(message); break;
-                    case DRONES_ON_SHIELD: processDronesOnShield(message); break;
+//                    case DRONES_ON_SHIELD: processDronesOnShield(message); break;
                     case ALLYHQ: processAllyHQLoc(message); break;
                     case ENEMYHQ: processEnemyHQLoc(message); break;
                     case NET_GUN_LOCATIONS: processNetGunLoc(message); break;
@@ -1228,11 +1228,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
         landscapersOnWall = message[1];
     }
 
-    int dronesOnShield = 0;
-    public void processDronesOnShield(int[] message) throws GameActionException {
-        communicationHandler.decode(message);
-        dronesOnShield = message[1];
-    }
+//    int dronesOnShield = 0;
+//    public void processDronesOnShield(int[] message) throws GameActionException {
+//        communicationHandler.decode(message);
+//        dronesOnShield = message[1];
+//    }
 
     public void processAllyHQLoc(int[] message) throws GameActionException {
         communicationHandler.decode(message);
