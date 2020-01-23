@@ -408,7 +408,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public int turnReceiveSudoku = 0;
-    public int WAIT_DUMP = 300;
+    public int WAIT_DUMP = 250;
     public int WAIT_KILL = 200; // in case map is very large
     boolean enemyPickUp = false;
     public void execAttackLateGame() throws GameActionException {
