@@ -82,8 +82,23 @@ public class LandscaperController extends Controller {
 //        }
     }
 
+    public void killHQ(Direction dir) throws GameActionException {
+        if (rc.getDirtCarrying() == 0) {
+            if (rc.canDigDirt(Direction.CENTER)) rc.digDirt(Direction.CENTER);
+        } else {
+            if (rc.canDepositDirt(dir)) rc.depositDirt(dir);
+        }
+    }
     public void run() throws GameActionException {
-
+        for (Direction dir : Direction.allDirections()) {
+            MapLocation newPos = rc.getLocation().add(dir);
+            if (!rc.canSenseLocation(newPos)) continue;
+            RobotInfo robot  = rc.senseRobotAtLocation(newPos);
+            if (robot != null && robot.type == RobotType.HQ && robot.getTeam() != rc.getTeam()) {
+                killHQ(dir);
+                return;
+            }
+        }
 //        if (currentState != State.PROTECTHQ && rc.getRoundNum() >= ELEVATE_TIME) {
 //            currentState = State.ELEVATE_BUILDING;
 //        }
@@ -94,6 +109,11 @@ public class LandscaperController extends Controller {
         hqInfo(); // includes scanning robots
         scanNetGuns();
         communicationHandler.solveEnemyHQLocWithGhosts();
+
+        if (currentState == State.PROTECTHQ && isAdjacentTo(allyHQ) && rc.getRoundNum() >= roundToLevelWall) {
+            execProtectHQ();
+            return;
+        }
 
         // search for enemy units to kill
         boolean existsEnemyBuilding = false;
@@ -122,7 +142,10 @@ public class LandscaperController extends Controller {
             }
         }
 
-        if (rc.getRoundNum() > 1000 && currentState != State.PROTECTHQ) {
+        if (landscapersOnWall < 8)
+            currentState = State.PROTECTHQ;
+
+        if (rc.getRoundNum() > 1800 || GameConstants.getWaterLevel(rc.getRoundNum() + 200) > rc.senseElevation(rc.getLocation())) {
             currentState = State.ELEVATE_SELF;
         }
 
@@ -262,7 +285,7 @@ public class LandscaperController extends Controller {
         }
     }
     final int numWallers = 8;
-    final int roundToLevelWall = 450;
+    final int roundToLevelWall = 430;
     public void execProtectHQ() throws GameActionException {
 
         if (allyHQ == null) return;
@@ -324,7 +347,7 @@ public class LandscaperController extends Controller {
                 rc.digDirt(rc.getLocation().directionTo(allyHQ));
                 return;
             }
-            if (rc.getRoundNum() <= 450 && walled < Math.min(maximum, numWallers)) {  // wait for more wallers
+            if (rc.getRoundNum() <= roundToLevelWall && walled < Math.min(maximum, numWallers)) {  // wait for more wallers
                 return;
             }
             Direction nextDir = nextDirection(curr);

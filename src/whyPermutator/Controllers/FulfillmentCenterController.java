@@ -41,7 +41,7 @@ public class FulfillmentCenterController extends Controller {
             buildDrone();
         }
 
-        if (rc.getRoundNum() > 6001
+        if (rc.getRoundNum() > 1700
 //                && rc.getTeamSoup() > Math.min(ex, 400) + PlayerConstants.buildSoupRequirements(RobotType.DELIVERY_DRONE)
         ) { // just spam at this point, no need to conserve soup
             buildDrone();

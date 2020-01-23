@@ -40,7 +40,8 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         STOP_SUDOKU,
         ASK_COMPANY,
         ASK_COMPANY_ACK,
-        LANDSCAPERS_ON_WALL
+        LANDSCAPERS_ON_WALL,
+        DRONES_ON_SHIELD
     }
 
     public CommunicationHandler(RobotController rc) {
@@ -588,6 +589,18 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     public boolean sendLandscapersOnWall(int count) throws GameActionException {
         int[] message = bluePrint(LANDSCAPERS_ON_WALL);
+
+        message[1] = count;
+
+        encode(message);
+
+        while (!rc.canSubmitTransaction(message, 1)) Clock.yield();
+        rc.submitTransaction(message, 1);
+        return true;
+    }
+
+    public boolean sendDronesOnShield(int count) throws GameActionException {
+        int[] message = bluePrint(DRONES_ON_SHIELD);
 
         message[1] = count;
 

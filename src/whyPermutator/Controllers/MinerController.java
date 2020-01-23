@@ -213,24 +213,28 @@ public class MinerController extends Controller {
 
         buildLoc = getNearestBuildTile();
         if (buildLoc != null && rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 300)) {
+            boolean doBuild = false;
             if (rc.getRoundNum() > 800 && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
-                buildType = null;
-
-                if (shouldBuildFC && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER, usedDrone))
+                if (shouldBuildFC && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER, usedDrone)) {
                     buildType = RobotType.FULFILLMENT_CENTER;
-                else if (shouldBuildDS && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL, usedDrone))
+                    doBuild = true;
+                }
+                else if (shouldBuildDS && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL, usedDrone)) {
                     buildType = RobotType.DESIGN_SCHOOL;
+                    doBuild = true;
+                }
                 else if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
+                    doBuild = true;
                     if (Math.random() > 0.7)
                         buildType = RobotType.NET_GUN;
                     else
                         buildType = RobotType.VAPORATOR;
                 } else if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
+                    doBuild = true;
                     buildType = RobotType.VAPORATOR;
                 }
             }
-
-            if (buildType != null) currentState = State.BUILDER;
+            if (doBuild) currentState = State.BUILDER;
         }
 
 
@@ -487,6 +491,8 @@ public class MinerController extends Controller {
 //        }
 
         searchSurroundingsContinued();
+
+        System.out.println("Actually here as a mine");
 
         // If you can no longer carry any soup deposit it
         if (rc.getSoupCarrying() + GameConstants.SOUP_MINING_RATE > RobotType.MINER.soupLimit) {
@@ -823,7 +829,18 @@ public class MinerController extends Controller {
 
 //        System.out.println(currentSoupCluster.middle + " " + currentSoupSquare);
 
-        if (currentSoupCluster != null && !rc.getLocation().equals(currentSoupCluster.closest(rc.getLocation()))) {
+        if (currentSoupCluster != null && getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 1) {
+            if (rc.canSenseLocation(currentSoupCluster.middle) && rc.senseNearbySoup().length == 0) {
+                currentSoupCluster.size = 0;
+                communicationHandler.sendCluster(currentSoupCluster);
+                currentSoupCluster = null;
+                currentState = State.SEARCHURGENT;
+                return;
+            } else if (rc.canSenseLocation(currentSoupCluster.middle) && rc.senseNearbySoup().length == 0) {
+                currentState = State.MINE;
+                execMine();
+                return;
+            }
             System.out.println(2);
             /*
                 Now as we have dedicated searches we only focus on getting to the soup cluster
@@ -855,13 +872,14 @@ public class MinerController extends Controller {
                     System.out.println("Asking for assistance");
                     getHitchHike(rc.getLocation(), currentSoupCluster.middle);
                     System.out.println("landed");
-                    if (getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 5) {
+                    if (getChebyshevDistance(rc.getLocation(), currentSoupCluster.closest(rc.getLocation())) > 5 || !canReach(currentSoupCluster.closest(rc.getLocation()))) {
                         currentSoupCluster.size = 0;
                         communicationHandler.sendCluster(currentSoupCluster);
                         currentSoupCluster = null;
                         currentState = State.SEARCHURGENT;
                     } else {
                         currentState = State.MINE;
+                        currentSoupCluster.size = 0;
                         usedDrone = true;
                         currentRefineryPos = null;
                         shouldBuildDS = true;
@@ -1049,12 +1067,6 @@ public class MinerController extends Controller {
             }
             tryMove(movementSolver.directionToGoal(buildLoc));
         } else {
-            if (buildType == null) {
-                switch (rc.getRoundNum() % 10) {
-                    case 0: case 1: case 3: case 4: case 6: case 7: case 9: buildType = RobotType.FULFILLMENT_CENTER; break;
-                    default: buildType = RobotType.VAPORATOR;
-                }
-            }
             while (!rc.isReady()) Clock.yield();
 
             if (PlayerConstants.shouldntDuplicate(this.buildType)) {

@@ -21,6 +21,8 @@ public class DesignSchoolController extends Controller {
         getInfo(rc);
         this.location = rc.getLocation();
 
+        if (rc.getRoundNum() > 500) ex = 400;
+
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
                 allyHQ = robotInfo.location;
@@ -31,16 +33,16 @@ public class DesignSchoolController extends Controller {
 
     public void run() throws GameActionException {
         if ((rc.getTeamSoup() > Math.min(400, ex) + PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL)) && (builtLandscapers < (DEFEND + HELP))
-        && rc.getRoundNum() % 10 == 5) {
+        && (rc.getRoundNum() % 10 == 5 || (rc.getRoundNum() > 800 && builtLandscapers < 8))) {
             for (Direction dir : getDirections()) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {
                     int id = rc.senseRobotAtLocation(location.add(dir)).getID();
                     ex += 100;
-                    if (builtLandscapers < DEFEND) {
-                        communicationHandler.landscapeDefend(id);
-                    } else {
-                        communicationHandler.landscapeHelp(id);
-                    }
+//                    if (builtLandscapers < DEFEND) {
+//                        communicationHandler.landscapeDefend(id);
+//                    } else {
+//                        communicationHandler.landscapeHelp(id);
+//                    }
 
 //                    // for building wall later
 //                    if (builtLandscapers < HELP) {
@@ -54,16 +56,16 @@ public class DesignSchoolController extends Controller {
             }
         }
 
-        if (rc.getRoundNum() > 450 && builtLandscapers < (DEFEND + HELP)) {
+        if (rc.getRoundNum() > 450 && rc.getTeamSoup() > Math.min(400, ex) + PlayerConstants.buildSoupRequirements(RobotType.LANDSCAPER)) {
             for (Direction dir : getDirections()) {
                 if (tryBuild(RobotType.LANDSCAPER, dir)) {
                     int id = rc.senseRobotAtLocation(location.add(dir)).getID();
                     ex += 100;
-                    if (builtLandscapers < DEFEND) {
-                        communicationHandler.landscapeDefend(id);
-                    } else {
-                        communicationHandler.landscapeHelp(id);
-                    }
+//                    if (builtLandscapers < DEFEND) {
+//                        communicationHandler.landscapeDefend(id);
+//                    } else {
+//                        communicationHandler.landscapeHelp(id);
+//                    }
 
 //                    // for building wall later
 //                    if (builtLandscapers < HELP) {

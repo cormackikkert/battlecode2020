@@ -21,6 +21,7 @@ public class HQController extends Controller {
     boolean haveWallAround = false;
 
     int landscapersOnWall = 0;
+    int dronesOnShield = 0;
 
     int totalCrudeSoup = 0;
     int totalSoupArea = 0;
@@ -36,16 +37,43 @@ public class HQController extends Controller {
     }
 
     void sendLandscapersOnWall() throws GameActionException {
-        int landscapers = 0;
-        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
-            if (robot.type == RobotType.LANDSCAPER && getChebyshevDistance(robot.getLocation(), rc.getLocation()) == 1) {
-                landscapers++;
+        int ls = 0;
+        for (Direction dir: getDirections()) {
+            MapLocation newPos = rc.getLocation().add(dir);
+            if (!rc.onTheMap(newPos)) {
+                ++ls;
+                continue;
             }
+            RobotInfo robot = rc.senseRobotAtLocation(newPos);
+            if (robot != null && robot.getType() == RobotType.LANDSCAPER && robot.getTeam() == rc.getTeam()) ++ls;
         }
-        if (landscapers != landscapersOnWall) {
-            communicationHandler.sendLandscapersOnWall(landscapers);
+
+        if (ls != landscapersOnWall) {
+            communicationHandler.sendLandscapersOnWall(ls);
         }
-        landscapersOnWall = landscapers;
+        landscapersOnWall = ls;
+    }
+
+    int[] dx = new int[] {-2, -2, -2, -1, 0, 1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2};
+    int[] dy = new int[] {0, 1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2, -2, -2, -2, -1};
+
+    void sendDronesOnShield() throws GameActionException {
+        int ds = 0;
+        for (int i = 0; i < 16; ++i) {
+            MapLocation newPos = new MapLocation(rc.getLocation().x + dx[i], rc.getLocation().y + dy[i]);
+            if (!rc.onTheMap(newPos)) {
+                ++ds;
+                continue;
+            }
+            if (!rc.canSenseLocation(newPos)) continue;
+            RobotInfo robot = rc.senseRobotAtLocation(newPos);
+            if (robot != null && robot.getType() == RobotType.DELIVERY_DRONE && robot.getTeam() == rc.getTeam()) ++ds;
+        }
+
+        if (ds != dronesOnShield) {
+            communicationHandler.sendDronesOnShield(ds);
+        }
+        dronesOnShield = ds;
     }
 
     void updateClusters() throws GameActionException {
@@ -84,6 +112,7 @@ public class HQController extends Controller {
 
     public void run() throws GameActionException {
         sendLandscapersOnWall(); // note only sends when it changes dw about soup consumption
+        sendDronesOnShield();
         hqInfo();
 
 //        if (!sudokuSent && campOutside >= PlayerConstants.WAIT_FRIENDS_BEFORE_SUDOKU) {

@@ -2,6 +2,7 @@ package whyPermutator;
 import battlecode.common.*;
 import whyPermutator.Controllers.Controller;
 import whyPermutator.Controllers.DeliveryDroneControllerMk2;
+import whyPermutator.Controllers.LandscaperController;
 import whyPermutator.Controllers.PlayerConstants;
 
 import static battlecode.common.RobotType.HQ;
@@ -148,40 +149,68 @@ public class MovementSolver {
     public Direction droneDirectionToGoal(MapLocation from, MapLocation goal) throws GameActionException {
         if (!rc.isReady()) Clock.yield();
 
-        if (!goal.equals(lastGoal)) {
-            lastGoal = goal;
-            moves = 0;
-            for (int i = 0; i < recency;++i) recent[i] = new MapLocation(-1, -1);
-        }
-        ++moves;
-        Direction dir = from.directionTo(goal);
-        boolean assigned = false;
-        RobotInfo[] enemies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
-        for (Direction d : getClosestDirections(dir)) {
-            if (!isDroneObstacleAvoidGun(d, from.add(d), enemies)) {
-                recent[index] = from;
-                index = (index + 1)%recency;
-                dir = d;
-                assigned = true;
-                break;
+        if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.DEFENDLATEGAME) {
+            Direction dir = from.directionTo(goal);
+            int changes = 0;
+            // while obstacle ahead, keep rotating
+            while (isDroneObstacleAvoidGun(dir, from.add(dir), controller.enemies)) {
+                dir = rc.getID() % 4 == 0 ? dir.rotateLeft() : dir.rotateRight();
+                changes++;
+                // if blocked in every direction, stop rotating
+                if (changes > 8) {
+                    dir = Direction.CENTER;
+                    break;
+                }
             }
-        }
-        // currently stuck
-        recent[index] = from; index = (index + 1)%recency;
-        if (!assigned) dir = Direction.CENTER;
 
-        // move away from enemy HQ if within range of their net gun
-        if (controller.enemyHQ != null && from.isWithinDistanceSquared(controller.enemyHQ, NET_GUN_RANGE)) {
-            dir = controller.enemyHQ.directionTo(from);
-        }
+            // move away from enemy HQ if within range of their net gun
+            if (controller.enemyHQ != null && from.isWithinDistanceSquared(controller.enemyHQ, NET_GUN_RANGE)) {
+                dir = controller.enemyHQ.directionTo(from);
+            }
 
 
-        twoback = previous;
-        previous = from;
-
-        if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.WANDERLATE) {
+            twoback = previous;
+            previous = from;
             return dir;
-        }
+
+         } else {
+            if (!goal.equals(lastGoal)) {
+                lastGoal = goal;
+                moves = 0;
+                for (int i = 0; i < recency; ++i) recent[i] = new MapLocation(-1, -1);
+            }
+
+
+            ++moves;
+            Direction dir = from.directionTo(goal);
+            boolean assigned = false;
+            RobotInfo[] enemies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
+            for (Direction d : getClosestDirections(dir)) {
+                if (!isDroneObstacleAvoidGun(d, from.add(d), enemies)) {
+                    recent[index] = from;
+                    index = (index + 1) % recency;
+                    dir = d;
+                    assigned = true;
+                    break;
+                }
+            }
+            // currently stuck
+            recent[index] = from;
+            index = (index + 1) % recency;
+            if (!assigned) dir = Direction.CENTER;
+
+            // move away from enemy HQ if within range of their net gun
+            if (controller.enemyHQ != null && from.isWithinDistanceSquared(controller.enemyHQ, NET_GUN_RANGE)) {
+                dir = controller.enemyHQ.directionTo(from);
+            }
+
+
+            twoback = previous;
+            previous = from;
+
+            if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.WANDERLATE) {
+                return dir;
+            }
 
 //        System.out.println(twoback+" "+previous+" "+rc.getLocation().add(dir));
 //        if (rc.getLocation().add(dir).equals(twoback) && rc.getRoundNum() < 1800) {
@@ -202,8 +231,10 @@ public class MovementSolver {
 //            }
 //        }
 
-        return dir;
+            return dir;
+        }
     }
+
 
     public int distance(MapLocation p1, MapLocation p2) {
         // Accounts for the fact that you can move diagonally

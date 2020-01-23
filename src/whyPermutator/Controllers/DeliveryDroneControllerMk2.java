@@ -137,7 +137,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
         System.out.println("I am a " + currentState + " " + sudoku);
 
-        if (currentState == State.TAXI && currentReq != null) {
+        if (currentState == State.TAXI && currentReq != null && !defendLateGameShield) {
             // Like this cuz we don't want to execKill on our own miners
             execTaxi();
 //            if (rc.getRoundNum() >= ELEVATE_TIME) {
@@ -173,16 +173,30 @@ public class DeliveryDroneControllerMk2 extends Controller {
         readBlocks();
     }
 
+    boolean holdingLS = false;
+
     public void assignRole() throws GameActionException {
 
         /*
             Role assignment depending on turn. Early game defend, late game attack.
          */
 
+        if (holdingLS) {
+            currentState = State.ATTACKLATEGAME;
+            return;
+        }
+
         if (currentState == State.ATTACK && rc.getRoundNum() > 1900 && enemyHQ != null && !defendLateGameShield) {
             currentState = State.ATTACKLATEGAME;
             return;
         }
+
+        if ((landscapersOnWall == 8 || rc.getRoundNum() > 1500) && dronesOnShield < 16) {
+
+            currentState = State.DEFENDLATEGAME;
+            return;
+        }
+
 
         if (currentState == State.WANDERLATE
 //                && rc.isCurrentlyHoldingUnit()
@@ -195,7 +209,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        if (currentReq != null && rc.getRoundNum() < 1400) {
+        if (currentReq != null && rc.getRoundNum() < 1700) {
             currentState = State.TAXI;
             return;
         }
@@ -212,6 +226,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
 
         System.out.println("assigning role, enemy hq is "+enemyHQ);
+
         if (rc.getRoundNum() > 1900 && enemyHQ != null && !defendLateGameShield) {
             currentState = State.ATTACKLATEGAME;
         } else         if (rc.getRoundNum() > 1600 && enemyHQ != null && !defendLateGameShield) {
@@ -234,13 +249,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
             // Half drones explore
             // slowly turn back into other modes
-             currentState = State.WANDER;
-//            if (!hasExplored) {
-//                currentState = State.EXPLORE;
-//                hasExplored = true;
-//            } else {
-//                currentState = State.DEFEND;
-//            }
+//             currentState = State.WANDER;
+            if (!hasExplored) {
+                currentState = State.EXPLORE;
+                hasExplored = true;
+            } else {
+                currentState = State.WANDER;
+            }
 //
 //            if (rc.getID() % 1 == 0) {
 //                if (!hasExplored) {
@@ -371,7 +386,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         if (!rc.isCurrentlyHoldingUnit() && landSloc == null) {
             for (RobotInfo robotInfo : allies) {
                 if (robotInfo.getType() == RobotType.LANDSCAPER) {
-                    if (!robotInfo.getLocation().isWithinDistanceSquared(allyHQ, 8)) {
+                    if (!robotInfo.getLocation().isWithinDistanceSquared(allyHQ, 2)) {
                         landSloc = robotInfo.getLocation();
                     }
                 }
@@ -385,6 +400,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
     }
 
+    int count = -1;
+
     public void execDefendLateGame() throws GameActionException {
         // defend / attack code are awfully similar
         for (RobotInfo enemy : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent())) {
@@ -396,8 +413,26 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         MapLocation mapLocation = rc.getLocation();
 
+        if (getChebyshevDistance(allyHQ, rc.getLocation()) <= 4 && count == -1) count = 20;
+
+//        if (count == 0) currentState = State.WANDER;
+
+        for (Direction dir : getDirections()) {
+            if (!rc.canSenseLocation(rc.getLocation().add(dir)));
+            RobotInfo robot = rc.senseRobotAtLocation(rc.getLocation().add(dir));
+            if (robot == null) continue;
+            if (robot.getType() == RobotType.LANDSCAPER &&
+                    getDistanceSquared(robot.getLocation(), allyHQ) > 2 &&
+                    rc.canPickUpUnit(robot.getID()) &&
+                    rc.getTeam() == robot.getTeam()) {
+                rc.pickUpUnit(robot.getID());
+                currentState = State.WANDERLATE;
+                holdingLS = true;
+            }
+        }
         if (!mapLocation.isWithinDistanceSquared(allyHQ, 8)) {
             tryMove(movementSolver.directionToGoal(allyHQ));
+            --count;
         } else {
             System.out.println("defend late game stay still");
             defendLateGameShield = true;
@@ -408,7 +443,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public int turnReceiveSudoku = 0;
-    public int WAIT_DUMP = 300;
+    public int WAIT_DUMP = 205;
     public int WAIT_KILL = 200; // in case map is very large
     boolean enemyPickUp = false;
     public void execAttackLateGame() throws GameActionException {
@@ -975,8 +1010,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
                         used.getType() == RobotType.LANDSCAPER ||
                         used.getType() == RobotType.DELIVERY_DRONE)) {
 
-                    int start = rc.getRoundNum();
-                    while (rc.getRoundNum() <= start + 10) readBlocks();
+                    //int start = rc.getRoundNum();
+                    for (int i = 0; i < 10; ++i) Clock.yield();
+//                    while (rc.getRoundNum() <= start + 10) readBlocks();
 
                     if (rc.canDropUnit(direction)) {
                         rc.dropUnit(direction);
@@ -991,15 +1027,18 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 // Place on surrounding tiles
                 for (Direction dir : getDirections()) {
                     if (dir == Direction.CENTER) continue;
+                    System.out.println("Confused");
+                    System.out.println(currentReq);
+                    System.out.println(currentReq.goal);
                     MapLocation target = currentReq.goal.add(dir);
                     if (rc.canSenseLocation(target) && rc.senseFlooding(target)) continue;
                     while (!isAdjacentTo(target) && movementSolver.moves < 10) {
-                        while (!rc.isReady()) readBlocks();
+                        while (!rc.isReady()) Clock.yield();//readBlocks();
                         tryMove(movementSolver.directionToGoal(target));
-                        readBlocks();
+                        //readBlocks();
                     }
                     if (!isAdjacentTo(target)) continue;
-                    while (!rc.isReady()) readBlocks();
+                    while (!rc.isReady()) Clock.yield();//readBlocks();
                     if (rc.canSenseLocation(target) && rc.senseFlooding(target)) continue;
                     if (rc.canDropUnit(rc.getLocation().directionTo(target))) {
                         rc.dropUnit(rc.getLocation().directionTo(target));
@@ -1041,7 +1080,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         } else {
             if (rc.getRoundNum() > 1400) {
+                currentReq = null;
                 currentState = State.WANDERLATE;
+                return;
             }
             if (rc.canSenseRobot(currentReq.reqID)) {
                 if (!rc.canPickUpUnit(currentReq.reqID)) {
@@ -1050,7 +1091,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     rc.pickUpUnit(currentReq.reqID);
                 }
             } else {
-                if (isAdjacentTo(currentReq.pos)) {
+                if (isAdjacentTo(currentReq.pos) || rc.getRoundNum() - currentReq.roundNum > 150) {
                     currentReq = null;
                     currentState = State.WANDER;
                     return;
@@ -1082,8 +1123,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     int lastPos = 1;
     public void readBlocks() throws GameActionException {
-        while (lastPos < rc.getRoundNum() && Clock.getBytecodesLeft() > 500) {
+        while (lastPos < rc.getRoundNum()) {
             for (Transaction t : rc.getBlock(lastPos)) {
+                if (Clock.getBytecodesLeft() < 1000) return;
                 int[] message = t.getMessage();
                 switch (communicationHandler.identify(message)) {
                     case CLUSTER: processCluster(message); break;
@@ -1091,6 +1133,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     case HITCHHIKE_ACK: processReqAck(message); break;
                     case MAPBLOCKS: processMapBlocks(message); break;
                     case LANDSCAPERS_ON_WALL: processLandscapersOnWall(message); break;
+                    case DRONES_ON_SHIELD: processDronesOnShield(message); break;
                     case ALLYHQ: processAllyHQLoc(message); break;
                     case ENEMYHQ: processEnemyHQLoc(message); break;
                     case NET_GUN_LOCATIONS: processNetGunLoc(message); break;
@@ -1132,7 +1175,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         reqs.add(r);
 
 
-        if (currentReq == null) {
+        if (currentReq == null && !defendLateGameShield) {
             System.out.println("finding req: " + reqs.size());
             for (HitchHike req : reqs) {
                 if (Math.abs((rc.getRoundNum() - req.roundNum - 1) / 5 - getChebyshevDistance(rc.getLocation(), req.goal) / GRID_BLOCK_SIZE) <= 3) {
@@ -1184,6 +1227,12 @@ public class DeliveryDroneControllerMk2 extends Controller {
     public void processLandscapersOnWall(int[] message) throws GameActionException {
         communicationHandler.decode(message);
         landscapersOnWall = message[1];
+    }
+
+    int dronesOnShield = 0;
+    public void processDronesOnShield(int[] message) throws GameActionException {
+        communicationHandler.decode(message);
+        dronesOnShield = message[1];
     }
 
     public void processAllyHQLoc(int[] message) throws GameActionException {
