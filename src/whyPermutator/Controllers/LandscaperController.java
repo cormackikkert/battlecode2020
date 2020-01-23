@@ -149,6 +149,10 @@ public class LandscaperController extends Controller {
             currentState = State.ELEVATE_SELF;
         }
 
+        if (currentState != State.PROTECTHQ && rc.getLocation().isAdjacentTo(spawnBase)) {
+            tryMove(movementSolver.directionFromPoint(spawnBase));
+        }
+
         System.out.println("I am a " + currentState.toString());
         switch (currentState) {
             case PROTECTHQ: execProtectHQ();      break;

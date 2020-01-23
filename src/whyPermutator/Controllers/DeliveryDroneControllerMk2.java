@@ -374,7 +374,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 landSloc = null;
             }
 
-            if (rc.getLocation().isAdjacentTo(landSloc)) {
+            if (landSloc != null && rc.getLocation().isAdjacentTo(landSloc)) {
                 if (rc.senseRobotAtLocation(landSloc) != null && rc.senseRobotAtLocation(landSloc).getType() == RobotType.LANDSCAPER) {
                     tryPickUpUnit(rc.senseRobotAtLocation(landSloc));
                 } else {
@@ -432,7 +432,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
         }
         if (!mapLocation.isWithinDistanceSquared(allyHQ, 8)) {
             tryMove(movementSolver.directionToGoal(allyHQ));
-            --count;
         } else {
             System.out.println("defend late game stay still");
             defendLateGameShield = true;
