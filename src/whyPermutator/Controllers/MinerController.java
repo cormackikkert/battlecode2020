@@ -199,20 +199,20 @@ public class MinerController extends Controller {
         }
 
         avoidDrone();
-        if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
+        if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 2)) &&
             isAdjacentToWater(rc.getLocation())) {
             avoidWater();
         }
 
 //        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
 
-        if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
+        buildLoc = getNearestBuildTile();
+        if (rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
                 rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR) &&
                 !shouldBuildDS && !shouldBuildFC) {
             currentState = State.BUILDER;
 
             buildType = RobotType.VAPORATOR;
-            buildLoc = null;
         }
 
         // Instead only elevate when a landscaper asks too
@@ -648,13 +648,13 @@ public class MinerController extends Controller {
             if (rc.canDepositSoup(rc.getLocation().directionTo(currentRefineryPos))) {
                 rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
 
-                if (rc.senseElevation(rc.getLocation()) > GameConstants.getWaterLevel(rc.getRoundNum() + 100) ||
+                buildLoc = getNearestBuildTile();
+                if (rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 150) ||
                         (currentRefineryPos.equals(allyHQ))) {
                     if (shouldBuildDS) {
                         System.out.println("Building DS");
                         buildType = RobotType.DESIGN_SCHOOL;
                         currentState = State.BUILDER;
-                        buildLoc = null;
                         return;
                     }
 
@@ -662,7 +662,6 @@ public class MinerController extends Controller {
                         System.out.println("Building FC");
                         buildType = RobotType.FULFILLMENT_CENTER;
                         currentState = State.BUILDER;
-                        buildLoc = null;
                         return;
                     }
                 }
@@ -870,7 +869,7 @@ public class MinerController extends Controller {
                 currentSoupCluster = soupClusters.get(0);
                 for (SoupCluster sc : soupClusters)
                 if (sc.elevation > currentSoupCluster.elevation &&
-                        sc.elevation >= GameConstants.getWaterLevel(rc.getRoundNum() + 2000)) currentSoupCluster = sc;
+                        sc.elevation >= GameConstants.getWaterLevel(rc.getRoundNum() + 200)) currentSoupCluster = sc;
             }
 
             System.out.println(currentSoupCluster.toStringPos());

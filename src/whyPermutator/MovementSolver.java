@@ -21,13 +21,13 @@ public class MovementSolver {
 
     RobotController rc;
     Controller controller;
-    final int recency = 9;
+    final public int recency = 9;
     int index = 0;
 
     MapLocation lastGoal = new MapLocation(-1, -1);
     public int moves = 0;
 
-    MapLocation[] recent = new MapLocation[recency];
+    public MapLocation[] recent = new MapLocation[recency];
 
     Direction[] cardinal = {Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST};
     Direction[] ordinal  = {Direction.NORTHEAST, Direction.SOUTHEAST, Direction.SOUTHWEST, Direction.NORTHWEST};
@@ -183,24 +183,24 @@ public class MovementSolver {
             return dir;
         }
 
-        System.out.println(twoback+" "+previous+" "+rc.getLocation().add(dir));
-        if (rc.getLocation().add(dir).equals(twoback) && rc.getRoundNum() < 1800) {
-            System.out.println("stuck");
-            if (rc.getRoundNum() > 1800) {
-                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACKLATEGAME;
-            } else {
-                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
-            }
-            if (rc.isCurrentlyHoldingUnit() &&
-                    ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI &&
-                    ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.WANDERLATE) {
-                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
-            }
-            if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.TAXI && !rc.isCurrentlyHoldingUnit()) {
-                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.DEFENDLATEGAME;
-                ((DeliveryDroneControllerMk2) controller).taxiFail = true;
-            }
-        }
+//        System.out.println(twoback+" "+previous+" "+rc.getLocation().add(dir));
+//        if (rc.getLocation().add(dir).equals(twoback) && rc.getRoundNum() < 1800) {
+//            System.out.println("stuck");
+//            if (rc.getRoundNum() > 1800) {
+//                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACKLATEGAME;
+//            } else {
+//                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.ATTACK;
+//            }
+//            if (rc.isCurrentlyHoldingUnit() &&
+//                    ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.TAXI &&
+//                    ((DeliveryDroneControllerMk2) controller).currentState != DeliveryDroneControllerMk2.State.WANDERLATE) {
+//                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.STUCKKILL;
+//            }
+//            if (((DeliveryDroneControllerMk2) controller).currentState == DeliveryDroneControllerMk2.State.TAXI && !rc.isCurrentlyHoldingUnit()) {
+//                ((DeliveryDroneControllerMk2) controller).currentState = DeliveryDroneControllerMk2.State.DEFENDLATEGAME;
+//                ((DeliveryDroneControllerMk2) controller).taxiFail = true;
+//            }
+//        }
 
         return dir;
     }

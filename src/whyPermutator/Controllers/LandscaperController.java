@@ -290,6 +290,23 @@ public class LandscaperController extends Controller {
             if (rc.getDirtCarrying() == 0) newDig();
             else newDeposit();
         } else {
+            // check if drone is bringing a landscaper back
+            for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
+                if (robot.type == RobotType.DELIVERY_DRONE && robot.isCurrentlyHoldingUnit()) {
+                    RobotInfo heldRobot = rc.senseRobot(robot.heldUnitID);
+                    if (heldRobot.getTeam() == rc.getTeam() && heldRobot.type == RobotType.LANDSCAPER) {
+                        Direction bestDir = Direction.CENTER;
+                        for (Direction dir : getDirections()) {
+                            if (rc.canMove(dir) &&
+                                    getDistanceSquared(rc.getLocation().add(dir), robot.getLocation()) >
+                                    getDistanceSquared(rc.getLocation().add(bestDir), robot.getLocation())) bestDir = dir;
+                        }
+                        tryMove(bestDir);
+                        return;
+                    }
+                }
+            }
+
             // robot is currently on HQ wall
             MapLocation curr = rc.getLocation();
             if (rc.senseRobotAtLocation(allyHQ).getDirtCarrying() > 0 && rc.canDigDirt(curr.directionTo(allyHQ))) {

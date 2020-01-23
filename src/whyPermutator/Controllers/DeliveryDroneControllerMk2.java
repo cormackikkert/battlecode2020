@@ -944,11 +944,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     }
                 }
             }
-            System.out.println("here: " + movementSolver.moves);
-            if (movementSolver.moves > getChebyshevDistance(currentReq.pos, currentReq.goal) + GIVE_UP_THRESHOLD) {
-                currentState = State.TAXI2;
-                return;
-            }
+
             boolean getCloser = (currentReq.goal.equals(allyHQ) && rc.getRoundNum() > 500) ?
                     getChebyshevDistance(rc.getLocation(), currentReq.goal) > 2 : !rc.getLocation().isAdjacentTo(currentReq.goal);
             if (getCloser) {
@@ -1144,10 +1140,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     currentReq.droneID = rc.getID();
                     communicationHandler.sendHitchHikeAck(req);
                     currentState = State.TAXI;
-                    System.out.println(currentReq.pos);
                 }
             }
         }
+        reqs.removeIf(re -> (currentReq != null && re.reqID == currentReq.reqID && re.goal.equals(currentReq.goal) && re.pos.equals(currentReq.pos)) ||
+                (re.roundNum > 64 / BLOCK_SIZE + 9));
     }
 
     public void processReqAck(int[] message) throws GameActionException {
@@ -1164,7 +1161,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 }
             }
         }
-        reqs.removeIf(r -> r.pos.equals(ack.pos) && r.goal.equals(ack.goal));
+        reqs.removeIf(r -> r.pos.equals(currentReq.pos) && r.reqID == ack.reqID && r.goal.equals(ack.goal));
     }
 
     public void processMapBlocks(int[] message) throws GameActionException {
