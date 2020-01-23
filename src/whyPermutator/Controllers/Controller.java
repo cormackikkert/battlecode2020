@@ -425,84 +425,53 @@ public abstract class Controller {
     }
 
     public MapLocation getNearestBuildTile() throws GameActionException {
-//        for (Direction dir :  getDirections()) {
-//            MapLocation pos = rc.getLocation().add(dir);
-//            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
-//                getChebyshevDistance(pos, allyHQ) >= 2 &&
-//                    (pos.x + pos.y) % 2 == 0)
-//                return pos;
-//        }
-//        for (Direction dir :  getDirections()) {
-//            MapLocation pos = rc.getLocation().add(dir);
-//            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
-//                    getChebyshevDistance(pos, allyHQ) >= 2)
-//                return pos;
-//        }
-//        return null;
-
-        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
-        queue.clear();
-
-        queue.add(rc.getLocation());
-        visited[rc.getLocation().y][rc.getLocation().x] = true;
-        searchSurroundingsContinued();
-        MapLocation lastResort = null;
-        for (int i = 0; i < 30 && !queue.isEmpty(); i++) {
-            System.out.println("Searching for build tile");
-            MapLocation node = queue.poll();
-
-            for (Direction dir : getDirections()) {
-                MapLocation nnode = node.add(dir);
-                if (!onTheMap(nnode)) continue;
-                if (visited[nnode.y][nnode.x]) continue;
-
-
-
-                while (containsWater[nnode.y][nnode.x] == null) {
-                    if (!rc.isReady()) Clock.yield();
-                    if (tryMove(movementSolver.directionToGoal(nnode))) {
-                        // Update surroundings
-                        // Done here (instead of using the updateSurroundings fuction as this way we can
-                        // respond to changes in the map) (code speed > code quality I guess)
-//                        searchSurroundindsContined
-                        for (int dx = -4; dx <= 4; ++dx) {
-                            for (int dy = -4; dy <= 4; ++dy) {
-                                MapLocation sensePos = new MapLocation(
-                                        rc.getLocation().x + dx,
-                                        rc.getLocation().y + dy);
-
-                                if (!rc.canSenseLocation(sensePos)) continue;
-
-                                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
-                                elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
-
-                                // If we have already visited this tile it must have a shorter distance then
-                                // what we are looking at now
-                                if (!containsWater[sensePos.y][sensePos.x] &&
-                                        (getDistanceSquared(sensePos, allyHQ) > 2) &&
-                                        (rc.senseRobotAtLocation(sensePos) == null) &&
-                                        visited[sensePos.y][sensePos.x] &&
-                                        getChebyshevDistance(nnode, allyHQ) > 2) {
-                                    return sensePos;
-                                }
-                            }
-                        }
-                    }
-                }
-                if (containsWater[nnode.y][nnode.x]) continue;
-                if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
-
-                if (rc.senseRobotAtLocation(nnode) == null &&
-                    getChebyshevDistance(nnode, allyHQ) > 2) {
-                    if ((nnode.x + nnode.y) % 2 == 0) return nnode;
-                    else if (lastResort == null) lastResort = nnode;
-                }
-                queue.add(nnode);
-                visited[nnode.y][nnode.x] = true;
-            }
-
+        for (Direction dir :  getDirections()) {
+            MapLocation pos = rc.getLocation().add(dir);
+            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
+                getChebyshevDistance(pos, allyHQ) >= 2 &&
+                    (pos.x + pos.y) % 2 == 0)
+                return pos;
         }
-        return lastResort;
+        for (Direction dir :  getDirections()) {
+            MapLocation pos = rc.getLocation().add(dir);
+            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
+                    getChebyshevDistance(pos, allyHQ) >= 2)
+                return pos;
+        }
+        return null;
+
+//        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+//        queue.clear();
+//
+//        queue.add(rc.getLocation());
+//        visited[rc.getLocation().y][rc.getLocation().x] = true;
+//        searchSurroundingsContinued();
+//        MapLocation lastResort = null;
+//        for (int i = 0; i < 25 && !queue.isEmpty(); i++) {
+//            System.out.println("Searching for build tile");
+//            MapLocation node = queue.poll();
+//
+//            for (Direction dir : getDirections()) {
+//                MapLocation nnode = node.add(dir);
+//                if (!onTheMap(nnode)) continue;
+//                if (visited[nnode.y][nnode.x]) continue;
+//
+//
+//                if (containsWater[nnode.y][nnode.x] == null) continue;
+//                if (containsWater[nnode.y][nnode.x]) continue;
+//                if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
+//
+//                if (rc.senseRobotAtLocation(nnode) == null &&
+//                    getChebyshevDistance(nnode, allyHQ) > 2) {
+//                    if ((nnode.x + nnode.y) % 2 == 0) return nnode;
+//                    else if (lastResort == null) lastResort = nnode;
+//                }
+//                queue.add(nnode);
+//                visited[nnode.y][nnode.x] = true;
+//            }
+//
+//        }
+//        return lastResort;
     }
 
     public void commitSudoku() throws GameActionException {
@@ -574,7 +543,7 @@ public abstract class Controller {
 
     void avoidWater() throws GameActionException {
         for (Direction dir : getDirections()) {
-            if (!isAdjacentToWater(rc.getLocation().add(dir)) && tryMove(dir)) {
+            if ((!isAdjacentToWater(rc.getLocation().add(dir)) || (GameConstants.getWaterLevel(rc.getRoundNum() + 1) < rc.senseElevation(rc.getLocation().add(dir))))&& tryMove(dir)) {
 //                System.out.println("YEEHAW");
                 return;
             }
@@ -603,7 +572,7 @@ public abstract class Controller {
             for (RobotInfo enemy : enemies) {
                 if (enemy.type == RobotType.DELIVERY_DRONE && getChebyshevDistance(pos, enemy.getLocation()) <= 1) isGood = false;
             }
-            if (isGood && tryMove(dir)) return;
+            if (isGood && !rc.senseFlooding(rc.getLocation().add(dir)) && tryMove(dir)) return;
         }
     }
 

@@ -198,6 +198,11 @@ public class MinerController extends Controller {
             }
         }
 
+        for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
+            if (robot.type == RobotType.FULFILLMENT_CENTER) shouldBuildFC = false;
+            if (robot.type == RobotType.DESIGN_SCHOOL) shouldBuildDS = false;
+        }
+
         avoidDrone();
         if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 2)) &&
             isAdjacentToWater(rc.getLocation())) {
@@ -207,13 +212,24 @@ public class MinerController extends Controller {
 //        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
 
         buildLoc = getNearestBuildTile();
-        if (rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 300) &&
-                rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR) &&
-                !shouldBuildDS && !shouldBuildFC) {
-            currentState = State.BUILDER;
+        if (buildLoc != null && rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 300)) {
+            buildType = null;
 
-            buildType = RobotType.VAPORATOR;
+            if (shouldBuildFC && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.FULFILLMENT_CENTER, usedDrone))
+                buildType = RobotType.FULFILLMENT_CENTER;
+            else if (shouldBuildDS && rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.DESIGN_SCHOOL, usedDrone))
+                buildType = RobotType.DESIGN_SCHOOL;
+            else if (rc.getTeamSoup() > PlayerConstants.buildSoupRequirements(RobotType.VAPORATOR)) {
+                if (Math.random() > 0.7)
+                    buildType = RobotType.NET_GUN;
+                else
+                    buildType = RobotType.VAPORATOR;
+            }
+
+            if (buildType != null) currentState = State.BUILDER;
         }
+
+
 
         // Instead only elevate when a landscaper asks too
 //        if (rc.getRoundNum() >= ELEVATE_BUILD) {
@@ -649,7 +665,8 @@ public class MinerController extends Controller {
                 rc.depositSoup(rc.getLocation().directionTo(currentRefineryPos), rc.getSoupCarrying());
 
                 buildLoc = getNearestBuildTile();
-                if (rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 150) ||
+                System.out.println("thinking about building");
+                if (buildLoc != null && rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 150) ||
                         (currentRefineryPos.equals(allyHQ))) {
                     if (shouldBuildDS) {
                         System.out.println("Building DS");
@@ -674,6 +691,17 @@ public class MinerController extends Controller {
             if (movementSolver.moves > GIVE_UP_THRESHOLD) {
                 // Build refinery
                 // Check to see if there is a closer refinery
+                MapLocation oldPos = currentRefineryPos;
+                for (RobotInfo robot : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared())) {
+                    if (robot.getType() == RobotType.REFINERY) {
+                        if (robot.getLocation().equals(oldPos)) continue;
+                        if (currentRefineryPos.equals(oldPos) ||
+                                getChebyshevDistance(rc.getLocation(), robot.getLocation()) < getChebyshevDistance(rc.getLocation(), currentRefineryPos))
+                            currentRefineryPos = robot.getLocation();
+                    }
+                }
+
+                if (currentRefineryPos != oldPos) return;
 
                 // Go closer to original soup square
                 if (!isAdjacentTo(currentSoupSquare)) {
@@ -683,7 +711,7 @@ public class MinerController extends Controller {
                     }
                 }
                 if (!cantBuildHere[rc.getLocation().y][rc.getLocation().x]) {
-                    if (rc.getRoundNum() > 450 && currentRefineryPos.equals(allyHQ)) {
+                    if (currentRefineryPos.equals(allyHQ)) {
                         // lol idk what goes here (miner is kinda screwed)
                         while(!rc.isReady()) readBlocks();
                     } else {
@@ -693,7 +721,7 @@ public class MinerController extends Controller {
 
                 boolean gotHitchHike = false;
                 for (RobotInfo robot : rc.senseNearbyRobots()) {
-                    if (robot.type == RobotType.REFINERY) {
+                    if (robot.type == RobotType.REFINERY && !currentRefineryPos.equals(allyHQ)) {
                         getHitchHike(rc.getLocation(), robot.location);
                         gotHitchHike = true;
                     }
@@ -1050,7 +1078,7 @@ public class MinerController extends Controller {
                     return;
                 }
             } else {
-                System.out.println("failed: not enough soup");
+                System.out.println("failed: not enough soup: " + buildType);
                 currentState = State.MINE;
             }
         }
@@ -1386,6 +1414,12 @@ public class MinerController extends Controller {
             if (communicationHandler.sendHitchHikeRequest(req))
                 break;
         }
+        System.out.println("sent at " + rc.getRoundNum());
+        avoidDrone();
+        if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 2)) &&
+                isAdjacentToWater(rc.getLocation())) {
+            avoidWater();
+        }
         Clock.yield();
 
         boolean confirmed = false;
@@ -1394,7 +1428,7 @@ public class MinerController extends Controller {
         // Wait for ACK
         for (int i = 0; i < 64 / BLOCK_SIZE + 10; ++i) {
             avoidDrone();
-            if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 1)) &&
+            if ((rc.senseElevation(rc.getLocation()) < GameConstants.getWaterLevel(rc.getRoundNum() + 2)) &&
                     isAdjacentToWater(rc.getLocation())) {
                 avoidWater();
             }

@@ -232,13 +232,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
             // Half drones explore
             // slowly turn back into other modes
-//             currentState = State.WANDER;
-            if (!hasExplored) {
-                currentState = State.EXPLORE;
-                hasExplored = true;
-            } else {
-                currentState = State.DEFEND;
-            }
+             currentState = State.WANDER;
+//            if (!hasExplored) {
+//                currentState = State.EXPLORE;
+//                hasExplored = true;
+//            } else {
+//                currentState = State.DEFEND;
+//            }
 //
 //            if (rc.getID() % 1 == 0) {
 //                if (!hasExplored) {
@@ -1133,8 +1133,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         if (currentReq == null) {
             System.out.println("finding req: " + reqs.size());
             for (HitchHike req : reqs) {
-                if ((rc.getRoundNum() - req.roundNum - 1) == getChebyshevDistance(rc.getLocation(), req.goal) / GRID_BLOCK_SIZE ||
-                        rc.getRoundNum() - req.roundNum - 1 > 64 / GRID_BLOCK_SIZE + 1) {
+                if (Math.abs((rc.getRoundNum() - req.roundNum - 1) / 5 - getChebyshevDistance(rc.getLocation(), req.goal) / GRID_BLOCK_SIZE) <= 3) {
                     System.out.println("I'll pick you up: " + req.toString());
                     currentReq = req;
                     currentReq.droneID = rc.getID();

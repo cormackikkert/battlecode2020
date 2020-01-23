@@ -81,12 +81,16 @@ public class PlayerConstants {
     }
 
     static int buildSoupRequirements(RobotType buildType, boolean usedDrone) {
-        switch (buildType) {
-            case DESIGN_SCHOOL:
-            case FULFILLMENT_CENTER:
-                return 500;
-            default:
-                return PlayerConstants.buildSoupRequirements(buildType);
+        if (usedDrone) {
+            switch (buildType) {
+                case DESIGN_SCHOOL:
+                case FULFILLMENT_CENTER:
+                    return 500;
+                default:
+                    return PlayerConstants.buildSoupRequirements(buildType);
+            }
+        } else {
+            return PlayerConstants.buildSoupRequirements(buildType);
         }
     }
 
