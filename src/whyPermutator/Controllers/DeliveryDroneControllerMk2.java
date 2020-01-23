@@ -487,7 +487,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 }
             }
             System.out.println(carriers);
-            if (carriers > 3 && random.nextInt(2) == 0 && rc.isCurrentlyHoldingUnit()) {
+            if (carriers > 3 && random.nextInt(2) == 0 && rc.isCurrentlyHoldingUnit()
+            && rc.getRoundNum() < Math.max(1900 + WAIT_KILL, turnReceiveSudoku + WAIT_KILL)) {
                 for (Direction direction : directions) {
                     if (rc.canDropUnit(direction)) {
                         rc.dropUnit(direction);
