@@ -447,14 +447,14 @@ public abstract class Controller {
     public MapLocation getNearestBuildTile() throws GameActionException {
         for (Direction dir :  getDirections()) {
             MapLocation pos = rc.getLocation().add(dir);
-            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
+            if (rc.onTheMap(pos) && !rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
                 getChebyshevDistance(pos, allyHQ) >= 2 &&
                     (pos.x + pos.y) % 2 == 0)
                 return pos;
         }
         for (Direction dir :  getDirections()) {
             MapLocation pos = rc.getLocation().add(dir);
-            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
+            if (rc.onTheMap(pos) && !rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
                     getChebyshevDistance(pos, allyHQ) >= 2)
                 return pos;
         }

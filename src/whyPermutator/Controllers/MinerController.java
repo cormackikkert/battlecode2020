@@ -209,7 +209,7 @@ public class MinerController extends Controller {
             avoidWater();
         }
 
-//        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
+        System.out.println("I am a " + currentState + " " + soupClusters.size() + " " + buildType);
 
         buildLoc = getNearestBuildTile();
         if (buildLoc != null && rc.senseElevation(buildLoc) > GameConstants.getWaterLevel(rc.getRoundNum() + 300)) {
