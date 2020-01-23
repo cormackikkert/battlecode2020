@@ -1,4 +1,4 @@
-package whyPermutator.Controllers;
+package whyPermutatorOld.Controllers;
 
 /*
     So I thought we would do a controller thing like this:
@@ -6,10 +6,10 @@ package whyPermutator.Controllers;
 */
 
 import battlecode.common.*;
-import whyPermutator.CommunicationHandler;
-import whyPermutator.MapBlock;
-import whyPermutator.MovementSolver;
-import whyPermutator.RingQueue;
+import whyPermutatorOld.CommunicationHandler;
+import whyPermutatorOld.MapBlock;
+import whyPermutatorOld.MovementSolver;
+import whyPermutatorOld.RingQueue;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -92,7 +92,6 @@ public abstract class Controller {
     Direction[] ordinal = {directions[1], directions[3], directions[5], directions[7]};
 
     public void getInfo(RobotController rc) {
-        System.out.println("getInfo");
         mapX = rc.getMapWidth();
         mapY = rc.getMapHeight();
         ALLY = rc.getTeam();
@@ -102,11 +101,8 @@ public abstract class Controller {
         this.movementSolver = new MovementSolver(rc, this);
         this.spawnTurn = rc.getRoundNum();
         this.spawnPoint = rc.getLocation();
-        int gay = 2 * Math.max(rc.getMapWidth(), rc.getMapHeight());
-        this.visited = new boolean[gay][gay];
-        System.out.println(1);
         getSpawnBase();
-        System.out.println("done");
+        getHQInfo();
     }
 
     boolean tryBuild(RobotType type, Direction dir) throws GameActionException {
@@ -259,28 +255,12 @@ public abstract class Controller {
         tryFindEnemyHQLoc();
         getHQInfo();
     }
-    public void getHQInfo() {
-        if (rc.getRoundNum() == 1) return;
-        if (allyHQ == null) {
-            try {
-                allyHQ = communicationHandler.receiveAllyHQLoc();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        if (enemyHQ == null) {
-            try {
-                enemyHQ = communicationHandler.receiveEnemyHQLoc();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-    }
+
     public void scanRobots() throws GameActionException {
 //        enemies = rc.senseNearbyRobots();
 //        System.out.println("scan radius is "+rc.getCurrentSensorRadiusSquared()+", pollution is "+rc.sensePollution(rc.getLocation()));
-        enemies = rc.senseNearbyRobots(-1, ENEMY);
-        allies = rc.senseNearbyRobots(-1, ALLY);
+        enemies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), ENEMY);
+        allies = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), ALLY);
     }
 
     public void tryFindHomeHQLoc() {
@@ -297,7 +277,6 @@ public abstract class Controller {
 
     public void tryFindEnemyHQLoc() throws GameActionException {
         if (enemyHQ != null) return;
-        System.out.println("trying to find enemy hq");
 //        System.out.println("trying to find enemy HQ out of " + enemies.length + " options"
 //        +", with sensor range "+rc.getCurrentSensorRadiusSquared());
         for (RobotInfo enemy : enemies) {
@@ -306,6 +285,24 @@ public abstract class Controller {
                 enemyHQ = enemy.getLocation();
                 communicationHandler.sendEnemyHQLoc(enemyHQ);
                 return;
+            }
+        }
+    }
+
+    public void getHQInfo() {
+        if (rc.getRoundNum() == 1) return;
+        if (allyHQ == null) {
+            try {
+                allyHQ = communicationHandler.receiveAllyHQLoc();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        if (enemyHQ == null) {
+            try {
+                enemyHQ = communicationHandler.receiveEnemyHQLoc();
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }
@@ -445,53 +442,84 @@ public abstract class Controller {
     }
 
     public MapLocation getNearestBuildTile() throws GameActionException {
-        for (Direction dir :  getDirections()) {
-            MapLocation pos = rc.getLocation().add(dir);
-            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
-                getChebyshevDistance(pos, allyHQ) >= 2 &&
-                    (pos.x + pos.y) % 2 == 0)
-                return pos;
-        }
-        for (Direction dir :  getDirections()) {
-            MapLocation pos = rc.getLocation().add(dir);
-            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
-                    getChebyshevDistance(pos, allyHQ) >= 2)
-                return pos;
-        }
-        return null;
-
-//        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
-//        queue.clear();
-//
-//        queue.add(rc.getLocation());
-//        visited[rc.getLocation().y][rc.getLocation().x] = true;
-//        searchSurroundingsContinued();
-//        MapLocation lastResort = null;
-//        for (int i = 0; i < 25 && !queue.isEmpty(); i++) {
-//            System.out.println("Searching for build tile");
-//            MapLocation node = queue.poll();
-//
-//            for (Direction dir : getDirections()) {
-//                MapLocation nnode = node.add(dir);
-//                if (!onTheMap(nnode)) continue;
-//                if (visited[nnode.y][nnode.x]) continue;
-//
-//
-//                if (containsWater[nnode.y][nnode.x] == null) continue;
-//                if (containsWater[nnode.y][nnode.x]) continue;
-//                if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
-//
-//                if (rc.senseRobotAtLocation(nnode) == null &&
-//                    getChebyshevDistance(nnode, allyHQ) > 2) {
-//                    if ((nnode.x + nnode.y) % 2 == 0) return nnode;
-//                    else if (lastResort == null) lastResort = nnode;
-//                }
-//                queue.add(nnode);
-//                visited[nnode.y][nnode.x] = true;
-//            }
-//
+//        for (Direction dir :  getDirections()) {
+//            MapLocation pos = rc.getLocation().add(dir);
+//            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
+//                getChebyshevDistance(pos, allyHQ) >= 2 &&
+//                    (pos.x + pos.y) % 2 == 0)
+//                return pos;
 //        }
-//        return lastResort;
+//        for (Direction dir :  getDirections()) {
+//            MapLocation pos = rc.getLocation().add(dir);
+//            if (!rc.senseFlooding(pos) && rc.senseRobotAtLocation(pos) == null &&
+//                    getChebyshevDistance(pos, allyHQ) >= 2)
+//                return pos;
+//        }
+//        return null;
+
+        boolean[][] visited = new boolean[rc.getMapHeight()][rc.getMapWidth()];
+        queue.clear();
+
+        queue.add(rc.getLocation());
+        visited[rc.getLocation().y][rc.getLocation().x] = true;
+        searchSurroundingsContinued();
+        MapLocation lastResort = null;
+        for (int i = 0; i < 30 && !queue.isEmpty(); i++) {
+            System.out.println("Searching for build tile");
+            MapLocation node = queue.poll();
+
+            for (Direction dir : getDirections()) {
+                MapLocation nnode = node.add(dir);
+                if (!onTheMap(nnode)) continue;
+                if (visited[nnode.y][nnode.x]) continue;
+
+
+
+                while (containsWater[nnode.y][nnode.x] == null) {
+                    if (!rc.isReady()) Clock.yield();
+                    if (tryMove(movementSolver.directionToGoal(nnode))) {
+                        // Update surroundings
+                        // Done here (instead of using the updateSurroundings fuction as this way we can
+                        // respond to changes in the map) (code speed > code quality I guess)
+//                        searchSurroundindsContined
+                        for (int dx = -4; dx <= 4; ++dx) {
+                            for (int dy = -4; dy <= 4; ++dy) {
+                                MapLocation sensePos = new MapLocation(
+                                        rc.getLocation().x + dx,
+                                        rc.getLocation().y + dy);
+
+                                if (!rc.canSenseLocation(sensePos)) continue;
+
+                                containsWater[sensePos.y][sensePos.x] = rc.senseFlooding(sensePos);
+                                elevationHeight[sensePos.y][sensePos.x] = rc.senseElevation(sensePos);
+
+                                // If we have already visited this tile it must have a shorter distance then
+                                // what we are looking at now
+                                if (!containsWater[sensePos.y][sensePos.x] &&
+                                        (getDistanceSquared(sensePos, allyHQ) > 2) &&
+                                        (rc.senseRobotAtLocation(sensePos) == null) &&
+                                        visited[sensePos.y][sensePos.x] &&
+                                        getChebyshevDistance(nnode, allyHQ) > 2) {
+                                    return sensePos;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (containsWater[nnode.y][nnode.x]) continue;
+                if (Math.abs(elevationHeight[nnode.y][nnode.x] - elevationHeight[node.y][node.x]) > 3) continue;
+
+                if (rc.senseRobotAtLocation(nnode) == null &&
+                    getChebyshevDistance(nnode, allyHQ) > 2) {
+                    if ((nnode.x + nnode.y) % 2 == 0) return nnode;
+                    else if (lastResort == null) lastResort = nnode;
+                }
+                queue.add(nnode);
+                visited[nnode.y][nnode.x] = true;
+            }
+
+        }
+        return lastResort;
     }
 
     public void commitSudoku() throws GameActionException {
@@ -538,6 +566,30 @@ public abstract class Controller {
     public void searchSurroundingsContinued() throws GameActionException {}
 
 
+    void updateSeenBlocks() throws GameActionException {
+        int BLOCK_SIZE = PlayerConstants.GRID_BLOCK_SIZE;
+        for (int i = lrsb; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.MAPBLOCKS) {
+                    MapLocation[] blocks = communicationHandler.getMapBlocks(mess);
+                    for (MapLocation pos : blocks) {
+                        seenBlocks[pos.y][pos.x] = true;
+
+                        if (visited != null) {
+                            for (int x = pos.x * BLOCK_SIZE; x < Math.min(rc.getMapWidth(), (pos.x + 1) * BLOCK_SIZE); ++x) {
+                                for (int y = pos.y * BLOCK_SIZE; y < Math.min(rc.getMapHeight(), (pos.y + 1) * BLOCK_SIZE); ++y) {
+                                    visited[y][x] = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        lrsb = rc.getRoundNum();
+    }
+
     void updateMapBlocks() throws GameActionException {
         // For other version of miner
         for (int i = lrmb; i < rc.getRoundNum(); ++i) {
@@ -563,7 +615,7 @@ public abstract class Controller {
 
     void avoidWater() throws GameActionException {
         for (Direction dir : getDirections()) {
-            if ((!isAdjacentToWater(rc.getLocation().add(dir)) || (GameConstants.getWaterLevel(rc.getRoundNum() + 1) < rc.senseElevation(rc.getLocation().add(dir))))&& tryMove(dir)) {
+            if (!isAdjacentToWater(rc.getLocation().add(dir)) && tryMove(dir)) {
 //                System.out.println("YEEHAW");
                 return;
             }
@@ -592,7 +644,7 @@ public abstract class Controller {
             for (RobotInfo enemy : enemies) {
                 if (enemy.type == RobotType.DELIVERY_DRONE && getChebyshevDistance(pos, enemy.getLocation()) <= 1) isGood = false;
             }
-            if (isGood && !rc.senseFlooding(rc.getLocation().add(dir)) && tryMove(dir)) return;
+            if (isGood && tryMove(dir)) return;
         }
     }
 
@@ -683,6 +735,8 @@ public abstract class Controller {
     abstract public void run() throws GameActionException;
 
     public void scanNetGuns() throws GameActionException {
+        communicationHandler.receiveNetGunLocations();
+
 //        System.out.println("scanning for net guns out of "+enemies.length+" enemies");
 
         for (RobotInfo robotInfo : enemies) {

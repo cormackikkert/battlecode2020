@@ -1,14 +1,14 @@
-package whyPermutator.Controllers;
+package whyPermutatorOld.Controllers;
 
 import battlecode.common.*;
-import whyPermutator.*;
+import whyPermutatorOld.*;
 
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Random;
 import java.util.Stack;
 
-import static whyPermutator.Controllers.PlayerConstants.*;
+import static whyPermutatorOld.Controllers.PlayerConstants.*;
 
 /**
  * New strategy since 14/01/2020:
@@ -61,7 +61,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
     public DeliveryDroneControllerMk2(RobotController rc) {
         this.random.setSeed(rc.getID());
-        int born = rc.getRoundNum();
 
         // Do heavy computation stuff here as 10 rounds are spent being built
         containsWater = new Boolean[rc.getMapHeight()][rc.getMapWidth()];
@@ -82,17 +81,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
         System.out.println("Getting info");
         getInfo(rc);
 
-        try {
-            while (born + 9 >= rc.getRoundNum()) readBlocks();
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
-
-        if (allyHQ != null) {
-            if (rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent()).length > 0 &&
-                    getChebyshevDistance(rc.getLocation(), allyHQ) <= 5)
-                isBeingRushed = true;
-        }
+        if (rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent()).length > 0 &&
+                getChebyshevDistance(rc.getLocation(), allyHQ) <= 5)
+            isBeingRushed = true;
     }
 
     public void searchSurroundingsContinued() throws GameActionException {
@@ -121,11 +112,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
         hqInfo(); // includes scanning robots
         scanNetGuns();
         solveGhostHq();
+        updateReqs();
 
         communicationHandler.solveEnemyHQLocWithGhosts();
-
-        System.out.println("a6");
-
 //        System.out.println("sensor radius1 "+rc.getCurrentSensorRadiusSquared());
 
         if (currentState != State.TAXI2) {
@@ -152,7 +141,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
         if (!rc.isCurrentlyHoldingUnit()) {
             switch (currentState) {
                 case ATTACK:  execAttackPatrol();           break;
-                case DEFEND:  execDefendLateGame();           break;
+                case DEFEND:  execDefendPatrol();           break;
                 case WANDER:  execWanderPatrol();           break;
                 case EXPLORE: execExplore();                break;
                 case TAXI: execTaxi();                      break;
@@ -170,7 +159,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 default: execKill();
             }
         }
-        readBlocks();
     }
 
     public void assignRole() throws GameActionException {
@@ -184,9 +172,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             return;
         }
 
-        if (currentState == State.WANDERLATE
-//                && rc.isCurrentlyHoldingUnit()
-                && rc.getRoundNum() >= 1900) {
+        if (currentState == State.WANDERLATE && rc.isCurrentlyHoldingUnit() && rc.getRoundNum() >= 1900) {
             currentState = State.ATTACKLATEGAME;
             return;
         }
@@ -216,7 +202,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             currentState = State.ATTACKLATEGAME;
         } else         if (rc.getRoundNum() > 1600 && enemyHQ != null && !defendLateGameShield) {
             currentState = State.WANDERLATE;
-        } else if (rc.getRoundNum() > 1400 && landscapersOnWall == 8) {
+        } else if (rc.getRoundNum() > 1400 && communicationHandler.receiveLandscapersOnWall() == 8) {
             currentState = State.DEFENDLATEGAME;
         } else {
             currentState = State.DEFEND;
@@ -227,6 +213,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
 //            } else {
 //                switchToDefenceMode();
 ////            switchToWanderMode();
+
+            updateReqs();
             if (currentReq != null) {
                 execTaxi();
                 return;
@@ -234,13 +222,13 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
             // Half drones explore
             // slowly turn back into other modes
-             currentState = State.WANDER;
-//            if (!hasExplored) {
-//                currentState = State.EXPLORE;
-//                hasExplored = true;
-//            } else {
-//                currentState = State.DEFEND;
-//            }
+//             currentState = State.WANDER;
+            if (!hasExplored) {
+                currentState = State.EXPLORE;
+                hasExplored = true;
+            } else {
+                currentState = State.DEFEND;
+            }
 //
 //            if (rc.getID() % 1 == 0) {
 //                if (!hasExplored) {
@@ -321,7 +309,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (rc.getRoundNum() > 1800) {
                     currentState = DeliveryDroneControllerMk2.State.ATTACKLATEGAME;
                 }
-                readBlocks();
+                Clock.yield();
             } else {
                 System.out.println("moving directly to enemy hq");
                 tryMove(movementSolver.droneDirectionToGoal(enemyHQ));
@@ -402,7 +390,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
             System.out.println("defend late game stay still");
             defendLateGameShield = true;
             if (rc.getLocation().isAdjacentTo(allyHQ)) {
-                tryMove(movementSolver.directionFromPoint(allyHQ));
+                rc.disintegrate(); // die so don't disrupt landscapers
             }
         }
     }
@@ -489,8 +477,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 }
             }
             System.out.println(carriers);
-            if (carriers > 3 && random.nextInt(2) == 0 && rc.isCurrentlyHoldingUnit()
-            && rc.getRoundNum() < Math.max(1900 + WAIT_KILL, turnReceiveSudoku + WAIT_KILL)) {
+            if (carriers > 3 && random.nextInt(2) == 0 && rc.isCurrentlyHoldingUnit()) {
                 for (Direction direction : directions) {
                     if (rc.canDropUnit(direction)) {
                         rc.dropUnit(direction);
@@ -608,6 +595,91 @@ public class DeliveryDroneControllerMk2 extends Controller {
         return false;
     }
 
+    void updateClusters() throws GameActionException {
+        for (int i = lastRound; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.CLUSTER) {
+                    SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(mess);
+
+                    boolean seenBefore = false;
+                    for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
+                        if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) {
+                            alreadyFoundSoupCluster.update(broadcastedSoupCluster);
+                            seenBefore = true;
+                        }
+                    }
+
+                    if (!seenBefore) {
+                        // broadcastedSoupCluster.draw(this.rc);
+                        soupClusters.add(broadcastedSoupCluster);
+                        for (int y = broadcastedSoupCluster.y1; y <= broadcastedSoupCluster.y2; ++y) {
+                            for (int x = broadcastedSoupCluster.x1; x < broadcastedSoupCluster.x2; ++x) {
+                                searchedForSoupCluster[y][x] = true;
+                                visited[y][x] = true;
+                            }
+                        }
+                    }
+
+                }
+            }
+        }
+        lastRound = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+        soupClusters.removeIf(sc -> sc.size == 0);
+    }
+
+    void updateReqs() throws GameActionException {
+        if (taxiFail) return;
+            for (int i = lastRoundReqs; i < rc.getRoundNum(); ++i) {
+            for (Transaction tx : rc.getBlock(i)) {
+                int[] mess = tx.getMessage();
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_REQUEST) {
+                    HitchHike req = communicationHandler.getHitchHikeRequest(mess);
+                    req.roundNum = i;
+                    reqs.add(req);
+                }
+                if (communicationHandler.identify(mess) == CommunicationHandler.CommunicationType.HITCHHIKE_ACK) {
+                    HitchHike ack = communicationHandler.getHitchHikeAck(mess);
+                    if (currentReq != null) {
+                        // Check to see if another drone has ACK'ed
+                        //System.out.println(currentReq.toString() + " " + ack.toString());
+                        if (currentReq.pos.equals(ack.pos) && currentReq.goal.equals(ack.goal)) {
+                            //System.out.println("I see an ACK " + ack.droneID);
+                            if (ack.droneID == rc.getID()) {
+                                System.out.println(1);
+                                currentReq.confirmed = true;
+                            } else if (!currentReq.confirmed) {
+                                System.out.println(2);
+                                currentReq = null;
+                            } else {
+                                System.out.println(3);
+                            }
+                        }
+                    }
+//                    System.out.println("TOODOOLOO");
+//                    System.out.println(reqs.size());
+                    reqs.removeIf(r -> r.pos.equals(ack.pos) && r.goal.equals(ack.goal));
+//                    System.out.println(reqs.size());
+                }
+            }
+        }
+        if (currentReq == null) {
+            System.out.println("finding req: " + reqs.size());
+            for (HitchHike req : reqs) {
+                if ((rc.getRoundNum() - req.roundNum - 1) == getChebyshevDistance(rc.getLocation(), req.goal) / GRID_BLOCK_SIZE ||
+                    rc.getRoundNum() - req.roundNum - 1 > 64 / GRID_BLOCK_SIZE + 1) {
+                    System.out.println("I'll pick you up: " + req.toString());
+                    currentReq = req;
+                    currentReq.droneID = rc.getID();
+                    communicationHandler.sendHitchHikeAck(req);
+                    currentState = State.TAXI;
+                    System.out.println(currentReq.pos);
+                }
+            }
+        }
+        lastRoundReqs = rc.getRoundNum(); // Keep track of last round we scanned the block chain
+    }
+
     public SoupCluster determineCluster(MapLocation pos) throws GameActionException {
         /*
             Performs BFS to determine size of cluster
@@ -684,7 +756,6 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
                 int usedMoves = 0; // remove infinite loops
                 while (soupCount[neighbour.y][neighbour.x] == null) {
-                    if (rc.canSenseLocation(neighbour) && rc.sensePollution(neighbour) > DRONE_POLLUTION_THRESHOLD) break;
                     if (usedMoves > 10) {
                         usedMoves = -1; // lazy flag
                         break;
@@ -692,10 +763,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     if (tryMove(movementSolver.droneDirectionToGoal(neighbour))) {
                         ++usedMoves;
                         searchSurroundingsContinued();
-                        readBlocks();
 
                         // Only do nothing if you need to make another move
-                        // if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
+                        if (soupCount[neighbour.y][neighbour.x] == null) Clock.yield();
                     }
                 }
                 if (usedMoves < 0) continue;
@@ -723,6 +793,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
 
         // Check to see if other miners have already found this cluster
         boolean hasBeenBroadCasted = false;
+        updateClusters();
         for (SoupCluster soupCluster : soupClusters) {
             if (found.inside(soupCluster)) hasBeenBroadCasted = true;
         }
@@ -764,11 +835,10 @@ public class DeliveryDroneControllerMk2 extends Controller {
 //                    currentState = State.DEFEND;
                     communicationHandler.sendCluster(foundSoupCluster);
                     // If there are no clusters for team miners, have be a taxi
-                    if (foundSoupCluster.elevation > GameConstants.getWaterLevel(rc.getRoundNum() + 300)) {
+                    if (foundSoupCluster.size - foundSoupCluster.waterSize >= 5) {
                         // miners will want to taxi here
                         currentState = State.WANDER;
                     }
-                    System.out.println(foundSoupCluster.elevation + " " + GameConstants.getWaterLevel(rc.getRoundNum() + 100) + " " + currentState);
                     return foundSoupCluster;
                 }
             }
@@ -795,8 +865,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 }
 
                 tryMove(movementSolver.directionToGoal(best));
-                readBlocks();
-//                Clock.yield();
+                Clock.yield();
 
                 for (RobotInfo cow : cows) {
                     if (rc.canPickUpUnit(cow.getID())) {
@@ -809,6 +878,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
     }
 
     public void execExplore() throws GameActionException {
+        updateSeenBlocks();
+        updateClusters();
+
         Stack<MapLocation> stack = new Stack<>();
         stack.push(rc.getLocation());
 
@@ -854,6 +926,8 @@ public class DeliveryDroneControllerMk2 extends Controller {
             // Kill annoying cows
 //            killCow();
             solveGhostHq();
+            updateSeenBlocks();
+            updateClusters();
 
             if (visited[node.y][node.x]) {
                 continue;
@@ -882,10 +956,9 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (tryMove(movementSolver.directionToGoal(node))) {
                     solveGhostHq();
                     searchSurroundingsSoup();
-                    readBlocks();
                     if (currentState != State.EXPLORE) return;
                     ++i;
-//                    Clock.yield();
+                    Clock.yield();
                 }
             }
 
@@ -921,7 +994,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
     public void execTaxi() throws GameActionException {
 
         // Deal with landscaper being placed when travelling
-        int landScapers = landscapersOnWall;
+        int landScapers = communicationHandler.receiveLandscapersOnWall();
         if (landScapers == 8 && currentReq.goal.equals(allyHQ)) {
             currentReq.goal = currentReq.pos;
         }
@@ -946,7 +1019,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     }
                 }
             }
-
+            System.out.println("here: " + movementSolver.moves);
+            if (movementSolver.moves > getChebyshevDistance(currentReq.pos, currentReq.goal) + GIVE_UP_THRESHOLD) {
+                currentState = State.TAXI2;
+                return;
+            }
             boolean getCloser = (currentReq.goal.equals(allyHQ) && rc.getRoundNum() > 500) ?
                     getChebyshevDistance(rc.getLocation(), currentReq.goal) > 2 : !rc.getLocation().isAdjacentTo(currentReq.goal);
             if (getCloser) {
@@ -974,10 +1051,7 @@ public class DeliveryDroneControllerMk2 extends Controller {
                 if (used != null && (used.getType() == RobotType.MINER ||
                         used.getType() == RobotType.LANDSCAPER ||
                         used.getType() == RobotType.DELIVERY_DRONE)) {
-
-                    int start = rc.getRoundNum();
-                    while (rc.getRoundNum() <= start + 10) readBlocks();
-
+                    for (int i = 0; i < 10 && !rc.canDropUnit(direction); ++i) Clock.yield();
                     if (rc.canDropUnit(direction)) {
                         rc.dropUnit(direction);
                         currentReq = null;
@@ -994,12 +1068,11 @@ public class DeliveryDroneControllerMk2 extends Controller {
                     MapLocation target = currentReq.goal.add(dir);
                     if (rc.canSenseLocation(target) && rc.senseFlooding(target)) continue;
                     while (!isAdjacentTo(target) && movementSolver.moves < 10) {
-                        while (!rc.isReady()) readBlocks();
+                        while (!rc.isReady()) Clock.yield();
                         tryMove(movementSolver.directionToGoal(target));
-                        readBlocks();
                     }
                     if (!isAdjacentTo(target)) continue;
-                    while (!rc.isReady()) readBlocks();
+                    while (!rc.isReady()) Clock.yield();
                     if (rc.canSenseLocation(target) && rc.senseFlooding(target)) continue;
                     if (rc.canDropUnit(rc.getLocation().directionTo(target))) {
                         rc.dropUnit(rc.getLocation().directionTo(target));
@@ -1078,142 +1151,5 @@ public class DeliveryDroneControllerMk2 extends Controller {
             }
         }
         movementSolver.windowsRoam();
-    }
-
-    int lastPos = 1;
-    public void readBlocks() throws GameActionException {
-        while (lastPos < rc.getRoundNum() && Clock.getBytecodesLeft() > 500) {
-            for (Transaction t : rc.getBlock(lastPos)) {
-                int[] message = t.getMessage();
-                switch (communicationHandler.identify(message)) {
-                    case CLUSTER: processCluster(message); break;
-                    case HITCHHIKE_REQUEST: processReq(message, lastPos); break;
-                    case HITCHHIKE_ACK: processReqAck(message); break;
-                    case MAPBLOCKS: processMapBlocks(message); break;
-                    case LANDSCAPERS_ON_WALL: processLandscapersOnWall(message); break;
-                    case ALLYHQ: processAllyHQLoc(message); break;
-                    case ENEMYHQ: processEnemyHQLoc(message); break;
-                    case NET_GUN_LOCATIONS: processNetGunLoc(message); break;
-                    case NET_GUN_DIE: processNetGunDie(message); break;
-                    case ALL_ATTACK: processAllAttack(message, lastPos); break;
-                }
-            }
-            ++lastPos;
-        }
-    }
-
-    public void processCluster(int[] message) {
-        SoupCluster broadcastedSoupCluster = communicationHandler.getCluster(message);
-
-        boolean seenBefore = false;
-        for (SoupCluster alreadyFoundSoupCluster : soupClusters) {
-            if (broadcastedSoupCluster.inside(alreadyFoundSoupCluster)) {
-                alreadyFoundSoupCluster.update(broadcastedSoupCluster);
-                seenBefore = true;
-            }
-        }
-
-        if (!seenBefore) {
-            // broadcastedSoupCluster.draw(this.rc);
-            soupClusters.add(broadcastedSoupCluster);
-            for (int y = broadcastedSoupCluster.y1; y <= broadcastedSoupCluster.y2; ++y) {
-                for (int x = broadcastedSoupCluster.x1; x < broadcastedSoupCluster.x2; ++x) {
-                    searchedForSoupCluster[y][x] = true;
-                    visited[y][x] = true;
-                }
-            }
-        }
-        soupClusters.removeIf(sc -> sc.size == 0);
-    }
-
-    public void processReq(int[] message, int round) throws GameActionException {
-        HitchHike r = communicationHandler.getHitchHikeRequest(message);
-        r.roundNum = round;
-        reqs.add(r);
-
-
-        if (currentReq == null) {
-            System.out.println("finding req: " + reqs.size());
-            for (HitchHike req : reqs) {
-                if (Math.abs((rc.getRoundNum() - req.roundNum - 1) / 5 - getChebyshevDistance(rc.getLocation(), req.goal) / GRID_BLOCK_SIZE) <= 3) {
-                    System.out.println("I'll pick you up: " + req.toString());
-                    currentReq = req;
-                    currentReq.droneID = rc.getID();
-                    communicationHandler.sendHitchHikeAck(req);
-                    currentState = State.TAXI;
-                }
-            }
-        }
-        reqs.removeIf(re -> (currentReq != null && re.reqID == currentReq.reqID && re.goal.equals(currentReq.goal) && re.pos.equals(currentReq.pos)) ||
-                (re.roundNum > 64 / BLOCK_SIZE + 9));
-    }
-
-    public void processReqAck(int[] message) throws GameActionException {
-        HitchHike ack = communicationHandler.getHitchHikeAck(message);
-        if (currentReq != null) {
-            // Check to see if another drone has ACK'ed
-            //System.out.println(currentReq.toString() + " " + ack.toString());
-            if (currentReq.pos.equals(ack.pos) && currentReq.goal.equals(ack.goal)) {
-                //System.out.println("I see an ACK " + ack.droneID);
-                if (ack.droneID == rc.getID()) {
-                    currentReq.confirmed = true;
-                } else if (!currentReq.confirmed) {
-                    currentReq = null;
-                }
-            }
-        }
-        reqs.removeIf(r -> r.pos.equals(currentReq.pos) && r.reqID == ack.reqID && r.goal.equals(ack.goal));
-    }
-
-    public void processMapBlocks(int[] message) throws GameActionException {
-        MapLocation[] blocks = communicationHandler.getMapBlocks(message);
-        for (MapLocation pos : blocks) {
-            seenBlocks[pos.y][pos.x] = true;
-
-            if (visited != null) {
-                for (int x = pos.x * BLOCK_SIZE; x < Math.min(rc.getMapWidth(), (pos.x + 1) * BLOCK_SIZE); ++x) {
-                    for (int y = pos.y * BLOCK_SIZE; y < Math.min(rc.getMapHeight(), (pos.y + 1) * BLOCK_SIZE); ++y) {
-                        visited[y][x] = true;
-                    }
-                }
-            }
-        }
-    }
-
-    int landscapersOnWall = 0;
-    public void processLandscapersOnWall(int[] message) throws GameActionException {
-        communicationHandler.decode(message);
-        landscapersOnWall = message[1];
-    }
-
-    public void processAllyHQLoc(int[] message) throws GameActionException {
-        communicationHandler.decode(message);
-        allyHQ = new MapLocation(message[2], message[3]);
-    }
-
-    public void processEnemyHQLoc(int[] message) throws GameActionException {
-        communicationHandler.decode(message);
-        enemyHQ = new MapLocation(message[2], message[3]);
-    }
-
-    public void processNetGunLoc(int[] message) throws GameActionException {
-        communicationHandler.decode(message);
-        MapLocation mapLocation = new MapLocation(message[1], message[2]);
-
-        if (!netGuns.contains(mapLocation)) {
-            netGuns.add(mapLocation);
-        }
-    }
-
-    public void processNetGunDie(int[] message) throws GameActionException {
-        communicationHandler.decode(message);
-        MapLocation mapLocation = new MapLocation(message[1], message[2]);
-
-        netGuns.remove(mapLocation);
-    }
-
-    public void processAllAttack(int[] message, int round) throws GameActionException {
-        sudoku = true;
-        turnReceiveSudoku = round;
     }
 }

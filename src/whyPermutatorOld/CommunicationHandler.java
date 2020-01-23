@@ -1,13 +1,11 @@
-package whyPermutator;
+package whyPermutatorOld;
 
 import battlecode.common.*;
-import whyPermutator.Controllers.Controller;
-import whyPermutator.Controllers.DeliveryDroneControllerMk2;
-import whyPermutator.Controllers.LandscaperController;
+import whyPermutatorOld.Controllers.Controller;
+import whyPermutatorOld.Controllers.DeliveryDroneControllerMk2;
+import whyPermutatorOld.Controllers.LandscaperController;
 
-import java.util.Arrays;
-
-import static whyPermutator.CommunicationHandler.CommunicationType.*;
+import static whyPermutatorOld.CommunicationHandler.CommunicationType.*;
 
 public class CommunicationHandler { // TODO : conserve bytecode by storing turn of last received message
     public static final int MESSAGE_COST = 1;
@@ -47,7 +45,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         // TODO: make this not garbage (Though surely no-one actually tries to decode this)
         this.rc = rc;
         this.team = rc.getTeam();
-        teamSecret = (this.team == Team.A) ? 15642 : 23188;
+        teamSecret = (this.team == Team.A) ? 1129504 : 1029304;
     }
 
     public CommunicationHandler(RobotController rc, Controller controller) {
@@ -55,7 +53,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         this.rc = rc;
         this.controller = controller;
         this.team = rc.getTeam();
-        teamSecret = (this.team == Team.A) ? 15642 : 23188;
+        teamSecret = (this.team == Team.A) ? 1129504 : 1029304;
     }
 
     /*
@@ -65,29 +63,21 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
     private int[] bluePrint(CommunicationType message) {
         System.out.println("SENDING: " + message);
         int[] arr = new int[7];
-        arr[0] = (message.ordinal() << 17);
+        arr[0] = (message.ordinal() << 25);
         return arr;
     }
 
-    public void encode(int[] arr) {
+    void encode(int[] arr) {
         for (int i = 0; i < 7; ++i) arr[i] ^= teamSecret;
-        for (int i = 0; i < 7; ++i) arr[i] = (10 * arr[i] + (i+1));
     }
 
-    public void decode(int[] arr) {
-        for (int i = 0; i < 7; ++i) arr[i] /= 10;
-        for (int i = 0; i < 7; ++i) arr[i] ^= teamSecret;
+    void decode(int[] arr) {
+        encode(arr);
     }
 
     public CommunicationType identify(int[] message) {
-        if ((message[0] / 10) % (1 << 17) == teamSecret && message.length == 7) {
-            for (int i = 0; i < 7; ++i) {
-                if (message[i] % 10 != (i+1)) {
-                    System.out.println("Malformed: " + Arrays.toString(message));
-                    return ENEMY;
-                }
-            }
-            return CommunicationType.values()[(message[0] / 10) >> 17];
+        if (message[0] % (1 << 25) == teamSecret && message.length == 7) {
+            return CommunicationType.values()[message[0] >> 25];
         }
         return CommunicationType.ENEMY;
     }
@@ -97,7 +87,7 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int[] message = bluePrint(CommunicationType.CLUSTER);
 
         for (int val : new int[] {cluster.x1, cluster.y1, cluster.x2, cluster.y2}) {
-            message[1] <<= 7;
+            message[1] <<= 8;
             message[1] += val;
         }
 
@@ -123,10 +113,10 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 
     public SoupCluster getCluster(int[] message) {
         decode(message);
-        int y2 = message[1] % (1 << 7); message[1] >>= 7;
-        int x2 = message[1] % (1 << 7); message[1] >>= 7;
-        int y1 = message[1] % (1 << 7); message[1] >>= 7;
-        int x1 = message[1] % (1 << 7); message[1] >>= 7;
+        int y2 = message[1] % (1 << 8); message[1] >>= 8;
+        int x2 = message[1] % (1 << 8); message[1] >>= 8;
+        int y1 = message[1] % (1 << 8); message[1] >>= 8;
+        int x1 = message[1] % (1 << 8); message[1] >>= 8;
 
         return new SoupCluster(x1, y1, x2, y2, message[2], message[3], message[4], message[5]);
     }
@@ -135,9 +125,9 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         int[] message = bluePrint(CommunicationType.MAPBLOCKS);
         int i = 0;
         for (int row = 1; row <= 6; ++row) {
-            message[row] <<= 7;
+            message[row] <<= 8;
             message[row] |= blocks[i].x;
-            message[row] <<= 7;
+            message[row] <<= 8;
             message[row] |= blocks[i].y;
             i = (i + 1) % blocks.length;
         }
@@ -202,8 +192,8 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         MapLocation[] blocks = new MapLocation[12];
         for (int row = 1; row < 7; ++row) {
             for (int i = 0; i < 2; ++i) {
-                int y = message[row] % (1 << 7); message[row] >>= 7;
-                int x = message[row] % (1 << 7); message[row] >>= 7;
+                int y = message[row] % (1 << 8); message[row] >>= 8;
+                int x = message[row] % (1 << 8); message[row] >>= 8;
                 blocks[2*(row-1)+i] = new MapLocation(x, y);
             }
         }
@@ -246,6 +236,49 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
             return true;
         }
         return false;
+    }
+
+    int turnA = 1;
+    public MapLocation receiveAllyHQLoc() throws GameActionException { // FIXME : reimplement this later
+        // TODO: use my encode and decode methods lol
+        // also fyi I put this sort of thing in my miner class so I avoid scanning
+        // the same part of the block chain multiple times
+        MapLocation out = null;
+        outer : for (int i = turnA
+                     ; i < rc.getRoundNum(); i++) {
+            turnA++;
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if (identify(message) == CommunicationType.ALLYHQ) {
+                    decode(message);
+                    out = new MapLocation(message[2], message[3]);
+                    System.out.println("received ally location");
+                    break outer;
+                }
+            }
+        }
+        return out;
+    }
+
+    int turnE = 1;
+    public MapLocation receiveEnemyHQLoc() throws GameActionException {
+        MapLocation out = null;
+        outer : for (int i = turnE
+                     ; i < rc.getRoundNum(); i++) {
+            turnE++;
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if (identify(message) == CommunicationType.ENEMYHQ) {
+                    decode(message);
+                    out = new MapLocation(message[2], message[3]);
+                    System.out.println("received enemy location "+out);
+                    break outer;
+                }
+            }
+        }
+        return out;
     }
 
     public boolean sendScoutDirection(MapLocation allyHQ, boolean horizontal) throws GameActionException {
@@ -399,6 +432,51 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
+    int turnFF = 1;
+    public void receiveClearSoupFlood() throws GameActionException {
+        MapLocation out = null;
+        outer : for (int i = turnFF
+                     ; i < rc.getRoundNum(); i++) {
+            turnFF++;
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if (identify(message) == CLEAR_FLOOD) {
+                    decode(message);
+
+                    SoupCluster soupCluster = new SoupCluster(message[1], message[2], message[3], message[4]);
+
+
+                    ((LandscaperController) controller).currentSoupCluster = soupCluster;
+                    ((LandscaperController) controller).currentState = LandscaperController.State.REMOVE_WATER;
+
+                    System.out.println("unflood soup at "+soupCluster.middle.x+" "+soupCluster.middle.y);
+                    break outer;
+                }
+            }
+        }
+    }
+
+    public boolean seenClearSoupCluster(SoupCluster cluster) throws GameActionException {
+        for (int i = turnFF
+                     ; i < rc.getRoundNum(); i++) {
+            turnFF++;
+            Transaction[] ally = rc.getBlock(i);
+            for (Transaction t : ally) {
+                int[] message = t.getMessage();
+                if (identify(message) == CLEAR_FLOOD) {
+                    decode(message);
+
+                    SoupCluster soupCluster = new SoupCluster(message[1], message[2], message[3], message[4]);
+
+                    if (cluster.x1 == soupCluster.x1 && cluster.x2 == soupCluster.x2 && cluster.y1 == soupCluster.y1 && cluster.y2 == soupCluster.y2) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+
 
 
     public void landscapeDefend(int id) throws GameActionException {
@@ -479,6 +557,32 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
+    int turnNG = 1;
+    public void receiveNetGunLocations() throws GameActionException {
+        for (int i = turnLD
+                     ; i < rc.getRoundNum(); i++) {
+            turnLD++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+
+                if (identify(message) == NET_GUN_LOCATIONS) {
+                    decode(message);
+                    MapLocation mapLocation = new MapLocation(message[1], message[2]);
+
+                    if (!controller.netGuns.contains(mapLocation)) {
+                        controller.netGuns.add(mapLocation);
+                    }
+                }
+
+                if (identify(message) == NET_GUN_DIE) {
+                    decode(message);
+                    MapLocation mapLocation = new MapLocation(message[1], message[2]);
+
+                    controller.netGuns.remove(mapLocation);
+                }
+            }
+        }
+    }
 
     public void sendPLUSONE() throws GameActionException {
         int[] message = bluePrint(PLUS_ONE_CAMP);
@@ -501,7 +605,20 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
+    int turnPO = 1;
+    public void receivePLUSONE() throws GameActionException {
+        for (int i = turnPO
+             ; i < rc.getRoundNum(); i++) {
+            turnPO++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
 
+                if (identify(message) == PLUS_ONE_CAMP) {
+                    controller.campOutside++;
+                }
+            }
+        }
+    }
 
     int turnS = 1;
     public void receiveSudoku() throws GameActionException {
@@ -530,7 +647,23 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         }
     }
 
+    int turnWK = 1;
+    public void receiveTooMuchDie() throws GameActionException {
+        for (int i = turnWK
+             ; i < rc.getRoundNum(); i++) {
+            turnWK++;
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
 
+                if (identify(message) == TOO_MUCH_DIE) {
+                    controller.sudoku = false;
+                    controller.sudokuSent = false;
+                    controller.campMessageSent = false;
+                    controller.campOutside = 0;
+                }
+            }
+        }
+    }
 
     public void landscaperAskForCompany(MapLocation mapLocation) throws GameActionException {
         int[] message = bluePrint(ASK_COMPANY);
@@ -598,6 +731,24 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
         return true;
     }
 
+    int lastRoundChecked = 1;
+    int lastRes = 0;
+    public int receiveLandscapersOnWall() throws GameActionException {
+        for (int i = rc.getRoundNum() - 1; i >= lastRoundChecked; --i) {
+            for (Transaction t : rc.getBlock(i)) {
+                int[] message = t.getMessage();
+                if (identify(message) == LANDSCAPERS_ON_WALL) {
+                    decode(message);
+                    lastRes = message[1];
+                    lastRoundChecked = i + 1;
+                    return message[1];
+                }
+            }
+        }
+        lastRoundChecked = rc.getRoundNum();
+        return lastRes;
+    }
+
 //
 //    int turnBC = 1;
 //    public void beCompany() throws GameActionException {
@@ -620,49 +771,4 @@ public class CommunicationHandler { // TODO : conserve bytecode by storing turn 
 //            }
 //        }
 //    }
-
-    int turnA = 1;
-    public MapLocation receiveAllyHQLoc() throws GameActionException { // FIXME : reimplement this later
-        // TODO: use my encode and decode methods lol
-        // also fyi I put this sort of thing in my miner class so I avoid scanning
-        // the same part of the block chain multiple times
-        MapLocation out = null;
-        outer : for (int i = turnA
-                     ; i < rc.getRoundNum(); i++) {
-            turnA++;
-            Transaction[] ally = rc.getBlock(i);
-            for (Transaction t : ally) {
-                int[] message = t.getMessage();
-                if (identify(message) == CommunicationType.ALLYHQ) {
-                    decode(message);
-                    out = new MapLocation(message[2], message[3]);
-                    System.out.println("received ally location");
-                    break outer;
-                }
-            }
-        }
-        return out;
-    }
-
-    int turnE = 1;
-    public MapLocation receiveEnemyHQLoc() throws GameActionException {
-        MapLocation out = null;
-        outer : for (int i = turnE
-                     ; i < rc.getRoundNum(); i++) {
-            turnE++;
-            Transaction[] ally = rc.getBlock(i);
-            for (Transaction t : ally) {
-                int[] message = t.getMessage();
-                if (identify(message) == CommunicationType.ENEMYHQ) {
-                    decode(message);
-                    out = new MapLocation(message[2], message[3]);
-                    System.out.println("received enemy location "+out);
-                    break outer;
-                }
-            }
-        }
-        return out;
-    }
-
-
 }
