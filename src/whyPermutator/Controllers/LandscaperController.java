@@ -25,7 +25,7 @@ public class LandscaperController extends Controller {
         DESTROY_WALL, // also can kill hq,
         ELEVATE_SELF;
     }
-    public State currentState = State.REMOVE_WATER;
+    public State currentState = State.KILLUNITS;
     public SoupCluster currentSoupCluster; // build wall around this
     final int dirtLimit = RobotType.LANDSCAPER.dirtLimit;
     final int digHeight = 20;
@@ -66,10 +66,11 @@ public class LandscaperController extends Controller {
         for (RobotInfo robotInfo : rc.senseNearbyRobots()) {
             if (robotInfo.team == rc.getTeam().opponent() && robotInfo.type == RobotType.HQ) {
                 enemyHQ = robotInfo.location;
-                if (Math.random() > 0.5)
-                    currentState = State.DESTROY;
-                else
-                    currentState = State.KILLUNITS;
+//                if (Math.random() > 0.5)
+//                    currentState = State.DESTROY;
+//                else
+//                    currentState = State.KILLUNITS;
+                currentState = State.KILLUNITS;
             }
 //            if (robotInfo.team == rc.getTeam() && robotInfo.type == RobotType.LANDSCAPER) {
 //                defenders++;
@@ -121,6 +122,10 @@ public class LandscaperController extends Controller {
             }
         }
 
+        if (rc.getRoundNum() > 1000 && currentState != State.PROTECTHQ) {
+            currentState = State.ELEVATE_SELF;
+        }
+
         System.out.println("I am a " + currentState.toString());
         switch (currentState) {
             case PROTECTHQ: execProtectHQ();      break;
@@ -148,7 +153,7 @@ public class LandscaperController extends Controller {
         if (rc.getDirtCarrying() == 0) {
             for (Direction direction : directions) {
                 MapLocation location1 = location.add(direction);
-                if (rc.canSenseLocation(location1) &&
+                if (rc.canSenseLocation(location1) && !location1.isAdjacentTo(allyHQ) &&
                         (rc.senseRobotAtLocation(location1) == null ||
                                 rc.senseRobotAtLocation(location1).getTeam() != ALLY)) {
                     if (rc.canDigDirt(direction)) {
@@ -483,6 +488,7 @@ public class LandscaperController extends Controller {
                 for (Direction direction : directions) {
                     MapLocation location = mapLocation.add(direction);
                     if (rc.canSenseLocation(location)
+                    && !location.isAdjacentTo(allyHQ)
                     && !direction.equals(move)
                     && rc.senseElevation(location) < higherThanThis
                     && rc.canDigDirt(direction)
@@ -1353,6 +1359,6 @@ public class LandscaperController extends Controller {
 
         currentSoupCluster = soupCluster;
 
-        if (currentState != State.PROTECTHQ) currentState = State.REMOVE_WATER;
+        if (currentState != State.PROTECTHQ && currentState != State.KILLUNITS) currentState = State.REMOVE_WATER;
     }
 }
