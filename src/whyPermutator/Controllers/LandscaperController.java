@@ -286,27 +286,32 @@ public class LandscaperController extends Controller {
             }
             return;
         }
-        // robot is currently on HQ wall
-        MapLocation curr = rc.getLocation();
-        if (rc.senseRobotAtLocation(allyHQ).getDirtCarrying() > 0 && rc.canDigDirt(curr.directionTo(allyHQ))) {
-            rc.digDirt(rc.getLocation().directionTo(allyHQ));
-            return;
-        }
-        if (rc.getRoundNum() <= 450 && walled < Math.min(maximum, numWallers)) {  // wait for more wallers
-            return;
-        }
-        Direction nextDir = nextDirection(curr);
-        // System.out.println("New direction is " + nextDir.toString());
-
-        while (rc.getDirtCarrying() == 0) {
-            tryDigRandom();
-        }
         if (walled == maximum) {
-            rc.depositDirt(Direction.CENTER);
+            if (rc.getDirtCarrying() == 0) newDig();
+            else newDeposit();
         } else {
-            while (!rc.canDepositDirt(nextDir)) Clock.yield();
-            rc.depositDirt(nextDir);
-            if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
+            // robot is currently on HQ wall
+            MapLocation curr = rc.getLocation();
+            if (rc.senseRobotAtLocation(allyHQ).getDirtCarrying() > 0 && rc.canDigDirt(curr.directionTo(allyHQ))) {
+                rc.digDirt(rc.getLocation().directionTo(allyHQ));
+                return;
+            }
+            if (rc.getRoundNum() <= 450 && walled < Math.min(maximum, numWallers)) {  // wait for more wallers
+                return;
+            }
+            Direction nextDir = nextDirection(curr);
+            // System.out.println("New direction is " + nextDir.toString());
+
+            while (rc.getDirtCarrying() == 0) {
+                tryDigRandom();
+            }
+            if (walled == maximum) {
+                rc.depositDirt(Direction.CENTER);
+            } else {
+                while (!rc.canDepositDirt(nextDir)) Clock.yield();
+                rc.depositDirt(nextDir);
+                if (shouldMoveOnWall(curr.add(nextDir))) tryMove(nextDir);
+            }
         }
     }
 
@@ -506,6 +511,33 @@ public class LandscaperController extends Controller {
         else if (rc.canDepositDirt(d))
             rc.depositDirt(d);
     }
+
+    public void newDig() throws GameActionException {
+        if (rc.senseRobotAtLocation(allyHQ).getDirtCarrying() > 0 && rc.canDigDirt(rc.getLocation().directionTo(allyHQ))) {
+            rc.digDirt(rc.getLocation().directionTo(allyHQ));
+            return;
+        }
+        for (Direction dir : getDirections()) {
+            if (getChebyshevDistance(rc.getLocation().add(dir), allyHQ) > 1 && rc.canDigDirt(dir)) {
+                rc.digDirt(dir);
+                return;
+            }
+        }
+    }
+
+    public void newDeposit() throws GameActionException {
+        Direction bestDir = Direction.CENTER;
+        for (Direction dir : getDirections()) {
+            if (rc.canSenseLocation(rc.getLocation().add(dir)) &&
+                    rc.canDepositDirt(dir) &&
+                    rc.senseElevation(rc.getLocation().add(dir)) < rc.senseElevation(rc.getLocation().add(bestDir)) &&
+                    getChebyshevDistance(rc.getLocation().add(dir), allyHQ)==1) {
+                bestDir = dir;
+            }
+        }
+        rc.depositDirt(bestDir);
+    }
+
 
     boolean tryDigRandom() throws GameActionException {
         return tryDigRandom(Direction.CENTER);
